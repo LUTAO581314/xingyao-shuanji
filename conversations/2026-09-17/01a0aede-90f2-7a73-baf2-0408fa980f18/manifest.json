@@ -1,0 +1,389 @@
+{
+  "format": 1,
+  "rootThread": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+  "title": "检测 F 盘健康状态",
+  "exportedAt": "2026-09-17T14:07:06.819Z",
+  "repository": "LUTAO581314/xingyao-shuanji",
+  "visibility": "public",
+  "scope": "当前根任务的全部本地历史片段，以及按 parent_thread_id 递归找到的全部子智能体；不包含其他无关任务。",
+  "exclusions": [
+    "系统/开发者指令、隐藏推理、加密运行内容及内部上下文不属于可导出的可见聊天",
+    "凭据值脱敏",
+    "原始日志已被截断的工具结果无法由导出恢复"
+  ],
+  "threads": 6,
+  "fragments": [
+    {
+      "agent": "/root",
+      "threadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "parentThreadId": null,
+      "source": "sessions/2026/09/17/rollout-2026-09-17T18-16-56-01a0aede-90f2-7a73-baf2-0408fa980f18.jsonl",
+      "originalBytes": 2915166,
+      "sourceRecords": 416,
+      "exportedRecords": 113,
+      "messages": 31,
+      "toolCalls": 41,
+      "toolResults": 41,
+      "markdown": "01-root.md",
+      "jsonl": "01-root.jsonl",
+      "excluded": {
+        "session_meta": 1,
+        "event_msg": 204,
+        "internal_developer": 5,
+        "runtime_context": 1,
+        "world_state": 2,
+        "turn_context": 5,
+        "token_usage_record": 45,
+        "reasoning": 40
+      }
+    },
+    {
+      "agent": "/root",
+      "threadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "parentThreadId": null,
+      "source": "sessions/2026/09/17/rollout-2026-09-17T18-53-58-01a0aede-90f2-7a73-baf2-0408fa980f18_01a0af00-76c4-7a42-8c82-6683f918b167.jsonl",
+      "originalBytes": 34725,
+      "sourceRecords": 13,
+      "exportedRecords": 1,
+      "messages": 1,
+      "toolCalls": 0,
+      "toolResults": 0,
+      "markdown": "02-root.md",
+      "jsonl": "02-root.jsonl",
+      "excluded": {
+        "session_meta": 1,
+        "event_msg": 7,
+        "internal_developer": 2,
+        "world_state": 1,
+        "turn_context": 1
+      }
+    },
+    {
+      "agent": "/root",
+      "threadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "parentThreadId": null,
+      "source": "sessions/2026/09/17/rollout-2026-09-17T18-54-32-01a0aede-90f2-7a73-baf2-0408fa980f18_01a0af00-fa86-7950-9152-96204b40ee46.jsonl",
+      "originalBytes": 37413,
+      "sourceRecords": 12,
+      "exportedRecords": 1,
+      "messages": 1,
+      "toolCalls": 0,
+      "toolResults": 0,
+      "markdown": "03-root.md",
+      "jsonl": "03-root.jsonl",
+      "excluded": {
+        "session_meta": 1,
+        "event_msg": 9,
+        "turn_context": 1
+      }
+    },
+    {
+      "agent": "/root",
+      "threadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "parentThreadId": null,
+      "source": "sessions/2026/09/17/rollout-2026-09-17T18-58-09-01a0aede-90f2-7a73-baf2-0408fa980f18_01a0af04-4da8-74c3-98d7-a9334a3e3882.jsonl",
+      "originalBytes": 204131,
+      "sourceRecords": 28,
+      "exportedRecords": 4,
+      "messages": 2,
+      "toolCalls": 1,
+      "toolResults": 1,
+      "markdown": "04-root.md",
+      "jsonl": "04-root.jsonl",
+      "excluded": {
+        "session_meta": 1,
+        "event_msg": 14,
+        "internal_developer": 5,
+        "world_state": 1,
+        "turn_context": 1,
+        "reasoning": 1,
+        "token_usage_record": 1
+      }
+    },
+    {
+      "agent": "/root",
+      "threadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "parentThreadId": null,
+      "source": "sessions/2026/09/17/rollout-2026-09-17T18-59-26-01a0aede-90f2-7a73-baf2-0408fa980f18_01a0af05-78db-74a0-81af-9379588e9314.jsonl",
+      "originalBytes": 6520176,
+      "sourceRecords": 1832,
+      "exportedRecords": 544,
+      "messages": 147,
+      "toolCalls": 199,
+      "toolResults": 198,
+      "markdown": "05-root.md",
+      "jsonl": "05-root.jsonl",
+      "excluded": {
+        "session_meta": 1,
+        "event_msg": 766,
+        "internal_developer": 2,
+        "world_state": 13,
+        "turn_context": 7,
+        "reasoning": 187,
+        "token_usage_record": 203,
+        "inter_agent_communication_metadata": 102,
+        "compacted": 2,
+        "runtime_context": 5
+      }
+    },
+    {
+      "agent": "/root/soul_dynamics",
+      "threadId": "01a0af06-0b6a-7f43-81fd-5f9fb661b4a2",
+      "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "parentThreadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "source": "sessions/2026/09/17/rollout-2026-09-17T19-00-04-01a0af06-0b6a-7f43-81fd-5f9fb661b4a2.jsonl",
+      "originalBytes": 2434042,
+      "sourceRecords": 671,
+      "exportedRecords": 168,
+      "messages": 36,
+      "toolCalls": 66,
+      "toolResults": 66,
+      "markdown": "06-root--soul_dynamics.md",
+      "jsonl": "06-root--soul_dynamics.jsonl",
+      "excluded": {
+        "session_meta": 2,
+        "event_msg": 305,
+        "internal_developer": 3,
+        "runtime_context": 1,
+        "world_state": 3,
+        "turn_context": 14,
+        "inter_agent_communication_metadata": 13,
+        "token_usage_record": 73,
+        "reasoning": 89
+      }
+    },
+    {
+      "agent": "/root/soul_stability",
+      "threadId": "01a0af07-ec3e-7de1-9c3e-8758fd612cf4",
+      "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "parentThreadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "source": "sessions/2026/09/17/rollout-2026-09-17T19-02-07-01a0af07-ec3e-7de1-9c3e-8758fd612cf4.jsonl",
+      "originalBytes": 3680474,
+      "sourceRecords": 825,
+      "exportedRecords": 222,
+      "messages": 38,
+      "toolCalls": 92,
+      "toolResults": 92,
+      "markdown": "07-root--soul_stability.md",
+      "jsonl": "07-root--soul_stability.jsonl",
+      "excluded": {
+        "session_meta": 2,
+        "event_msg": 359,
+        "internal_developer": 3,
+        "runtime_context": 1,
+        "world_state": 5,
+        "turn_context": 12,
+        "inter_agent_communication_metadata": 13,
+        "reasoning": 109,
+        "token_usage_record": 98,
+        "compacted": 1
+      }
+    },
+    {
+      "agent": "/root/upstream_compat",
+      "threadId": "01a0af0e-c4fc-7720-9f82-68bf4038f0f8",
+      "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "parentThreadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "source": "sessions/2026/09/17/rollout-2026-09-17T19-09-35-01a0af0e-c4fc-7720-9f82-68bf4038f0f8.jsonl",
+      "originalBytes": 5361706,
+      "sourceRecords": 1274,
+      "exportedRecords": 346,
+      "messages": 60,
+      "toolCalls": 143,
+      "toolResults": 143,
+      "markdown": "08-root--upstream_compat.md",
+      "jsonl": "08-root--upstream_compat.jsonl",
+      "excluded": {
+        "session_meta": 2,
+        "event_msg": 579,
+        "internal_developer": 4,
+        "runtime_context": 2,
+        "world_state": 8,
+        "turn_context": 12,
+        "inter_agent_communication_metadata": 28,
+        "token_usage_record": 148,
+        "reasoning": 144,
+        "compacted": 1
+      }
+    },
+    {
+      "agent": "/root/upstream_compat/launcher_entry_review",
+      "threadId": "01a0af93-c57f-74c2-92d5-649e0932411f",
+      "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "parentThreadId": "01a0af0e-c4fc-7720-9f82-68bf4038f0f8",
+      "source": "sessions/2026/09/17/rollout-2026-09-17T21-34-52-01a0af93-c57f-74c2-92d5-649e0932411f.jsonl",
+      "originalBytes": 442678,
+      "sourceRecords": 119,
+      "exportedRecords": 31,
+      "messages": 7,
+      "toolCalls": 12,
+      "toolResults": 12,
+      "markdown": "09-root--upstream_compat--launcher_entry_review.md",
+      "jsonl": "09-root--upstream_compat--launcher_entry_review.jsonl",
+      "excluded": {
+        "session_meta": 2,
+        "compacted": 1,
+        "world_state": 2,
+        "turn_context": 3,
+        "event_msg": 51,
+        "internal_developer": 2,
+        "inter_agent_communication_metadata": 2,
+        "reasoning": 12,
+        "token_usage_record": 13
+      }
+    },
+    {
+      "agent": "/root/canvas_research",
+      "threadId": "01a0afae-59d0-7cb2-b50a-8bf96bfdf4ff",
+      "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "parentThreadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
+      "source": "sessions/2026/09/17/rollout-2026-09-17T22-03-54-01a0afae-59d0-7cb2-b50a-8bf96bfdf4ff.jsonl",
+      "originalBytes": 831862,
+      "sourceRecords": 90,
+      "exportedRecords": 22,
+      "messages": 6,
+      "toolCalls": 8,
+      "toolResults": 8,
+      "markdown": "10-root--canvas_research.md",
+      "jsonl": "10-root--canvas_research.jsonl",
+      "excluded": {
+        "session_meta": 2,
+        "compacted": 1,
+        "world_state": 8,
+        "turn_context": 5,
+        "event_msg": 30,
+        "runtime_context": 4,
+        "internal_developer": 3,
+        "inter_agent_communication_metadata": 2,
+        "token_usage_record": 8,
+        "reasoning": 5
+      }
+    }
+  ],
+  "redactions": {
+    "credential_assignment": 46,
+    "url_token": 11,
+    "auth_header": 6,
+    "escaped_credential": 3,
+    "private_key": 2
+  },
+  "excluded": {
+    "session_meta": 15,
+    "event_msg": 2324,
+    "internal_developer": 29,
+    "runtime_context": 14,
+    "world_state": 43,
+    "turn_context": 61,
+    "token_usage_record": 589,
+    "reasoning": 587,
+    "inter_agent_communication_metadata": 160,
+    "compacted": 6
+  },
+  "files": [
+    {
+      "path": "01-root.jsonl",
+      "sha256": "9791a158749835f0940e5058b909961a250ea8095d041c88046be6b2f46525f1",
+      "bytes": 696856
+    },
+    {
+      "path": "01-root.md",
+      "sha256": "4193f117d9398ee8a105844bb77264cfb1968f34a49d6e87ebc560d8eaae8546",
+      "bytes": 47572
+    },
+    {
+      "path": "02-root.jsonl",
+      "sha256": "8ae146c6b52d4bba85a1bacefb3f6f606ff241e4c89b667c105e86bc429006ab",
+      "bytes": 306
+    },
+    {
+      "path": "02-root.md",
+      "sha256": "6925bc9ebb6984d208e1073bf42ad2025dbfdf8ba4f2d59ffe245a5a3716f15f",
+      "bytes": 568
+    },
+    {
+      "path": "03-root.jsonl",
+      "sha256": "e2d8706e9a988c7e7373cf726beb81b987ee260e4c7f849cedb9bd651ac7cbd6",
+      "bytes": 306
+    },
+    {
+      "path": "03-root.md",
+      "sha256": "42658a152698f2e061e13f8376ac05ee589becb9e97f5911022d0223cadd5042",
+      "bytes": 568
+    },
+    {
+      "path": "04-root.jsonl",
+      "sha256": "0d499eb427e65be21ec423dbc4daba67972a884ec2fffb847c7b6808e9b1c564",
+      "bytes": 34111
+    },
+    {
+      "path": "04-root.md",
+      "sha256": "6eb4a27e167c5dc6dc5963c70e9af48342dfd65988334ddbdb886067f7afe3c4",
+      "bytes": 939
+    },
+    {
+      "path": "05-root.jsonl",
+      "sha256": "ad70d424da7e7e0f1c4b4abb0a23908988788754ad6322c41461b5f53d4598fe",
+      "bytes": 1587662
+    },
+    {
+      "path": "05-root.md",
+      "sha256": "f0d40c0b2acd5e9d50f1f024587ad6958177ed812d6941e66d63c95d5f727946",
+      "bytes": 138757
+    },
+    {
+      "path": "06-root--soul_dynamics.jsonl",
+      "sha256": "08c4cb699e1f7d31c68d0979e84a26e5491c98e22e5836754edb5ea9e1dae77e",
+      "bytes": 586796
+    },
+    {
+      "path": "06-root--soul_dynamics.md",
+      "sha256": "4d4588b1c0c727b54a43e935f9acf90651c600e76b93e3e6624cfda1a9e67af5",
+      "bytes": 63433
+    },
+    {
+      "path": "07-root--soul_stability.jsonl",
+      "sha256": "a9d64de64fdd43cdc04e411301d37939d674505fcd0ef8dcd620057ad83234d4",
+      "bytes": 790520
+    },
+    {
+      "path": "07-root--soul_stability.md",
+      "sha256": "4c4891f98b3eef9730fbd8967ba88afcd0a954f9fcdf6b2e1fa48b038b69aabb",
+      "bytes": 80702
+    },
+    {
+      "path": "08-root--upstream_compat.jsonl",
+      "sha256": "8d1c27147994da98b69318c5df8e678b6b90c244d6d78fa1727655ba9cb9f23c",
+      "bytes": 1214404
+    },
+    {
+      "path": "08-root--upstream_compat.md",
+      "sha256": "7a046492ce7aecc018722450103b899909a1033febabe482fefdadf6c7169623",
+      "bytes": 85785
+    },
+    {
+      "path": "09-root--upstream_compat--launcher_entry_review.jsonl",
+      "sha256": "ed5a1be61d1960f4d892e763f68324339b23432135d45c0571d8e3d831d75e7c",
+      "bytes": 81785
+    },
+    {
+      "path": "09-root--upstream_compat--launcher_entry_review.md",
+      "sha256": "62484501cab9d57b56746f9ff00c5335a6cc0c33aa7019650b3b8e713c41439e",
+      "bytes": 7976
+    },
+    {
+      "path": "10-root--canvas_research.jsonl",
+      "sha256": "13e252b8150216fb79309a51e174b4460b28302082bbaa89c9d125ac4c48cd1e",
+      "bytes": 149495
+    },
+    {
+      "path": "10-root--canvas_research.md",
+      "sha256": "3cfeca081754d874317dd660ec31b7b446bc79af7a25de90468eee8e8f76eac5",
+      "bytes": 5305
+    }
+  ]
+}
