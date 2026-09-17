@@ -1,0 +1,696 @@
+diff --git a/packages/opencode/src/cli/cmd/upgrade.ts b/packages/opencode/src/cli/cmd/upgrade.ts
+index 3c1604a0b8354c49fa06a93e825e4b11041cc5dd..ccce405544c1315dccfe6be782d878d469e759fa 100644
+--- a/packages/opencode/src/cli/cmd/upgrade.ts
++++ b/packages/opencode/src/cli/cmd/upgrade.ts
+@@ -21,6 +21,11 @@ export const UpgradeCommand = {
+       })
+   },
+   handler: async (args: { target?: string; method?: string }) => {
++    if (Installation.isProduct()) {
++      UI.println(Installation.PRODUCT_UPDATE_MESSAGE)
++      process.exitCode = 1
++      return
++    }
+     UI.empty()
+     UI.println(UI.logo("  "))
+     UI.empty()
+diff --git a/packages/opencode/src/cli/upgrade.ts b/packages/opencode/src/cli/upgrade.ts
+index 62b230a6336471aa735f82cfb24a4ae2b0c8c31a..cc0b39f49f5255c46c54fd91964d1d3cc4b26c1b 100644
+--- a/packages/opencode/src/cli/upgrade.ts
++++ b/packages/opencode/src/cli/upgrade.ts
+@@ -6,6 +6,7 @@ import { InstallationVersion } from "@opencode-ai/core/installation/version"
+ import { GlobalBus } from "@/bus/global"
+ 
+ export async function upgrade() {
++  if (Installation.isProduct()) return
+   const config = await AppRuntime.runPromise(Config.Service.use((cfg) => cfg.getGlobal()))
+   if (config.autoupdate === false || Flag.OPENCODE_DISABLE_AUTOUPDATE) return
+   const method = await Installation.method()
+diff --git a/packages/opencode/src/installation/index.ts b/packages/opencode/src/installation/index.ts
+index 4300220255b3ba717eeb229afd26f5e745c330ed..0a9b532aef85ebacf24f75251882684e03385f74 100644
+--- a/packages/opencode/src/installation/index.ts
++++ b/packages/opencode/src/installation/index.ts
+@@ -52,6 +52,12 @@ export function isLocal() {
+   return InstallationChannel === "local"
+ }
+ 
++export function isProduct() {
++  return InstallationChannel.startsWith("product-")
++}
++
++export const PRODUCT_UPDATE_MESSAGE = "这是星杳·璇玑专属版本，请使用专属构建更新，避免被上游 OpenCode 覆盖。"
++
+ export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedError>()("UpgradeFailedError", {
+   stderr: Schema.String,
+ }) {
+@@ -206,6 +212,7 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
+         return "unknown" as Method
+       }),
+       latest: Effect.fn("Installation.latest")(function* (installMethod?: Method) {
++        if (isProduct()) return InstallationVersion
+         const detectedMethod = installMethod || (yield* result.method())
+ 
+         if (detectedMethod === "brew") {
+@@ -263,6 +270,7 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
+         return data.tag_name.replace(/^v/, "")
+       }, Effect.orDie),
+       upgrade: Effect.fn("Installation.upgrade")(function* (m: Method, target: string) {
++        if (isProduct()) return yield* new UpgradeFailedError({ stderr: PRODUCT_UPDATE_MESSAGE })
+         let upgradeResult: { code: number; stdout: string; stderr: string } | undefined
+         switch (m) {
+           case "curl":
+diff --git a/packages/opencode/src/soul/memory.ts b/packages/opencode/src/soul/memory.ts
+index 0e31eba7e8fc40c038ced3875f92aa5ea3e96f56..58d45f51015d1466485e87f9f0c58f08a1e7a936 100644
+--- a/packages/opencode/src/soul/memory.ts
++++ b/packages/opencode/src/soul/memory.ts
+@@ -61,6 +61,8 @@ export async function build(root: string, opts: { now?: number; cue?: string } =
+   const temperament = await Temperament.load(root)
+   const people = await cards(layout.people, root)
+   const facts = await cards(layout.facts, root)
++  if (entries.length === 0 && seeds.seeds.length === 0 && people.length === 0 && facts.length === 0)
++    return { active: [], dormant: [] }
+ 
+   const rel = (path: string) => relative(root, path)
+   const active = [
+@@ -74,11 +76,11 @@ export async function build(root: string, opts: { now?: number; cue?: string } =
+     ...entries
+       .filter((entry) => entry.verdict === "active")
+       .sort((a, b) => b.score - a.score)
+-      .map((entry) => `- [事件] ${entry.title}（${rel(entry.path)}）`),
++      .map((entry) => `- [事件/${entry.meta.ownership}] ${entry.title}（${rel(entry.path)}）`),
+   ]
+   const dormant = entries
+     .filter((entry) => entry.verdict === "dormant")
+-    .map((entry) => `- ${entry.title}（${rel(entry.path)}）`)
++    .map((entry) => `- [${entry.meta.ownership}] ${entry.title}（${rel(entry.path)}）`)
+ 
+   return { active, dormant }
+ }
+@@ -86,19 +88,23 @@ export async function build(root: string, opts: { now?: number; cue?: string } =
+ // 提示词注入用：预算硬顶，超出按优先级截断
+ export async function digest(root: string, opts: { cue?: string; budgetChars?: number } = {}): Promise<string> {
+   const budget = opts.budgetChars ?? 600
++  if (budget <= 0) return ""
+   const { active, dormant } = await build(root, opts)
+   if (active.length === 0 && dormant.length === 0) return ""
+ 
+   const header = `# 星杳的记忆\n灵魂知识库位于 ${root}，沉睡记忆可用 Grep 唤醒细节。`
+-  const lines: string[] = []
++  if (header.length > budget) return ""
++  const lines = [header]
+   let size = header.length
+-  for (const line of [...active, ...(dormant.length > 0 ? ["## 沉睡", ...dormant] : [])]) {
+-    if (size + line.length > budget) break
++  for (const line of [
++    ...(active.length > 0 ? ["## 活跃", ...active] : []),
++    ...(dormant.length > 0 ? ["## 沉睡", ...dormant] : []),
++  ]) {
++    if (size + line.length + 1 > budget) break
+     lines.push(line)
+     size += line.length + 1
+   }
+-  const activeBlock = active.length > 0 ? "## 活跃" : ""
+-  return [header, activeBlock, ...lines].filter(Boolean).join("\n")
++  return lines.join("\n")
+ }
+ 
+ // 人类可读的完整索引，sweep/curate 后重写成盘
+@@ -130,9 +136,9 @@ async function cards(dir: string, root: string): Promise<string[]> {
+   const parsed = await Promise.all(
+     files.map(async (path) => {
+       const raw = await readText(path)
+-      const meta = raw ? decode(raw)?.meta : undefined
+-      if (!meta || meta.private === true) return undefined
+-      return `${memoryTitle(raw ?? "", path)}（${relative(root, path)}）`
++      const parsed = raw ? decode(raw) : undefined
++      if (!parsed || parsed.meta.private === true) return undefined
++      return `${memoryTitle(parsed.body, path)}（${relative(root, path)}）`
+     }),
+   )
+   return parsed.filter((card) => card !== undefined)
+diff --git a/packages/opencode/src/soul/service.ts b/packages/opencode/src/soul/service.ts
+index 8e9a7da28cd31e5e8e1b9c2629d62545615b15e7..99f1d52b953c74591a52fa539dfd0e6355160d59 100644
+--- a/packages/opencode/src/soul/service.ts
++++ b/packages/opencode/src/soul/service.ts
+@@ -10,7 +10,7 @@ import { Global } from "@opencode-ai/core/global"
+ import { SessionV1 } from "@opencode-ai/core/v1/session"
+ import { LLMEvent } from "@opencode-ai/llm"
+ import { SessionStatusEvent } from "@opencode-ai/schema/session-status-event"
+-import { Cause, Context, Effect, Layer, Scope, Stream } from "effect"
++import { Cause, Context, Effect, Layer, Scope, Semaphore, Stream } from "effect"
+ import path from "path"
+ import { Agent } from "@/agent/agent"
+ import { Config } from "@/config/config"
+@@ -54,9 +54,9 @@ const layer = Layer.effect(
+     const provider = yield* Provider.Service
+     const sessions = yield* Session.Service
+     const scope = yield* Scope.Scope
++    const writes = yield* Semaphore.make(1)
+ 
+     const root = path.join(global.data, "soul")
+-    yield* Effect.tryPromise(() => SoulStore.ensure(root)).pipe(Effect.orDie)
+ 
+     const settings = Effect.fn("Soul.settings")(function* () {
+       const cfg = yield* config.get()
+@@ -80,6 +80,8 @@ const layer = Layer.effect(
+     })
+ 
+     const sweep = Effect.fn("Soul.sweep")(function* () {
++      const s = yield* settings()
++      if (!s.enabled || s.sealed) return
+       const layout = SoulStore.paths(root)
+       const now = Date.now()
+       const files = yield* Effect.tryPromise(() => SoulStore.listMd(layout.events)).pipe(
+@@ -110,7 +112,8 @@ const layer = Layer.effect(
+         )
+         const parsed = raw ? SoulSchema.decode(raw) : undefined
+         const meta = parsed ? SoulSchema.event(parsed.meta) : undefined
+-        if (!parsed || !meta) continue
++        // 私密事件不能通过种子库间接进入公开摘要，也不自动删除。
++        if (!parsed || !meta || meta.private) continue
+         if (SoulSweep.classify(SoulSweep.effective(meta, now)) !== "forget") continue
+         // 遗忘前先把反应残渣折叠进种子库：记忆可模糊，反应结构保留
+         const firstLine = parsed.body
+@@ -120,18 +123,25 @@ const layer = Layer.effect(
+         const pattern = meta.goal ?? firstLine?.slice(0, 40) ?? path.basename(file, ".md")
+         SoulSweep.foldPattern(store.seeds, pattern, 1, new Date(now).toISOString())
+         forgotten.push(file)
+-        yield* Effect.tryPromise(() => SoulStore.remove(file)).pipe(
+-          Effect.catchCause((cause) =>
+-            Effect.logWarning("soul sweep 删除失败", { file, error: Cause.squash(cause) }),
+-          ),
+-        )
+       }
+       if (forgotten.length > 0) {
+-        yield* Effect.tryPromise(() => SoulStore.writeJson(layout.seeds, store)).pipe(
++        // 先持久化反应结构，写盘失败时必须保留原始经历。
++        const saved = yield* Effect.tryPromise(() => SoulStore.writeJson(layout.seeds, store)).pipe(
++          Effect.as(true),
+           Effect.catchCause((cause) =>
+-            Effect.logWarning("soul sweep 种子库写回失败", { error: Cause.squash(cause) }),
++            Effect.logWarning("soul sweep 种子库写回失败，保留原始事件", { error: Cause.squash(cause) }).pipe(
++              Effect.as(false),
++            ),
+           ),
+         )
++        if (!saved) return
++        for (const file of forgotten) {
++          yield* Effect.tryPromise(() => SoulStore.remove(file)).pipe(
++            Effect.catchCause((cause) =>
++              Effect.logWarning("soul sweep 删除失败", { file, error: Cause.squash(cause) }),
++            ),
++          )
++        }
+       }
+       yield* Effect.tryPromise(() => SoulMemory.writeIndex(root)).pipe(
+         Effect.catchCause((cause) => Effect.logWarning("soul sweep 索引重写失败", { error: Cause.squash(cause) })),
+@@ -179,7 +189,9 @@ const layer = Layer.effect(
+       }
+ 
+       // 纯文本转录，只留最近 ~12000 字符防止爆上下文
++      const processed = all.findIndex((message) => message.info.id === state[sessionID])
+       const transcript = all
++        .slice(processed + 1)
+         .map(
+           (m) =>
+             `${m.info.role}: ${m.parts
+@@ -213,6 +225,9 @@ const layer = Layer.effect(
+         yield* Effect.logWarning("soul curate 输出解析失败，跳过本轮整理", { sessionID })
+         return
+       }
++      // 模型调用期间可能发生封存，写入前再次确认状态。
++      const current = yield* settings()
++      if (!current.enabled || current.sealed) return
+ 
+       for (const file of output.files ?? []) {
+         const normalized = file.path.replaceAll("\\", "/")
+@@ -260,14 +275,15 @@ const layer = Layer.effect(
+       yield* sweep()
+     })
+ 
++    // 同一运行时内串行更新共享种子和整理游标，避免重复 idle 导致重复学习。
++    const serialCurate = (sessionID: SessionID) => writes.withPermit(curate(sessionID))
++    const serialSweep = () => writes.withPermit(sweep())
++
+     // 会话转入空闲时后台整理 + 清扫；失败只记日志，绝不影响会话本身
+     const unsubscribe = yield* events.listen((event) => {
+       if (event.type !== SessionStatusEvent.Idle.type) return Effect.void
+       const data = event.data as EventV2.Data<typeof SessionStatusEvent.Idle>
+-      return Effect.gen(function* () {
+-        yield* curate(data.sessionID)
+-        yield* sweep()
+-      }).pipe(
++      return serialCurate(data.sessionID).pipe(
+         Effect.catchCause((cause) => Effect.logError("soul 空闲整理失败", { error: Cause.squash(cause) })),
+         Effect.forkIn(scope),
+         Effect.asVoid,
+@@ -275,7 +291,7 @@ const layer = Layer.effect(
+     })
+     yield* Effect.addFinalizer(() => unsubscribe)
+ 
+-    return Service.of({ digest, curate, sweep })
++    return Service.of({ digest, curate: serialCurate, sweep: serialSweep })
+   }),
+ )
+ 
+diff --git a/packages/opencode/src/soul/store.ts b/packages/opencode/src/soul/store.ts
+index 94384589fbee5d4603e2c029e89544a4ee8f2be7..b1a3b295033f9cf2fb88392654afba30b2d6b621 100644
+--- a/packages/opencode/src/soul/store.ts
++++ b/packages/opencode/src/soul/store.ts
+@@ -4,7 +4,7 @@
+  * 主文件损坏时自动回退备份——拔盘瞬间写坏只丢一次变更，不丢整个库。
+  */
+ import { mkdir, readdir, readFile, rename, copyFile, rm, writeFile } from "node:fs/promises"
+-import { join } from "node:path"
++import { dirname, join } from "node:path"
+ 
+ export const paths = (root: string) => ({
+   people: join(root, "people"),
+@@ -59,7 +59,12 @@ export async function listMd(dir: string): Promise<string[]> {
+ }
+ 
+ async function atomic(file: string, content: string): Promise<void> {
+-  const tmp = `${file}.tmp-${process.pid}`
+-  await writeFile(tmp, content, "utf8")
+-  await rename(tmp, file)
++  await mkdir(dirname(file), { recursive: true })
++  const tmp = `${file}.tmp-${process.pid}-${crypto.randomUUID()}`
++  try {
++    await writeFile(tmp, content, "utf8")
++    await rename(tmp, file)
++  } finally {
++    await rm(tmp, { force: true }).catch(() => {})
++  }
+ }
+diff --git a/packages/opencode/test/session/prompt.test.ts b/packages/opencode/test/session/prompt.test.ts
+index da6e0f8d036fea5ea2257cb2a5ffa37924c23306..105d345358a0fd4dc0f01ed29635637b3ea9bb08 100644
+--- a/packages/opencode/test/session/prompt.test.ts
++++ b/packages/opencode/test/session/prompt.test.ts
+@@ -259,6 +259,8 @@ const unixNoLLMServer = process.platform !== "win32" ? noLLMServer.instance : no
+ // Config that registers a custom "test" provider with a "test-model" model
+ // so provider model lookup succeeds inside the loop.
+ const cfg = {
++  // 主会话测试的回复队列不供后台整理器消费；记忆链路单独覆盖。
++  soul: { enabled: false },
+   provider: {
+     test: {
+       name: "Test",
+diff --git a/packages/tui/src/i18n/locales/en.ts b/packages/tui/src/i18n/locales/en.ts
+index 2f76f2aa4714e8c74202a295220921dac739c97d..b67cdac98cb91449d7f1e24b95817e96d0b23492 100644
+--- a/packages/tui/src/i18n/locales/en.ts
++++ b/packages/tui/src/i18n/locales/en.ts
+@@ -3,6 +3,13 @@
+  * When adding a key, add it here first, then mirror it in zh-CN.ts.
+  */
+ export default {
++  home: {
++    product: "Xingyao · Xuanji",
++    subtitle: "Your personal AI assistant",
++    plan: "Help me plan and finish today's work",
++    project: "Read this project and suggest the next step",
++    fix: "Diagnose this problem and verify the fix",
++  },
+   common: {
+     cancel: "Cancel",
+     confirm: "Confirm",
+diff --git a/packages/tui/src/i18n/locales/zh-CN.ts b/packages/tui/src/i18n/locales/zh-CN.ts
+index 792f5ee46834450d4b97090d9230cd95fb825b65..57b5922ef95e671b58410bf2e6dae3bb1dc24ba8 100644
+--- a/packages/tui/src/i18n/locales/zh-CN.ts
++++ b/packages/tui/src/i18n/locales/zh-CN.ts
+@@ -4,6 +4,13 @@ import type { Messages } from "../types"
+  * 简体中文文案 —— 键结构必须与 en.ts 完全一致。
+  */
+ const messages: Messages = {
++  home: {
++    product: "星杳 · 璇玑",
++    subtitle: "你的专属 AI 助理",
++    plan: "帮我安排并完成今天的工作",
++    project: "读懂这个项目，给出下一步建议",
++    fix: "帮我定位这个问题，修复后验证结果",
++  },
+   common: {
+     cancel: "取消",
+     confirm: "确认",
+diff --git a/packages/tui/src/routes/home.tsx b/packages/tui/src/routes/home.tsx
+index d4145e2d87be4d36a645e18226824b7bbcf321a6..76b2cd0c30ed1c3cc05a125a65f37c8a78f6cf97 100644
+--- a/packages/tui/src/routes/home.tsx
++++ b/packages/tui/src/routes/home.tsx
+@@ -12,14 +12,15 @@ import { useEditorContext } from "../context/editor"
+ import { useTerminalDimensions } from "@opentui/solid"
+ import { useTuiConfig } from "../config"
+ import { HomeSessionDestinationProvider } from "./home/session-destination"
++import { useI18n } from "../i18n"
+ 
+ let once = false
+-const placeholder = {
+-  normal: ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"],
+-  shell: ["ls -la", "git status", "pwd"],
+-}
+-
+ export function Home() {
++  const i18n = useI18n()
++  const placeholder = createMemo(() => ({
++    normal: [i18n.t("home.plan"), i18n.t("home.project"), i18n.t("home.fix")],
++    shell: ["git status", "git diff", "pwd"],
++  }))
+   const pluginRuntime = usePluginRuntime()
+   const sync = useSync()
+   const route = useRouteData("home")
+@@ -74,13 +75,17 @@ export function Home() {
+         <box height={4} minHeight={0} flexShrink={1} />
+         <box flexShrink={0}>
+           <pluginRuntime.Slot name="home_logo" mode="replace">
+-            <Logo />
++            <box alignItems="center" gap={1}>
++              <Logo />
++              <text>{i18n.t("home.product")}</text>
++              <text>{i18n.t("home.subtitle")}</text>
++            </box>
+           </pluginRuntime.Slot>
+         </box>
+         <box height={1} minHeight={0} flexShrink={1} />
+         <box width="100%" maxWidth={promptMaxWidth()} zIndex={1000} paddingTop={1} flexShrink={0}>
+           <pluginRuntime.Slot name="home_prompt" mode="replace" ref={bind}>
+-            <Prompt ref={bind} right={<pluginRuntime.Slot name="home_prompt_right" />} placeholders={placeholder} />
++            <Prompt ref={bind} right={<pluginRuntime.Slot name="home_prompt_right" />} placeholders={placeholder()} />
+           </pluginRuntime.Slot>
+         </box>
+         <pluginRuntime.Slot name="home_bottom" />
+diff --git a/packages/opencode/test/soul/runtime.test.ts b/packages/opencode/test/soul/runtime.test.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/opencode/test/soul/runtime.test.ts
+@@ -0,0 +1,313 @@
++import { expect } from "bun:test"
++import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
++import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
++import { LayerNode } from "@opencode-ai/core/effect/layer-node"
++import { Global } from "@opencode-ai/core/global"
++import { ConfigV1 } from "@opencode-ai/core/v1/config/config"
++import { SessionV1 } from "@opencode-ai/core/v1/session"
++import { LLMEvent } from "@opencode-ai/llm"
++import { Effect, Layer, Stream } from "effect"
++import { mkdir } from "node:fs/promises"
++import path from "node:path"
++import { Agent } from "../../src/agent/agent"
++import { Config } from "../../src/config/config"
++import { EventV2Bridge } from "../../src/event-v2-bridge"
++import { Provider } from "../../src/provider/provider"
++import { LLM } from "../../src/session/llm"
++import { MessageID, PartID, SessionID } from "../../src/session/schema"
++import { Soul } from "../../src/soul/service"
++import { Session } from "../../src/session/session"
++import { SoulMemory, SoulSchema, SoulStore } from "../../src/soul"
++import { tmpdirScoped } from "../fixture/fixture"
++import { testEffect } from "../lib/effect"
++import { ProviderTest } from "../fake/provider"
++
++const it = testEffect(AppNodeBuilder.build(CrossSpawnSpawner.node))
++
++function runtime(
++  data: string,
++  soul: ConfigV1.Info["soul"] = {},
++  options: {
++    messages?: Session.Interface["messages"]
++    stream?: LLM.Interface["stream"]
++    agent?: Agent.Info
++    model?: Provider.Model
++  } = {},
++) {
++  return LayerNode.compile(Soul.node, [
++    [Global.node, Global.layerWith({ data })],
++    [Config.node, Layer.mock(Config.Service, { get: () => Effect.succeed({ soul }) })],
++    [EventV2Bridge.node, Layer.mock(EventV2Bridge.Service, { listen: () => Effect.succeed(Effect.void) })],
++    [LLM.node, Layer.mock(LLM.Service, options.stream ? { stream: options.stream } : {})],
++    [
++      Agent.node,
++      Layer.mock(Agent.Service, {
++        get: () => (options.agent ? Effect.succeed(options.agent) : Effect.die(new Error("未配置测试整理器"))),
++      }),
++    ],
++    [Provider.node, Layer.mock(Provider.Service, { getSmallModel: () => Effect.succeed(options.model) })],
++    [Session.node, Layer.mock(Session.Service, options.messages ? { messages: options.messages } : {})],
++  ])
++}
++
++const stale = SoulSchema.encode(
++  {
++    type: "event",
++    time: "2000-01-01T00:00:00.000Z",
++    ownership: "experienced",
++    emotion: 0,
++    intensity: 0,
++    salience: 0,
++    private: false,
++    strength: 0,
++  },
++  "应该先保存的旧记忆",
++)
++
++for (const settings of [{ sealed: true }, { enabled: false }]) {
++  it.live(`记忆停用 ${JSON.stringify(settings)} 时清扫不修改文件`, () =>
++    Effect.gen(function* () {
++      const tmp = yield* tmpdirScoped()
++      const root = path.join(tmp, "soul")
++      const file = path.join(root, "events", "old.md")
++      yield* Effect.promise(() => SoulStore.ensure(root))
++      yield* Effect.promise(() => SoulStore.writeText(file, stale))
++      yield* Effect.gen(function* () {
++        const soul = yield* Soul.Service
++        expect(yield* soul.digest({})).toBe("")
++        yield* soul.sweep()
++      }).pipe(Effect.provide(runtime(tmp, settings)))
++      expect(yield* Effect.promise(() => Bun.file(file).text())).toBe(stale)
++      expect(yield* Effect.promise(() => Bun.file(path.join(root, "seeds.json")).exists())).toBe(false)
++      expect(yield* Effect.promise(() => Bun.file(path.join(root, "MEMORY.md")).exists())).toBe(false)
++    }),
++  )
++}
++
++it.live("种子库写入失败时保留原始事件", () =>
++  Effect.gen(function* () {
++    const tmp = yield* tmpdirScoped()
++    const root = path.join(tmp, "soul")
++    const file = path.join(root, "events", "old.md")
++    yield* Effect.promise(() => SoulStore.ensure(root))
++    yield* Effect.promise(() => SoulStore.writeText(file, stale))
++    // 用真实文件系统冲突模拟 U 盘写入失败。
++    yield* Effect.promise(() => mkdir(path.join(root, "seeds.json")))
++    yield* Effect.gen(function* () {
++      const soul = yield* Soul.Service
++      yield* soul.sweep()
++    }).pipe(Effect.provide(runtime(tmp)))
++    expect(yield* Effect.promise(() => Bun.file(file).text())).toBe(stale)
++  }),
++)
++
++it.live("正常清扫先保存反应种子并生成索引", () =>
++  Effect.gen(function* () {
++    const tmp = yield* tmpdirScoped()
++    const root = path.join(tmp, "soul")
++    const file = path.join(root, "events", "old.md")
++    yield* Effect.promise(() => SoulStore.ensure(root))
++    yield* Effect.promise(() => SoulStore.writeText(file, stale))
++    yield* Effect.gen(function* () {
++      const soul = yield* Soul.Service
++      yield* soul.sweep()
++    }).pipe(Effect.provide(runtime(tmp)))
++    expect(yield* Effect.promise(() => Bun.file(file).exists())).toBe(false)
++    const saved = yield* Effect.promise(() => Bun.file(path.join(root, "seeds.json")).json())
++    expect(saved.seeds).toMatchObject([{ pattern: "应该先保存的旧记忆", strength: 1 }])
++    expect(yield* Effect.promise(() => Bun.file(path.join(root, "MEMORY.md")).text())).toContain("应该先保存的旧记忆")
++  }),
++)
++
++it.live("空知识库不注入默认气质", () =>
++  Effect.gen(function* () {
++    const tmp = yield* tmpdirScoped()
++    yield* Effect.gen(function* () {
++      const soul = yield* Soul.Service
++      expect(yield* soul.digest({})).toBe("")
++    }).pipe(Effect.provide(runtime(tmp)))
++  }),
++)
++
++it.live("记忆摘要包括标题在内严格遵守预算", () =>
++  Effect.gen(function* () {
++    const tmp = yield* tmpdirScoped()
++    yield* Effect.promise(() => SoulStore.ensure(tmp))
++    yield* Effect.promise(() =>
++      SoulStore.writeJson(path.join(tmp, "seeds.json"), {
++        seeds: [{ pattern: "先验证再交付", strength: 1 }],
++      }),
++    )
++    for (const budgetChars of [0, 1, 40, 120, 180, 250, 600]) {
++      const text = yield* Effect.promise(() => SoulMemory.digest(tmp, { budgetChars }))
++      expect(text.length).toBeLessThanOrEqual(budgetChars)
++    }
++  }),
++)
++
++it.live("记忆文件支持首次写入年月子目录", () =>
++  Effect.gen(function* () {
++    const tmp = yield* tmpdirScoped()
++    const file = path.join(tmp, "events", "2026", "09", "first.md")
++    yield* Effect.promise(() => SoulStore.writeText(file, stale))
++    expect(yield* Effect.promise(() => Bun.file(file).text())).toBe(stale)
++  }),
++)
++
++it.live("人物和事实摘要采用正文标题", () =>
++  Effect.gen(function* () {
++    const tmp = yield* tmpdirScoped()
++    yield* Effect.promise(() => SoulStore.ensure(tmp))
++    yield* Effect.promise(() =>
++      SoulStore.writeText(
++        path.join(tmp, "facts", "preference.md"),
++        SoulSchema.encode({ type: "fact", private: false }, "# 默认使用中文交流"),
++      ),
++    )
++    const text = yield* Effect.promise(() => SoulMemory.digest(tmp, { budgetChars: 600 }))
++    expect(text).toContain("默认使用中文交流")
++    expect(text).not.toContain("[事实] ---")
++  }),
++)
++
++it.live("私密事件不会通过遗忘清扫泄漏进公开种子", () =>
++  Effect.gen(function* () {
++    const tmp = yield* tmpdirScoped()
++    const root = path.join(tmp, "soul")
++    const file = path.join(root, "events", "private.md")
++    const content = stale.replace("private: false", "private: true")
++    yield* Effect.promise(() => SoulStore.writeText(file, content))
++    yield* Effect.gen(function* () {
++      const soul = yield* Soul.Service
++      yield* soul.sweep()
++      expect(yield* soul.digest({})).toBe("")
++    }).pipe(Effect.provide(runtime(tmp)))
++    expect(yield* Effect.promise(() => Bun.file(file).text())).toBe(content)
++    expect(yield* Effect.promise(() => Bun.file(path.join(root, "seeds.json")).exists())).toBe(false)
++  }),
++)
++
++it.live("经历归属在记忆摘要中保留", () =>
++  Effect.gen(function* () {
++    const tmp = yield* tmpdirScoped()
++    for (const ownership of ["experienced", "told", "observed"]) {
++      yield* Effect.promise(() =>
++        SoulStore.writeText(
++          path.join(tmp, "events", `${ownership}.md`),
++          SoulSchema.encode(
++            {
++              type: "event",
++              time: new Date().toISOString(),
++              ownership,
++              emotion: 1,
++              intensity: 1,
++              salience: 1,
++              private: false,
++              strength: 1,
++            },
++            `${ownership} 的经历`,
++          ),
++        ),
++      )
++    }
++    const text = yield* Effect.promise(() => SoulMemory.digest(tmp, { budgetChars: 1000 }))
++    for (const ownership of ["experienced", "told", "observed"]) expect(text).toContain(`[事件/${ownership}]`)
++  }),
++)
++
++it.live("记忆目录不可用时仍能初始化并按空记忆运行", () =>
++  Effect.gen(function* () {
++    const tmp = yield* tmpdirScoped()
++    yield* Effect.promise(() => Bun.write(path.join(tmp, "soul"), "模拟不可用的存储目录"))
++    yield* Effect.gen(function* () {
++      const soul = yield* Soul.Service
++      expect(yield* soul.digest({})).toBe("")
++    }).pipe(Effect.provide(runtime(tmp)))
++  }),
++)
++
++it.live("会话整理落盘后可回忆，重复并发触发不重复学习，新轮只整理新增消息", () =>
++  Effect.gen(function* () {
++    const tmp = yield* tmpdirScoped()
++    const model = ProviderTest.model()
++    const sessionID = SessionID.make("ses_soul_runtime")
++    const userID = MessageID.ascending()
++    const history: SessionV1.WithParts[] = [
++      {
++        info: {
++          id: userID,
++          sessionID,
++          role: "user",
++          agent: "build",
++          time: { created: Date.now() },
++          model: { modelID: model.id, providerID: model.providerID },
++        },
++        parts: [{ id: PartID.ascending(), sessionID, messageID: userID, type: "text", text: "以前讨论过的独有内容" }],
++      },
++      {
++        info: {
++          id: MessageID.ascending(),
++          sessionID,
++          role: "assistant",
++          agent: "build",
++          mode: "build",
++          parentID: userID,
++          modelID: model.id,
++          providerID: model.providerID,
++          path: { cwd: tmp, root: tmp },
++          time: { created: Date.now() },
++          cost: 0,
++          tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
++        },
++        parts: [],
++      },
++    ]
++    const calls: LLM.StreamInput[] = []
++    yield* Effect.gen(function* () {
++      const soul = yield* Soul.Service
++      yield* Effect.all([soul.curate(sessionID), soul.curate(sessionID)], { concurrency: "unbounded" })
++      expect(calls.length).toBe(1)
++      expect(yield* soul.digest({})).toContain("先验证再交付")
++      const seeds = yield* Effect.promise(() => Bun.file(path.join(tmp, "soul", "seeds.json")).json())
++      expect(seeds.seeds[0].strength).toBe(1)
++      const nextID = MessageID.ascending()
++      history.push({
++        info: { ...history[0].info, id: nextID },
++        parts: [{ id: PartID.ascending(), sessionID, messageID: nextID, type: "text", text: "本轮新增的偏好" }],
++      })
++      yield* soul.curate(sessionID)
++      expect(calls.length).toBe(2)
++      expect(JSON.stringify(calls[1].messages)).toContain("本轮新增的偏好")
++      expect(JSON.stringify(calls[1].messages)).not.toContain("以前讨论过的独有内容")
++    }).pipe(
++      Effect.provide(
++        runtime(
++          tmp,
++          {},
++          {
++            model,
++            agent: { name: "curator", mode: "primary", permission: [], options: {} },
++            messages: () => Effect.succeed(history),
++            stream: (input) => {
++              calls.push(input)
++              return Stream.make(
++                LLMEvent.textDelta({
++                  id: "memory",
++                  text: JSON.stringify({
++                    files: [
++                      {
++                        path: "facts/preferences.md",
++                        content: SoulSchema.encode({ type: "fact", private: false }, "先验证再交付"),
++                      },
++                    ],
++                    seeds: [{ pattern: "先验证再交付", delta: 1 }],
++                  }),
++                }),
++              )
++            },
++          },
++        ),
++      ),
++    )
++  }),
++)

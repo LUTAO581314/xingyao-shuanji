@@ -1,16 +1,214 @@
 {
-  "format": 1,
-  "baseline": "d0a9b965ac3cfbd8a80c636508ab225c3c91f740",
+  "format": 2,
+  "upstream": {
+    "repository": "https://github.com/anomalyco/opencode.git",
+    "commit": "e03db9bc6908f75c9334d8aa997deeaac81c0298",
+    "tree": "ff780efb02c97af08045ebc7857684bc39e06d5d",
+    "publicCommitVerifiedAt": "2026-09-18",
+    "publicCommitApi": "https://api.github.com/repos/anomalyco/opencode/commits/e03db9bc6908f75c9334d8aa997deeaac81c0298"
+  },
+  "baseline": "e03db9bc6908f75c9334d8aa997deeaac81c0298",
+  "capturedSource": {
+    "commit": "d0a9b965ac3cfbd8a80c636508ab225c3c91f740",
+    "publicUpstreamCommit": false,
+    "localCommits": [
+      "a6436daed8c2c28b23fb7bdf8b889d3c1d57e632",
+      "d0a9b965ac3cfbd8a80c636508ab225c3c91f740"
+    ],
+    "normalization": "Git canonical LF text; original checkout uses core.autocrlf=true",
+    "included": "All engine-relevant committed changes to bun.lock and packages/, all tracked packages/ working-tree changes, and three untracked regression tests.",
+    "excluded": [
+      {
+        "paths": [
+          ".opencode/plugin/docker-workspace.ts",
+          "portable/opencode.cmd",
+          "portable/opencode.sh",
+          "sandbox/Dockerfile"
+        ],
+        "reason": "Historical optional workspace/launcher/container integration; not imported by the single Windows engine build or used by the independent product launcher."
+      },
+      {
+        "paths": [
+          ".trae/specs/wire-soul-service/**",
+          "specs/soul-runtime.md"
+        ],
+        "reason": "Local design/task metadata; not runtime or build input."
+      },
+      {
+        "paths": [
+          "packages/opencode/dist*",
+          "node_modules/**",
+          "user artifacts and runtime data"
+        ],
+        "reason": "Old binaries, installed dependencies, and user data are not source patches."
+      }
+    ]
+  },
+  "patchedTree": "1a4d9ee6b75e5f7de5938c5e3483f970fbab55fe",
+  "replayVerified": true,
+  "verification": {
+    "date": "2026-09-18",
+    "method": "Fresh isolated Git repository fetched the public baseline object from local storage; all four git apply --check --index and apply --index steps passed. Every changed or added file matches the observed source after CRLF-to-LF normalization; deletions match. Public GitHub commit and base tree independently checked.",
+    "changedPaths": 55,
+    "originalWorkspaceModified": false,
+    "dependencyInstallVerified": false,
+    "rebuiltEngineVerified": false
+  },
   "verifiedEngine": {
     "version": "0.0.0-product-dev-20260917-engine.5",
     "sha256": "528277b2ea4178093a192da0fe33ef4768e7ae5514a7b21de006d07212c6df83"
   },
-  "replayVerified": true,
-  "scope": "These two patches only; earlier product working-tree changes are not included.",
+  "historicalEngine": {
+    "version": "0.0.0-product-dev-20260917-engine.5",
+    "sha256": "528277b2ea4178093a192da0fe33ef4768e7ae5514a7b21de006d07212c6df83",
+    "sourceReplayed": true,
+    "modelsSnapshotRecorded": false,
+    "byteIdenticalRebuildClaimed": false,
+    "note": "engine.5 was built with a live models.dev/api.json download and pre-existing node_modules; their exact build-time contents were not captured."
+  },
+  "candidateBuild": {
+    "version": "0.0.0-product-dev-20260918-engine.6-source",
+    "channel": "product-dev",
+    "bun": "1.4.2",
+    "platform": "win32",
+    "arch": "x64",
+    "cwd": "packages/opencode",
+    "argv": [
+      "bun",
+      "run",
+      "script/build.ts",
+      "--single",
+      "--skip-install",
+      "--skip-embed-web-ui"
+    ],
+    "environment": {
+      "OPENCODE_RELEASE": "",
+      "MODELS_DEV_API_JSON": "REQUIRED: caller-supplied pinned snapshot path"
+    },
+    "dependencyCommand": [
+      "bun",
+      "install",
+      "--frozen-lockfile"
+    ],
+    "modelsSnapshotRequired": true,
+    "byteIdenticalRebuildClaimed": false
+  },
+  "lockfile": {
+    "path": "bun.lock",
+    "bytes": 1117822,
+    "sha256": "1f34d506fd6dc250b74cfeb59af43647dee0b31cd0dc7cf58339f4a2caa2e9fe",
+    "gitBlob": "1e00ba54177b5fabf8e14a5700b58723d3e90d9a"
+  },
+  "inspectionRoots": [
+    "artifacts/glm52-rise-video/src",
+    "github/script",
+    "packages/app/src",
+    "packages/cli/script",
+    "packages/cli/src",
+    "packages/client/script",
+    "packages/client/src",
+    "packages/codemode/src",
+    "packages/console/app/script",
+    "packages/console/app/src",
+    "packages/console/core/script",
+    "packages/console/core/src",
+    "packages/console/function/src",
+    "packages/console/support/src",
+    "packages/containers/script",
+    "packages/core/script",
+    "packages/core/src",
+    "packages/desktop/src",
+    "packages/effect-drizzle-sqlite/src",
+    "packages/effect-sqlite-node/src",
+    "packages/enterprise/script",
+    "packages/enterprise/src",
+    "packages/function/src",
+    "packages/http-recorder/script",
+    "packages/http-recorder/src",
+    "packages/httpapi-codegen/src",
+    "packages/llm/script",
+    "packages/llm/src",
+    "packages/opencode/script",
+    "packages/opencode/src",
+    "packages/plugin/script",
+    "packages/plugin/src",
+    "packages/protocol/src",
+    "packages/schema/src",
+    "packages/script",
+    "packages/script/src",
+    "packages/sdk-next/src",
+    "packages/sdk/js/script",
+    "packages/sdk/js/src",
+    "packages/server/src",
+    "packages/session-ui/src",
+    "packages/slack/src",
+    "packages/stats/app/src",
+    "packages/stats/core/src",
+    "packages/stats/server/src",
+    "packages/tui/src",
+    "packages/ui/script",
+    "packages/ui/src",
+    "packages/web/src",
+    "script",
+    "sdks/vscode/script",
+    "sdks/vscode/src"
+  ],
   "patches": [
+    {
+      "file": "000-legacy-product-source.patch",
+      "sha256": "cab5280ecb46e4434c24e601bf4ebf4519a425e2bd28e3e7e619eb19898d81d9",
+      "bytes": 2081390,
+      "files": [
+        "bun.lock",
+        "packages/core/src/v1/config/config.ts",
+        "packages/opencode/src/agent/agent.ts",
+        "packages/opencode/src/agent/generate.txt",
+        "packages/opencode/src/agent/prompt/compaction.txt",
+        "packages/opencode/src/agent/prompt/curate.txt",
+        "packages/opencode/src/agent/prompt/explore.txt",
+        "packages/opencode/src/agent/prompt/summary.txt",
+        "packages/opencode/src/agent/prompt/title.txt",
+        "packages/opencode/src/effect/app-runtime.ts",
+        "packages/opencode/src/session/prompt.ts",
+        "packages/opencode/src/session/prompt/beast.txt",
+        "packages/opencode/src/session/prompt/copilot-gpt-5.txt",
+        "packages/opencode/src/session/prompt/customize.ts",
+        "packages/opencode/src/session/prompt/meta.txt",
+        "packages/opencode/src/session/prompt/plan-reminder-anthropic.txt",
+        "packages/opencode/src/session/prompt/product/base.txt",
+        "packages/opencode/src/session/prompt/product/gemini.txt",
+        "packages/opencode/src/session/prompt/product/gpt.txt",
+        "packages/opencode/src/session/prompt/product/kimi.txt",
+        "packages/opencode/src/session/prompt/product/persona.txt",
+        "packages/opencode/src/session/prompt/trinity.txt",
+        "packages/opencode/src/session/system.ts",
+        "packages/opencode/src/soul/body.ts",
+        "packages/opencode/src/soul/curate.ts",
+        "packages/opencode/src/soul/index.ts",
+        "packages/opencode/src/soul/memory.ts",
+        "packages/opencode/src/soul/schema.ts",
+        "packages/opencode/src/soul/service.ts",
+        "packages/opencode/src/soul/store.ts",
+        "packages/opencode/src/soul/sweep.ts",
+        "packages/opencode/src/soul/temperament.ts",
+        "packages/opencode/test/session/system.test.ts",
+        "packages/opencode/test/soul/core.test.ts",
+        "packages/opencode/test/soul/service.test.ts",
+        "packages/tui/src/app.tsx",
+        "packages/tui/src/component/dialog-model.tsx",
+        "packages/tui/src/component/dialog-session-list.tsx",
+        "packages/tui/src/i18n/index.tsx",
+        "packages/tui/src/i18n/locales/en.ts",
+        "packages/tui/src/i18n/locales/zh-CN.ts",
+        "packages/tui/src/i18n/types.ts",
+        "packages/tui/src/ui/dialog-alert.tsx",
+        "packages/tui/src/ui/dialog-confirm.tsx"
+      ]
+    },
     {
       "file": "001-filesystem-search-import-cycle.patch",
       "sha256": "f9a8b233c08e5db0d46acd9edc834068bc4aae48b96f0a2419fa47b103462662",
+      "bytes": 5291,
       "files": [
         "packages/core/src/filesystem/search.ts",
         "packages/core/test/filesystem-search-import.test.ts"
@@ -19,11 +217,352 @@
     {
       "file": "002-portable-workspace-paths.patch",
       "sha256": "b9118f91ad6932b0eadc594850aed1685fa3af4fd8f3a888a5d8622b76eb6338",
+      "bytes": 7002,
       "files": [
         "packages/core/src/fs-util.ts",
         "packages/core/src/git.ts",
         "packages/core/test/portable-path.test.ts"
       ]
+    },
+    {
+      "file": "003-legacy-runtime-and-upgrade-guards.patch",
+      "sha256": "e1ac69ac70eedd3a7d722db830f598527b9483a99c5cd189243d27a2c82a582b",
+      "bytes": 30451,
+      "files": [
+        "packages/opencode/src/cli/cmd/upgrade.ts",
+        "packages/opencode/src/cli/upgrade.ts",
+        "packages/opencode/src/installation/index.ts",
+        "packages/opencode/src/soul/memory.ts",
+        "packages/opencode/src/soul/service.ts",
+        "packages/opencode/src/soul/store.ts",
+        "packages/opencode/test/session/prompt.test.ts",
+        "packages/tui/src/i18n/locales/en.ts",
+        "packages/tui/src/i18n/locales/zh-CN.ts",
+        "packages/tui/src/routes/home.tsx",
+        "packages/opencode/test/soul/runtime.test.ts"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "bun.lock",
+      "bytes": 1117822,
+      "sha256": "1f34d506fd6dc250b74cfeb59af43647dee0b31cd0dc7cf58339f4a2caa2e9fe",
+      "gitBlob": "1e00ba54177b5fabf8e14a5700b58723d3e90d9a"
+    },
+    {
+      "path": "packages/core/src/filesystem/search.ts",
+      "bytes": 9213,
+      "sha256": "111f97414b048dd3f43905ca1d6dda43f7a9b785fb1d730edfea84caa3fa96e2",
+      "gitBlob": "03ca875e5ba77ccee30391fcac886563516eb5ed"
+    },
+    {
+      "path": "packages/core/src/fs-util.ts",
+      "bytes": 11374,
+      "sha256": "d17ff97f96e11aff2d8c0b0a831585ceb771c342c8b0d99ad2a5ef14782abe8b",
+      "gitBlob": "7510394314c24a45cfd6624d47df13f4cc0d7e7a"
+    },
+    {
+      "path": "packages/core/src/git.ts",
+      "bytes": 35755,
+      "sha256": "090414b949129300bd755383c71e72b675b14db5aa9b7a2330d6f686bca8d572",
+      "gitBlob": "c2d04517684ad1a6b51ddf7a8fe8abd5a6adc975"
+    },
+    {
+      "path": "packages/core/src/v1/config/config.ts",
+      "bytes": 10554,
+      "sha256": "75d4f9a4ef362aa4c08e7f954368acedbad659c1b3eb796eb7d711b35d724837",
+      "gitBlob": "e7d1d221d64fb0d64fdb9f39268acf4eae99d42f"
+    },
+    {
+      "path": "packages/core/test/filesystem-search-import.test.ts",
+      "bytes": 1627,
+      "sha256": "35b4752e969e58ba8a24bb63e441c0538f9677fd121b018c7890c863c39e28ba",
+      "gitBlob": "e078e86db8491b8c9713f8810f989d3a49125fd2"
+    },
+    {
+      "path": "packages/core/test/portable-path.test.ts",
+      "bytes": 4319,
+      "sha256": "78026eba47ec3e943bfa9c57a31d2573fcbc18adfeef02493474857187c0f72f",
+      "gitBlob": "a0fc4c556840d4cac94c6e11e6a12a2bc396fc15"
+    },
+    {
+      "path": "packages/opencode/src/agent/agent.ts",
+      "bytes": 17184,
+      "sha256": "a0dbce197c3f18acdf8af791edadc57b16eab36921db6562dbb6185ac56f2d1e",
+      "gitBlob": "6a314e92826a2a24abbaac5a93afc0bc306ea3db"
+    },
+    {
+      "path": "packages/opencode/src/agent/generate.txt",
+      "bytes": 4686,
+      "sha256": "09e173f61e437417f0035799f8db7a2fdc73bb143e6a82cded0da0a46032b4c2",
+      "gitBlob": "e2997963e9044d39141ebfc00262605cc00a3eab"
+    },
+    {
+      "path": "packages/opencode/src/agent/prompt/compaction.txt",
+      "bytes": 694,
+      "sha256": "40461a93536c5c7d7a04755f4e9c89b2e38bbf28576435efb6e938af91f7f3a5",
+      "gitBlob": "dbbc22caef7cc088f95f4788a6b7cca21144639b"
+    },
+    {
+      "path": "packages/opencode/src/agent/prompt/curate.txt",
+      "bytes": 3432,
+      "sha256": "0762c70b20ed954852da74797c22f640b333a348bc62f40dd078aae6a719e11e",
+      "gitBlob": "2ac1a7f0effba3a51d8b54ad42b1804c02b35db0"
+    },
+    {
+      "path": "packages/opencode/src/agent/prompt/explore.txt",
+      "bytes": 941,
+      "sha256": "7ebefb9a9ecbeaf4c866b17d9797ac0827a34f37edf8f5aa6aad30ed061b4b08",
+      "gitBlob": "9c1b6784df93f05f591716f1755276163e7a1572"
+    },
+    {
+      "path": "packages/opencode/src/agent/prompt/summary.txt",
+      "bytes": 708,
+      "sha256": "555193f6393cb0ac758c242e8271ec8970f9689f8d9fc5fbf8f75b64658a93f2",
+      "gitBlob": "6c7b8874e4f20d90a128d84f308f34b39e023922"
+    },
+    {
+      "path": "packages/opencode/src/agent/prompt/title.txt",
+      "bytes": 2089,
+      "sha256": "b4cbf1e49d78bb779ce729836325a79dfc46f2c3687144740b5e60d2aacd4707",
+      "gitBlob": "a110e171b79f98118dc2aaffd3e4cce5913d596a"
+    },
+    {
+      "path": "packages/opencode/src/cli/cmd/upgrade.ts",
+      "bytes": 2805,
+      "sha256": "0700161e975bfa1e61bd286e201a9c7352a0282e1f5a2018b98b77f332a9dee6",
+      "gitBlob": "ccce405544c1315dccfe6be782d878d469e759fa"
+    },
+    {
+      "path": "packages/opencode/src/cli/upgrade.ts",
+      "bytes": 1629,
+      "sha256": "25c506707a55519527b6a02dcb2211f4a1a96baaa13bd89da1301c3e9157f21e",
+      "gitBlob": "cc0b39f49f5255c46c54fd91964d1d3cc4b26c1b"
+    },
+    {
+      "path": "packages/opencode/src/effect/app-runtime.ts",
+      "bytes": 4602,
+      "sha256": "c78fcdfcee3e712fe5048331988fa7b39687400022a5a186b27c1db301315157",
+      "gitBlob": "2ecc6c300de7f48c19b9ff5061b7dd57cf8cc51b"
+    },
+    {
+      "path": "packages/opencode/src/installation/index.ts",
+      "bytes": 14077,
+      "sha256": "bfca0df14b6967df0e7287ebdc4a1960eb28bead9ec3660b01f56601f15634b1",
+      "gitBlob": "0a9b532aef85ebacf24f75251882684e03385f74"
+    },
+    {
+      "path": "packages/opencode/src/session/prompt.ts",
+      "bytes": 65415,
+      "sha256": "d701691ec4c8d8e4031cf386fdb5d4bcb846bee18181a60f23369b7e26305e94",
+      "gitBlob": "596ae9697315d57c96f77989ee1928f0e55c00a6"
+    },
+    {
+      "path": "packages/opencode/src/session/prompt/beast.txt",
+      "deleted": true
+    },
+    {
+      "path": "packages/opencode/src/session/prompt/copilot-gpt-5.txt",
+      "deleted": true
+    },
+    {
+      "path": "packages/opencode/src/session/prompt/customize.ts",
+      "bytes": 2171,
+      "sha256": "838971a34e3f3510836c289cc03387726a93cdf59a80129984c62c06805d5791",
+      "gitBlob": "0e42ce8942a6239155df6d70d0c91dbfd91e93b1"
+    },
+    {
+      "path": "packages/opencode/src/session/prompt/meta.txt",
+      "deleted": true
+    },
+    {
+      "path": "packages/opencode/src/session/prompt/plan-reminder-anthropic.txt",
+      "deleted": true
+    },
+    {
+      "path": "packages/opencode/src/session/prompt/product/base.txt",
+      "bytes": 2972,
+      "sha256": "f0e1e064d73dab598b5ebb00c41354c145741746d34f2092fd549ba6137a031a",
+      "gitBlob": "d1a42d5f3cfb8dd3a2fd8d339bc13d761e33db33"
+    },
+    {
+      "path": "packages/opencode/src/session/prompt/product/gemini.txt",
+      "bytes": 404,
+      "sha256": "26dbcd86d8ebefe96f97b735b0ca80c11911e09b249451e742cd35cfbd5045a8",
+      "gitBlob": "dd74867304efe4dc50336829b96180d998e07f27"
+    },
+    {
+      "path": "packages/opencode/src/session/prompt/product/gpt.txt",
+      "bytes": 440,
+      "sha256": "f2f888ce108428464b443db0040f5067a5b4dfcafe5fe773ef6929988b647aa7",
+      "gitBlob": "6e7c51a02686096e9ce72eec8c09548a9418f9b7"
+    },
+    {
+      "path": "packages/opencode/src/session/prompt/product/kimi.txt",
+      "bytes": 303,
+      "sha256": "d3bdabe1a966b961c93aad9251118c3683f0a5fb80b75f2899cdae80627ab552",
+      "gitBlob": "5c392e1d898bd7385c5dbc1e5558a80b5da228bf"
+    },
+    {
+      "path": "packages/opencode/src/session/prompt/product/persona.txt",
+      "bytes": 2102,
+      "sha256": "c079b6cc34d7c69120b60e156f9d36c09e621d7398c6c402a0f3d95e6382f619",
+      "gitBlob": "1431381529f2ba9d7e1283010ab61f7489233d98"
+    },
+    {
+      "path": "packages/opencode/src/session/prompt/trinity.txt",
+      "deleted": true
+    },
+    {
+      "path": "packages/opencode/src/session/system.ts",
+      "bytes": 6019,
+      "sha256": "effdf079ebccc0e20993bb7e5dfa7f765c42cd071539f76ca22362be97bac374",
+      "gitBlob": "e2f2996caf215295397d1ecb1a9c7ce7e0e076d4"
+    },
+    {
+      "path": "packages/opencode/src/soul/body.ts",
+      "bytes": 1405,
+      "sha256": "d19dc365d91c7e39b9c4f42f76d501b2cd494c1b49773b482c0c7eb74d8a0174",
+      "gitBlob": "6b8934d8ea857da97054e93c68a1f194438c2438"
+    },
+    {
+      "path": "packages/opencode/src/soul/curate.ts",
+      "bytes": 1610,
+      "sha256": "ec70b5dd2cc34feca10bfcfa3fac513a52c80f04d3445d66296e6b35195ea521",
+      "gitBlob": "ee41f869cd12f55c8d176acaaef3c92937d0aca4"
+    },
+    {
+      "path": "packages/opencode/src/soul/index.ts",
+      "bytes": 275,
+      "sha256": "6eca06fbae10c765a6e45064da0bfa2941b7116ab61d3bab38d422fc1b91275f",
+      "gitBlob": "1d95097a6b387268cece93d06cc2b27f6768efd4"
+    },
+    {
+      "path": "packages/opencode/src/soul/memory.ts",
+      "bytes": 5301,
+      "sha256": "6fefaa68f148a6f2a5399cf24ae5ade5b95c7f0aeb240fe4f569549ece0c4825",
+      "gitBlob": "58d45f51015d1466485e87f9f0c58f08a1e7a936"
+    },
+    {
+      "path": "packages/opencode/src/soul/schema.ts",
+      "bytes": 2466,
+      "sha256": "6fd680b5c29a444fd3714aff73efe9fa5c6162c9d0b7e60b33e879830ac26842",
+      "gitBlob": "05d8d030fce3edfcccd8f12ea79f4ef45902cb83"
+    },
+    {
+      "path": "packages/opencode/src/soul/service.ts",
+      "bytes": 12638,
+      "sha256": "c5e06461a520d00ad156f336aea5b06739157cd84f483cc64c2a68f9b8c4c5ab",
+      "gitBlob": "99f1d52b953c74591a52fa539dfd0e6355160d59"
+    },
+    {
+      "path": "packages/opencode/src/soul/store.ts",
+      "bytes": 2484,
+      "sha256": "8f4f767fc08beca13452136b842b53dc2cf56c8b63ba85263e377b0fee7e1dad",
+      "gitBlob": "b1a3b295033f9cf2fb88392654afba30b2d6b621"
+    },
+    {
+      "path": "packages/opencode/src/soul/sweep.ts",
+      "bytes": 1705,
+      "sha256": "eb4ec67b36dba4071b7e2ecca7720482db8389c98d8f898b51026227ad0cb652",
+      "gitBlob": "7237ad7f7aa7717144f3c17ca50e95183bff7617"
+    },
+    {
+      "path": "packages/opencode/src/soul/temperament.ts",
+      "bytes": 1571,
+      "sha256": "fc5eec108ce22c0d8cfd61761c32144f53ef71823b61d8862394da94dfbeaec6",
+      "gitBlob": "f25269a03505e3eec80d7b80d7a55a28551d057f"
+    },
+    {
+      "path": "packages/opencode/test/session/prompt.test.ts",
+      "bytes": 83114,
+      "sha256": "5f69a3d959ab6e2c632cb86c4a7f343d01980b2ba82be47457d06d843f2f5604",
+      "gitBlob": "105d345358a0fd4dc0f01ed29635637b3ea9bb08"
+    },
+    {
+      "path": "packages/opencode/test/session/system.test.ts",
+      "bytes": 7264,
+      "sha256": "0d3701c6b922a7625e8cd1df681bc9c80091e54e7bcedf111ae8f4481ed38759",
+      "gitBlob": "7e4954a1573aa207cd39d0ecee21fecebc1bd635"
+    },
+    {
+      "path": "packages/opencode/test/soul/core.test.ts",
+      "bytes": 5012,
+      "sha256": "0d11065f9f0f6e10275fb588ace09a466b0e0f2fdc2f4a0df8949544258d82e2",
+      "gitBlob": "3caa9bb34899e318919fafc12291e4bbea52a2ae"
+    },
+    {
+      "path": "packages/opencode/test/soul/runtime.test.ts",
+      "bytes": 12089,
+      "sha256": "6501da119b8db2f1ca2ff5c461046545b0c565de9552aeb79c2d27a70494be1f",
+      "gitBlob": "8c5bf211bf8e46369510be1a19ab88e9af9cdf95"
+    },
+    {
+      "path": "packages/opencode/test/soul/service.test.ts",
+      "bytes": 4962,
+      "sha256": "ec175586b7b743319ee01183642e2a0fdcd22cb0102508df67de2224412ecce3",
+      "gitBlob": "6fc5f861d6c58b624802061477f9f8e668534953"
+    },
+    {
+      "path": "packages/tui/src/app.tsx",
+      "bytes": 37885,
+      "sha256": "232eba3c0ca1e78a2cba263544ad67988cdb280522c8d7b59c45a91cf84b306e",
+      "gitBlob": "dbea0107328c8f7d2c817193a0c1ec19febb9bc3"
+    },
+    {
+      "path": "packages/tui/src/component/dialog-model.tsx",
+      "bytes": 6817,
+      "sha256": "2219ec5875a4d77a2dce3bb0b2779e760d27a73df17998aff35aae6c1d2a3f4e",
+      "gitBlob": "c585b6e7c31c94c0fef6710d85c10b3fef3bbf18"
+    },
+    {
+      "path": "packages/tui/src/component/dialog-session-list.tsx",
+      "bytes": 12753,
+      "sha256": "73a8d0f6c195619ee11adfc215a5b81af3d0a5e6a87924e0e96c4e805d10d39c",
+      "gitBlob": "5d6fc5f579bfefd72740341feb99cd5b187d4f9c"
+    },
+    {
+      "path": "packages/tui/src/i18n/index.tsx",
+      "bytes": 1941,
+      "sha256": "cdef25e368d60ac7fb43e894d0f9b1445c050a442ce233fb4442c56392d8f3ec",
+      "gitBlob": "f208f31270567ae8855f47047d73b4164ca5a0e3"
+    },
+    {
+      "path": "packages/tui/src/i18n/locales/en.ts",
+      "bytes": 1527,
+      "sha256": "4de0bb742bf08249d919c57a74007165eb22430907e531b2ce41cdba0ca33e30",
+      "gitBlob": "b67cdac98cb91449d7f1e24b95817e96d0b23492"
+    },
+    {
+      "path": "packages/tui/src/i18n/locales/zh-CN.ts",
+      "bytes": 1578,
+      "sha256": "2ce383e51d15efbdcc015428f4910fc2ab79c1299551652decc1a9031b252248",
+      "gitBlob": "57b5922ef95e671b58410bf2e6dae3bb1dc24ba8"
+    },
+    {
+      "path": "packages/tui/src/i18n/types.ts",
+      "bytes": 631,
+      "sha256": "996e185072c4c2b7b4f188c3dedff72bd9997441b8057a781469da61296664c5",
+      "gitBlob": "3ec1aff0ebdbb467660fa07b9a0027cf93418a93"
+    },
+    {
+      "path": "packages/tui/src/routes/home.tsx",
+      "bytes": 3513,
+      "sha256": "f32377ec9ef8e9ca1f2788709e1107d2dbac47ff5884652a5d9c82355dc86862",
+      "gitBlob": "76b2cd0c30ed1c3cc05a125a65f37c8a78f6cf97"
+    },
+    {
+      "path": "packages/tui/src/ui/dialog-alert.tsx",
+      "bytes": 1821,
+      "sha256": "327abd9eb87c7adaddb6d83968e937983c02b3b5b999a3dac0335176fa120d6f",
+      "gitBlob": "3e8bb4a58c6212e3c1e13a3f0c884e392af49f2a"
+    },
+    {
+      "path": "packages/tui/src/ui/dialog-confirm.tsx",
+      "bytes": 3194,
+      "sha256": "7d40e6d4b1ebb85f001db3043a7757e4e759b956e50372b12bff3bf2817a3df4",
+      "gitBlob": "83eebdf631d4b232c212e2d9e0ce2ab445fb550f"
     }
   ]
 }
