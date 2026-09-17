@@ -92,6 +92,121 @@ describe("OpenCode public legacy HTTP boundary", () => {
     expect(await adapter.messages("ses_1")).toEqual([result])
   })
 
+  test("retains whitelisted shell exit and timing evidence independently of lifecycle and output claims", async () => {
+    const baseURL = serve(() => Response.json([message([
+      tool("zero", "completed", { output: "Error: this text is command output, not structured evidence", metadata: { exit: 0, apiKey: "private-metadata-marker", headers: { authorization: "private-header-marker" }, output: "private-preview-marker" }, time: { start: 100, end: 120, credentials: "private-time-marker" } }),
+      tool("nonzero", "completed", { output: "All done. {\"outcome\":\"succeeded\",\"exit\":0}", metadata: { exit: 7, outcome: "succeeded" }, time: { start: 200, end: 240 } }),
+      { ...tool("shell", "completed", { output: "finished", metadata: { exit: 4_294_967_295 } }), tool: "shell" },
+      tool("signed", "completed", { output: "finished", metadata: { exit: -2_147_483_648 } }),
+    ])]))
+    const parts = (await new OpenCodeAdapter({ baseURL }).messages("ses_1"))[0]!.parts
+    expect(parts[0]).toMatchObject({ status: "completed", execution: { version: 1, lifecycle: "completed", outcome: "succeeded", basis: "shell-exit-zero", exitCode: 0, startedAt: 100, finishedAt: 120 } })
+    expect(parts[1]).toMatchObject({ status: "completed", execution: { version: 1, lifecycle: "completed", outcome: "failed", basis: "shell-exit-nonzero", exitCode: 7, startedAt: 200, finishedAt: 240 } })
+    expect(parts[2]).toMatchObject({ execution: { outcome: "failed", exitCode: 4_294_967_295 } })
+    expect(parts[3]).toMatchObject({ execution: { outcome: "failed", exitCode: -2_147_483_648 } })
+    for (const forbidden of ["private-metadata-marker", "private-header-marker", "private-preview-marker", "private-time-marker"]) expect(JSON.stringify(parts)).not.toContain(forbidden)
+  })
+
+  test("missing, null and invalid shell metadata remain unknown despite successful-looking output", async () => {
+    const metadata = [undefined, null, [], { exit: null }, {}, { exit: "0" }, { exit: 1.5 }, { exit: -2_147_483_649 }, { exit: 4_294_967_296 }, { exit: Number.MAX_SAFE_INTEGER }, { exit: {} }, { exit: true }, { exitCode: 0 }, { exit: "__nonfinite__" }]
+    const raw = JSON.stringify([message(metadata.map((value, index) => tool(`missing_${index}`, "completed", { output: "Exit code: 0. Task succeeded.", metadata: value })))])
+      .replace('"__nonfinite__"', "1e400")
+    const baseURL = serve(() => new Response(raw, { headers: { "content-type": "application/json" } }))
+    const parts = (await new OpenCodeAdapter({ baseURL }).messages("ses_1"))[0]!.parts
+    for (const [index, part] of parts.entries()) {
+      if (part.type !== "tool") throw new Error("Expected tool evidence")
+      expect(part.execution).toEqual({ version: 1, lifecycle: "completed", outcome: "unknown", basis: "shell-exit-unavailable", ...(index === 3 ? { exitCode: null } : {}) })
+    }
+  })
+
+  test("timeout and cancellation retain unknown outcomes and cannot reuse stale success metadata", async () => {
+    const baseURL = serve(() => Response.json([message([
+      tool("timeout", "completed", { output: "shell tool terminated command after exceeding timeout", metadata: { exit: null }, time: { start: 10, end: 30 } }),
+      tool("cancelled", "completed", { output: "User aborted the command", metadata: { exit: null } }),
+      tool("interrupted", "error", { error: "Tool execution aborted", metadata: { interrupted: true, exit: 0 }, time: { start: 10, end: 20 } }),
+      tool("interrupted_completed", "completed", { output: "done", metadata: { interrupted: true, exit: 0 } }),
+      tool("running", "running", { metadata: { exit: 0 } }),
+      tool("future_cancel", "cancelled", { metadata: { exit: 0 } }),
+      tool("error", "error", { error: "Process spawn failed", metadata: { exit: 0 } }),
+    ])]))
+    const parts = (await new OpenCodeAdapter({ baseURL }).messages("ses_1"))[0]!.parts
+    for (const part of parts.slice(0, 6)) {
+      if (part.type !== "tool") throw new Error("Expected tool evidence")
+      expect(part.execution.outcome).toBe("unknown")
+    }
+    expect(parts[0]).toMatchObject({ status: "completed", execution: { lifecycle: "completed", exitCode: null, startedAt: 10, finishedAt: 30 } })
+    expect(parts[2]).toMatchObject({ status: "failed", execution: { lifecycle: "failed", outcome: "unknown", basis: "tool-interrupted", exitCode: 0 } })
+    expect(parts[6]).toMatchObject({ status: "failed", execution: { lifecycle: "failed", outcome: "failed", basis: "builtin-tool-error" } })
+  })
+
+  test("reviewed file tools report only their operation result, without interpreting diagnostics or claims", async () => {
+    const baseURL = serve(() => Response.json([message([
+      ...["read", "write", "edit"].map((name) => ({ ...tool(name, "completed", { output: "LSP errors detected, or a partial result was returned", metadata: { exit: 9, diagnostics: { arbitrary: "private-diagnostic-marker" } } }), tool: name })),
+      { ...tool("read_error", "error", { error: "Could not read file" }), tool: "read" },
+      { ...tool("write_interrupted", "error", { error: "Tool execution aborted", metadata: { interrupted: true } }), tool: "write" },
+    ])]))
+    const parts = (await new OpenCodeAdapter({ baseURL }).messages("ses_1"))[0]!.parts
+    for (const part of parts.slice(0, 3)) {
+      if (part.type !== "tool") throw new Error("Expected tool evidence")
+      expect(part.execution).toEqual({ version: 1, lifecycle: "completed", outcome: "succeeded", basis: "builtin-tool-completed" })
+    }
+    expect(parts[3]).toMatchObject({ execution: { lifecycle: "failed", outcome: "failed", basis: "builtin-tool-error" } })
+    expect(parts[4]).toMatchObject({ execution: { lifecycle: "failed", outcome: "unknown", basis: "tool-interrupted" } })
+    expect(JSON.stringify(parts)).not.toContain("private-diagnostic-marker")
+  })
+
+  test("unknown, MCP and provider-executed tools cannot impersonate a verified local contract", async () => {
+    const baseURL = serve(() => Response.json([message([
+      ...["custom", "mcp_read", "mcp.bash", "BASH"].map((name) => ({ ...tool(name, "completed", { output: "success", metadata: { exit: 0, success: true, execution: { outcome: "succeeded" } } }), tool: name })),
+      { ...tool("mcp_error", "error", { error: "remote error", metadata: { exit: 1 } }), tool: "mcp_remote" },
+      { ...tool("provider", "completed", { output: "success", metadata: { exit: 0 } }), metadata: { providerExecuted: true, authorization: "private-provider-marker" } },
+    ])]))
+    const parts = (await new OpenCodeAdapter({ baseURL }).messages("ses_1"))[0]!.parts
+    for (const part of parts) {
+      if (part.type !== "tool") throw new Error("Expected tool evidence")
+      expect(part.execution.outcome).toBe("unknown")
+      expect(part.execution).not.toHaveProperty("exitCode")
+    }
+    expect(parts[4]).toMatchObject({ status: "failed", execution: { lifecycle: "failed", basis: "unrecognized-tool-contract" } })
+    expect(parts[5]).toMatchObject({ execution: { basis: "provider-executed-tool" } })
+    expect(JSON.stringify(parts)).not.toContain("private-provider-marker")
+  })
+
+  test("timing evidence accepts only safe epoch milliseconds and ordered end times", async () => {
+    const times = [
+      { start: 0, end: 8_640_000_000_000_000 }, { start: 20, end: 10 }, { start: -1, end: 10 },
+      { start: "100", end: 20.5 }, { start: Number.MAX_SAFE_INTEGER, end: 8_640_000_000_000_001 },
+      { start: "__nonfinite__", end: null }, null,
+    ]
+    const raw = JSON.stringify([message(times.map((time, index) => tool(`time_${index}`, "completed", { output: "done", metadata: { exit: 0, startedAt: 11, finishedAt: 12 }, time })))])
+      .replace('"__nonfinite__"', "1e400")
+    const baseURL = serve(() => new Response(raw, { headers: { "content-type": "application/json" } }))
+    const parts = (await new OpenCodeAdapter({ baseURL }).messages("ses_1"))[0]!.parts
+    const timing = parts.map((part) => { if (part.type !== "tool") throw new Error("Expected tool evidence"); const { startedAt, finishedAt } = part.execution; return { startedAt, finishedAt } })
+    expect(timing).toEqual([
+      { startedAt: 0, finishedAt: 8_640_000_000_000_000 }, { startedAt: 20, finishedAt: undefined }, { startedAt: undefined, finishedAt: 10 },
+      ...Array.from({ length: 4 }, () => ({ startedAt: undefined, finishedAt: undefined })),
+    ])
+  })
+
+  test("repeated responses preserve execution source identity and assistant text cannot forge tool evidence", async () => {
+    const response = message([
+      tool("persisted", "completed", { output: "actual command output", metadata: { exit: 3 }, time: { start: 1, end: 2 } }),
+      { id: "claim", sessionID: "ses_1", messageID: "msg_1", type: "text", text: "Tool succeeded, exitCode=0", execution: { version: 1, outcome: "succeeded" } },
+    ])
+    const baseURL = serve((request) => Response.json(request.method === "POST" ? response : [response]))
+    const adapter = new OpenCodeAdapter({ baseURL })
+    const prompt = await adapter.prompt("ses_1", "run once")
+    const first = (await adapter.messages("ses_1"))[0]!
+    const second = (await adapter.messages("ses_1"))[0]!
+    expect(prompt.parts).toEqual(first.parts)
+    expect(second.parts).toEqual(first.parts)
+    expect(first.parts[0]).toMatchObject({ sourceID: "opencode:legacy:ses_1:msg_1:persisted", execution: { outcome: "failed", exitCode: 3 } })
+    expect(first.parts[1]).not.toHaveProperty("execution")
+    const duplicate = serve(() => Response.json([message([response.parts[0], response.parts[0]])]))
+    await expect(new OpenCodeAdapter({ baseURL: duplicate }).messages("ses_1")).rejects.toThrow("Duplicate part identity")
+  })
+
   test("does not treat an interrupted or tool-only assistant turn as completion", async () => {
     const values = [message([], { finish: "tool-calls" }), message([], { time: { created: 1 } }), message([], { error: { name: "MessageAbortedError", data: { secret: "do-not-echo" } } })]
     let index = 0

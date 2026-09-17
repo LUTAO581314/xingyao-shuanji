@@ -6,10 +6,11 @@ import { hostname, tmpdir } from "node:os"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { acquireHostLock, createCheckpoint, listCheckpoints, restoreCheckpoint } from "../src/checkpoint"
+import { SCHEMA_VERSION } from "../src/contracts"
 
 const roots: string[] = []
 const databases: Database[] = []
-function fixture() {
+function fixture(schemaVersion = SCHEMA_VERSION) {
   const root = mkdtempSync(join(tmpdir(), "xingyao-checkpoint-test-"))
   roots.push(root)
   const host = join(root, "宿主 space")
@@ -17,7 +18,7 @@ function fixture() {
   mkdirSync(host)
   const db = new Database(join(host, "active.sqlite"))
   databases.push(db)
-  db.exec("PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0; PRAGMA user_version=1; CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT); CREATE TABLE evidence(id INTEGER PRIMARY KEY,text TEXT)")
+  db.exec(`PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0; PRAGMA user_version=${schemaVersion}; CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT); CREATE TABLE evidence(id INTEGER PRIMARY KEY,text TEXT)`)
   db.query("INSERT INTO meta VALUES (?,?)").run("identity_id", "test-identity")
   db.query("INSERT INTO meta VALUES (?,?)").run("revision", "1")
   db.query("INSERT INTO meta VALUES (?,?)").run("checkpoint_generation", "")
@@ -82,6 +83,60 @@ describe("host single writer", () => {
 })
 
 describe("portable SQLite checkpoints", () => {
+  test("schema 1 ancestors and schema 2 descendants restore without migrating or changing historical snapshots", async () => {
+    const { root, vault, db } = fixture(1)
+    const first = await createCheckpoint(db, vault, "test-identity", 1, null)
+    const original = readFileSync(join(vault, "checkpoints", first.generation, "state.sqlite"))
+    const originalManifest = readFileSync(join(vault, "checkpoints", first.generation, "complete.json"))
+    db.exec(`PRAGMA user_version=${SCHEMA_VERSION}`)
+    db.query("UPDATE meta SET value=? WHERE key='checkpoint_generation'").run(first.generation)
+    db.query("UPDATE meta SET value='2' WHERE key='revision'").run()
+    const second = await createCheckpoint(db, vault, "test-identity", 2, first.generation)
+    expect(first.schemaVersion).toBe(1)
+    expect(second.schemaVersion).toBe(SCHEMA_VERSION)
+    expect(second.parent).toBe(first.generation)
+    expect(await listCheckpoints(vault)).toHaveLength(2)
+    for (const checkpoint of [first, second]) {
+      const target = join(root, `restore-${checkpoint.schemaVersion}.sqlite`)
+      expect(await restoreCheckpoint(vault, checkpoint.generation, target)).toEqual(checkpoint)
+      const restored = new Database(target, { readonly: true }); databases.push(restored)
+      expect(restored.query("PRAGMA user_version").get()).toEqual({ user_version: checkpoint.schemaVersion })
+      expect(restored.query("SELECT value FROM meta WHERE key='revision'").get()).toEqual({ value: String(checkpoint.revision) })
+    }
+    expect(readFileSync(join(vault, "checkpoints", first.generation, "state.sqlite"))).toEqual(original)
+    expect(readFileSync(join(vault, "checkpoints", first.generation, "complete.json"))).toEqual(originalManifest)
+    db.exec("PRAGMA user_version=1")
+    db.query("UPDATE meta SET value=? WHERE key='checkpoint_generation'").run(second.generation)
+    await expect(createCheckpoint(db, vault, "test-identity", 2, second.generation)).rejects.toThrow("schema cannot move backwards")
+    expect(await listCheckpoints(vault)).toHaveLength(2)
+  })
+  test("unsupported schemas cannot be created or restored, including a future database with a matching hash", async () => {
+    const { root, vault, db } = fixture(SCHEMA_VERSION + 1)
+    await expect(createCheckpoint(db, vault, "test-identity", 1, null)).rejects.toThrow("Unsupported checkpoint schema")
+    db.exec("PRAGMA user_version=0")
+    await expect(createCheckpoint(db, vault, "test-identity", 1, null)).rejects.toThrow("Unsupported checkpoint schema")
+    db.exec(`PRAGMA user_version=${SCHEMA_VERSION}`)
+    const good = await createCheckpoint(db, vault, "test-identity", 1, null)
+    const directory = join(vault, "checkpoints", good.generation), database = join(directory, "state.sqlite"), manifestPath = join(directory, "complete.json")
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"))
+    const changed = new Database(database)
+    changed.exec(`PRAGMA user_version=${SCHEMA_VERSION + 1}`); changed.close()
+    manifest.sha256 = createHash("sha256").update(readFileSync(database)).digest("hex")
+    writeFileSync(manifestPath, JSON.stringify(manifest))
+    await expect(listCheckpoints(vault)).rejects.toThrow("Unsupported checkpoint schema")
+    await expect(restoreCheckpoint(vault, good.generation, join(root, "future.sqlite"))).rejects.toThrow("Unsupported checkpoint schema")
+    manifest.schemaVersion = SCHEMA_VERSION + 1
+    writeFileSync(manifestPath, JSON.stringify(manifest))
+    await expect(restoreCheckpoint(vault, good.generation, join(root, "future-manifest.sqlite"))).rejects.toThrow("Unsupported checkpoint schema")
+    await expect(listCheckpoints(vault)).rejects.toThrow("Unsupported checkpoint schema")
+    await expect(createCheckpoint(db, vault, "test-identity", 1, null)).rejects.toThrow("Unsupported checkpoint schema")
+    manifest.format = 2
+    writeFileSync(manifestPath, JSON.stringify(manifest))
+    await expect(listCheckpoints(vault)).rejects.toThrow("Unsupported checkpoint completion format")
+    await expect(createCheckpoint(db, vault, "test-identity", 1, null)).rejects.toThrow("Unsupported checkpoint completion format")
+    expect(existsSync(join(root, "future.sqlite"))).toBe(false)
+    expect(existsSync(join(root, "future-manifest.sqlite"))).toBe(false)
+  })
   test("captures committed WAL, restores identity and parent tracking, and preserves old generations", async () => {
     const { root, vault, db } = fixture()
     const first = await createCheckpoint(db, vault, "test-identity", 1, null)

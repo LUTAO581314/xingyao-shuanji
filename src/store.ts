@@ -3,13 +3,46 @@ import { mkdirSync } from "node:fs"
 import { dirname } from "node:path"
 import { affectDescription, applyExperience, initialAffect, memoryActivation, propagateAffect } from "./affect"
 import { SCHEMA_VERSION } from "./contracts"
-import type { Action, Affect, ChatMessage, Experience, ExperienceInput, Memory, MemoryKind, SleepReport, Task, TaskStatus } from "./contracts"
+import type { Action, ActionExecution, Affect, ChatMessage, Experience, ExperienceInput, Memory, MemoryKind, SleepReport, Task, TaskStatus } from "./contracts"
 
 type JsonRow = { body: string }
 type MetaRow = { value: string }
 
 export class ConflictError extends Error {}
 export class SealedError extends Error {}
+export class ProjectionCoverageError extends Error {
+  readonly code = "MEMORY_CONSTRAINT_OVERFLOW"
+  constructor(readonly memoryIds: string[], readonly requiredCharacters: number, readonly limit: number) {
+    super(`固定记忆超出上下文预算（需要 ${requiredCharacters} 字符，预算 ${limit} 字符）；请先精简或取消固定相关记忆，本轮尚未提交模型。涉及记忆：${memoryIds.join(", ")}`)
+    this.name = "ProjectionCoverageError"
+  }
+}
+
+/** Runtime domain contract, independent of upstream response layout. Unknown
+ * fields are discarded; free-form prose never determines an outcome. */
+function checkedExecution(tool: string, value: unknown): ActionExecution {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new ConflictError("工具执行证据格式无效")
+  const input = value as Record<string, unknown>
+  const lifecycle = input.lifecycle as ActionExecution["lifecycle"]
+  const outcome = input.outcome as ActionExecution["outcome"]
+  if (input.version !== 1 || !["completed", "failed", "unknown"].includes(lifecycle)
+    || !["succeeded", "failed", "unknown"].includes(outcome)
+    || typeof input.basis !== "string" || !input.basis.trim() || input.basis.length > 200 || input.basis.includes("\0")) throw new ConflictError("工具执行证据格式无效")
+  const timestamp = (time: unknown) => typeof time === "number" && Number.isSafeInteger(time) && time >= 0 && time <= 8_640_000_000_000_000
+  for (const field of ["startedAt", "finishedAt"] as const) if (input[field] !== undefined && !timestamp(input[field])) throw new ConflictError("工具执行证据时间无效")
+  if (typeof input.startedAt === "number" && typeof input.finishedAt === "number" && input.finishedAt < input.startedAt) throw new ConflictError("工具执行证据时间顺序无效")
+  const exit = input.exitCode
+  if (exit !== undefined && exit !== null && !(typeof exit === "number" && Number.isSafeInteger(exit) && exit >= -2_147_483_648 && exit <= 4_294_967_295)) throw new ConflictError("工具执行证据退出码无效")
+  if (lifecycle === "unknown" && outcome !== "unknown" || outcome === "succeeded" && lifecycle !== "completed") throw new ConflictError("工具执行证据生命周期与结果矛盾")
+  const shell = tool === "shell" || tool === "bash"
+  const known = shell || ["read", "write", "edit"].includes(tool)
+  if (!known && outcome !== "unknown") throw new ConflictError("工具契约未知，不能接受确定结果")
+  if (shell && lifecycle === "completed" && (outcome === "succeeded" && exit !== 0 || outcome === "failed" && (typeof exit !== "number" || exit === 0))) throw new ConflictError("工具执行证据退出码与结果矛盾")
+  return { version: 1, lifecycle, outcome, basis: input.basis,
+    ...(exit !== undefined ? { exitCode: exit as number | null } : {}),
+    ...(input.startedAt !== undefined ? { startedAt: input.startedAt as number } : {}),
+    ...(input.finishedAt !== undefined ? { finishedAt: input.finishedAt as number } : {}) }
+}
 
 export class SoulStore {
   readonly db: Database
@@ -32,6 +65,7 @@ export class SoulStore {
         CREATE TABLE IF NOT EXISTS memory_sources(memory_id TEXT NOT NULL REFERENCES memories(id), source_id INTEGER NOT NULL REFERENCES experiences(id), PRIMARY KEY(memory_id,source_id));
         CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY, body TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS actions(id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), body TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS action_revisions(action_id TEXT NOT NULL, revision TEXT NOT NULL, observed_at INTEGER NOT NULL, PRIMARY KEY(action_id,revision));
         CREATE TABLE IF NOT EXISTS chats(id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), body TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS sleep_reports(id TEXT PRIMARY KEY, body TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS requests(key TEXT PRIMARY KEY, digest TEXT NOT NULL, body TEXT NOT NULL);
@@ -45,7 +79,99 @@ export class SoulStore {
       this.defaultMeta("sleep_cursor", "0")
       this.defaultMeta("sealed", "false")
       this.defaultMeta("checkpoint_generation", "")
+      this.upgradeSourceEvidence()
+      if (version > 0 && version < SCHEMA_VERSION) this.changed("schema_upgrade", this.identityId)
     })()
+  }
+
+  /** Conservative, transactional upgrade. Historical text is retained; withdrawn
+   * evidence is never resurrected, and missing outcome metadata is not success. */
+  private upgradeSourceEvidence() {
+    const reviseSources = this.meta("source_revision_version") !== "1"
+    const verifyOutcomes = this.meta("action_evidence_version") !== "1"
+    const validateEvidence = this.meta("action_evidence_validation_version") !== "1"
+    const preserveRootPolicy = this.meta("root_learning_policy_version") !== "1"
+    if (!reviseSources && !verifyOutcomes && !validateEvidence && !preserveRootPolicy) return
+    const events = this.db.query<JsonRow, []>("SELECT body FROM experiences ORDER BY id").all().map(row => JSON.parse(row.body) as Experience)
+    const actions = this.db.query<JsonRow, []>("SELECT body FROM actions").all().map(row => JSON.parse(row.body) as Action)
+    const sourcesByAction = new Map<string, Experience[]>()
+    for (const event of events) {
+      const id = event.evidence?.actionId
+      if (typeof id !== "string" || !event.sourceKey.startsWith(`action:${id}:`)) continue
+      const sources = sourcesByAction.get(id) ?? []
+      sources.push(event)
+      sourcesByAction.set(id, sources)
+    }
+    let modified = false
+    const retired: number[] = []
+    for (const action of actions) {
+      const sources = sourcesByAction.get(action.id) ?? []
+      const times = sources.map(source => source.observedAt).filter(Number.isFinite)
+      const rootTime = times.length ? Math.min(...times) : Number.isFinite(action.updatedAt) ? action.updatedAt : this.clock()
+      this.db.query("INSERT OR IGNORE INTO action_revisions(action_id,revision,observed_at) VALUES(?,?,?)").run(action.id, action.revision, rootTime)
+      let validExecution: ActionExecution | undefined
+      if (action.execution !== undefined) { try { validExecution = checkedExecution(action.tool, action.execution) } catch {} }
+      const invalidExecution = action.execution !== undefined && (!validExecution || action.status !== validExecution.outcome)
+      const unverified = verifyOutcomes && action.execution?.version !== 1 || (verifyOutcomes || validateEvidence) && invalidExecution
+      for (const source of sources) {
+        const revision = source.sourceKey.slice(`action:${action.id}:`.length)
+        this.db.query("INSERT OR IGNORE INTO action_revisions(action_id,revision,observed_at) VALUES(?,?,?)").run(action.id, revision, rootTime)
+        if (source.observedAt !== rootTime || source.evidence?.actionRevision !== revision) {
+          source.observedAt = rootTime
+          source.evidence = { ...source.evidence, actionRevision: revision }
+          this.db.query("UPDATE experiences SET body=? WHERE id=?").run(JSON.stringify(source), source.id)
+          modified = true
+        }
+        if (!source.retracted && (unverified || revision !== action.revision)) retired.push(source.id)
+      }
+      if (unverified) {
+        const { execution: _, ...historical } = action
+        const next = { ...historical, status: "unknown" as const, revision: `legacy-unverified:${action.revision}`,
+          text: this.redacted("action", action.id) ? "[已按要求删除]" : `历史工具结果待重新核实（结构化证据缺失、无效或与结果不一致）；原记录：\n${action.text}` }
+        this.db.query("UPDATE actions SET body=? WHERE id=?").run(JSON.stringify(next), action.id)
+        this.db.query("INSERT OR IGNORE INTO action_revisions(action_id,revision,observed_at) VALUES(?,?,?)").run(action.id, next.revision, rootTime)
+        modified = true
+      }
+      if (preserveRootPolicy && sources.length) {
+        const policy = this.actionPolicy(action.id)
+        for (const source of sources) {
+          const current = this.db.query<{ affect_enabled: number; learning_enabled: number }, [number]>("SELECT affect_enabled,learning_enabled FROM experience_policy WHERE experience_id=?").get(source.id)
+          if (!current || current.affect_enabled === policy.affect && current.learning_enabled === policy.learning) continue
+          this.db.query("UPDATE experience_policy SET affect_enabled=?,learning_enabled=? WHERE experience_id=?").run(policy.affect, policy.learning, source.id)
+          if (!policy.learning && !source.retracted) retired.push(source.id)
+          modified = true
+        }
+      }
+    }
+    if (retired.length) { this.retireEvidence(retired); modified = true }
+    for (const row of this.db.query<JsonRow, []>("SELECT body FROM memories").all()) {
+      const memory = JSON.parse(row.body) as Memory
+      if (memory.sourceObservedAt !== undefined) continue
+      // Preserve the oldest available supporting event. Correction memories have
+      // their own new root, while summaries must not refresh old observations.
+      const times = memory.sourceIds.map(id => this.experience(id)?.observedAt).filter((time): time is number => typeof time === "number" && Number.isFinite(time))
+      this.db.query("UPDATE memories SET body=? WHERE id=?").run(JSON.stringify({ ...memory, sourceObservedAt: times.length ? Math.min(...times) : memory.createdAt }), memory.id)
+      modified = true
+    }
+    this.setMeta("source_revision_version", "1")
+    this.setMeta("action_evidence_version", "1")
+    this.setMeta("action_evidence_validation_version", "1")
+    this.setMeta("root_learning_policy_version", "1")
+    if (modified) { this.rebuildAffect(); this.changed("evidence_upgrade", this.identityId) }
+  }
+
+  /** Withdraw result versions without privacy erasure or backwards deletion of
+   * independent co-sources. Existing skill candidates detect withdrawn roots. */
+  private retireEvidence(sourceIds: number[]) {
+    if (!sourceIds.length) return
+    const roots = new Set(sourceIds)
+    for (const id of roots) {
+      const source = this.experience(id)
+      if (source && !source.retracted) this.db.query("UPDATE experiences SET body=? WHERE id=?").run(JSON.stringify({ ...source, retracted: true }), id)
+    }
+    for (const memory of this.memories({ history: true, private: true })) {
+      if (memory.status === "active" && memory.sourceIds.some(id => roots.has(id))) this.writeMemory({ ...memory, status: "invalidated", revision: memory.revision + 1, updatedAt: this.clock() })
+    }
   }
 
   meta(key: string): string { return this.db.query<MetaRow, [string]>("SELECT value FROM meta WHERE key=?").get(key)?.value ?? "" }
@@ -69,6 +195,13 @@ export class SoulStore {
     this.db.query("INSERT OR IGNORE INTO source_redactions(kind,source_id,created_at) VALUES(?,?,?)").run(kind, sourceId, this.clock())
   }
 
+  /** A revision is still the same root experience. Once any accepted snapshot
+   * was excluded while sealed, reconnecting cannot grant retrospective learning. */
+  private actionPolicy(actionId: string): { affect: number; learning: number } {
+    const row = this.db.query<{ count: number; affect: number | null; learning: number | null }, [string]>("SELECT COUNT(*) AS count, MIN(COALESCE(p.affect_enabled,0)) AS affect, MIN(COALESCE(p.learning_enabled,0)) AS learning FROM experiences e LEFT JOIN experience_policy p ON p.experience_id=e.id WHERE json_extract(e.body,'$.evidence.actionId')=?").get(actionId)!
+    return row.count ? { affect: row.affect === 1 ? 1 : 0, learning: row.learning === 1 ? 1 : 0 } : { affect: 1, learning: 1 }
+  }
+
   appendExperience(input: ExperienceInput): Experience {
     return this.db.transaction(() => {
       const previous = this.db.query<JsonRow, [string]>("SELECT body FROM experiences WHERE source_key=?").get(input.sourceKey)
@@ -79,14 +212,15 @@ export class SoulStore {
         return event
       }
       const now = this.clock()
+      const policy = typeof input.evidence?.actionId === "string" ? this.actionPolicy(input.evidence.actionId) : { affect: 1, learning: 1 }
       const row = this.db.query("INSERT INTO experiences(source_key,body) VALUES(?,?)").run(input.sourceKey, "{}")
       const suppressed = this.redacted("action", input.evidence?.actionId) || this.redacted("chat", input.evidence?.chatMessageId)
       const event: Experience = { ...input, id: Number(row.lastInsertRowid), observedAt: input.observedAt ?? now, recordedAt: now, retracted: suppressed,
         ...(suppressed ? { text: "", evidence: undefined } : {}) }
       this.db.query("UPDATE experiences SET body=? WHERE id=?").run(JSON.stringify(event), event.id)
-      const enabled = Number(!this.sealed && !suppressed)
-      this.db.query("INSERT INTO experience_policy(experience_id,affect_enabled,learning_enabled) VALUES(?,?,?)").run(event.id, enabled, enabled)
-      if (enabled) this.setMeta("affect", JSON.stringify(applyExperience(JSON.parse(this.meta("affect")), event, now)))
+      const allowed = Number(!this.sealed && !suppressed)
+      this.db.query("INSERT INTO experience_policy(experience_id,affect_enabled,learning_enabled) VALUES(?,?,?)").run(event.id, allowed * policy.affect, allowed * policy.learning)
+      if (allowed * policy.affect) this.setMeta("affect", JSON.stringify(applyExperience(JSON.parse(this.meta("affect")), event, now)))
       this.changed("experience", String(event.id))
       return event
     })()
@@ -129,7 +263,7 @@ export class SoulStore {
       const duplicate = this.memories({ history: true, private: true }).find(memory => memory.status === "active" && memory.text === input.text && memory.scope === input.scope && memory.kind === input.kind && memory.sourceIds.length === sources.length && sources.every(source => memory.sourceIds.includes(source!.id)))
       if (duplicate) return duplicate
       const now = this.clock()
-      const memory: Memory = { id: crypto.randomUUID(), revision: 1, text: input.text, scope: input.scope, kind: input.kind, sourceIds: sources.map(source => source!.id), status: "active", pinned: input.pinned ?? input.kind === "commitment", private: !!input.private, createdAt: now, updatedAt: now, supersedes: input.supersedes ?? null }
+      const memory: Memory = { id: crypto.randomUUID(), revision: 1, text: input.text, scope: input.scope, kind: input.kind, sourceIds: sources.map(source => source!.id), status: "active", pinned: input.pinned ?? input.kind === "commitment", private: !!input.private, createdAt: now, sourceObservedAt: Math.min(...sources.map(source => source!.observedAt)), updatedAt: now, supersedes: input.supersedes ?? null }
       this.db.query("INSERT INTO memories(id,body) VALUES(?,?)").run(memory.id, JSON.stringify(memory))
       for (const id of memory.sourceIds) this.db.query("INSERT INTO memory_sources(memory_id,source_id) VALUES(?,?)").run(memory.id, id)
       this.changed("memory", memory.id)
@@ -233,7 +367,10 @@ export class SoulStore {
       }
       if (erase && typeof source.evidence?.actionId === "string") {
         const row = this.db.query<JsonRow, [string]>("SELECT body FROM actions WHERE id=?").get(source.evidence.actionId)
-        if (row) this.db.query("UPDATE actions SET body=? WHERE id=?").run(JSON.stringify({ ...JSON.parse(row.body), text: "[已按要求删除]" }), source.evidence.actionId)
+        if (row) {
+          const { execution: _, ...action } = JSON.parse(row.body) as Action
+          this.db.query("UPDATE actions SET body=? WHERE id=?").run(JSON.stringify({ ...action, text: "[已按要求删除]" }), source.evidence.actionId)
+        }
       }
       this.db.query("UPDATE experiences SET body=? WHERE id=?").run(JSON.stringify({ ...source, retracted: true, ...(erase ? { text: "", evidence: undefined } : {}) }), sourceId)
     }
@@ -248,7 +385,14 @@ export class SoulStore {
 
   private rebuildAffect() {
     // A missing historical policy is not permission to infer past emotional updates.
-    const events = this.db.query<JsonRow, []>("SELECT e.body FROM experiences e JOIN experience_policy p ON p.experience_id=e.id WHERE p.affect_enabled=1 ORDER BY e.id").all().map(row => JSON.parse(row.body) as Experience).filter(event => !event.retracted).sort((a, b) => a.observedAt - b.observedAt || a.id - b.id)
+    const history = this.db.query<JsonRow, []>("SELECT e.body FROM experiences e JOIN experience_policy p ON p.experience_id=e.id WHERE p.affect_enabled=1 ORDER BY e.id").all().map(row => JSON.parse(row.body) as Experience)
+    const rootOrder = new Map<string, number>()
+    for (const event of history) {
+      const root = event.evidence?.actionId
+      if (typeof root === "string" && !rootOrder.has(root)) rootOrder.set(root, event.id)
+    }
+    const order = (event: Experience) => typeof event.evidence?.actionId === "string" ? rootOrder.get(event.evidence.actionId) ?? event.id : event.id
+    const events = history.filter(event => !event.retracted).sort((a, b) => a.observedAt - b.observedAt || order(a) - order(b))
     let state = initialAffect(events[0]?.observedAt ?? this.clock())
     for (const event of events) state = applyExperience(state, event, event.observedAt)
     this.setMeta("affect", JSON.stringify(propagateAffect(state, this.clock())))
@@ -261,10 +405,13 @@ export class SoulStore {
     if (this.sealed) return base
     const selected = this.memories({ scope, query }).slice(0, 12)
     const constraints = this.memories({ scope }).filter(memory => memory.pinned)
+    const serialize = (memory: Memory) => JSON.stringify({ id: memory.id, type: memory.kind, scope: memory.scope, source: memory.sourceIds, text: memory.text })
+    const requiredCharacters = [base, ...constraints.map(serialize)].join("\n").length
+    if (requiredCharacters > limit) throw new ProjectionCoverageError(constraints.map(memory => memory.id), requiredCharacters, limit)
     const unique = [...new Map([...constraints, ...selected].map(memory => [memory.id, memory])).values()]
     const lines = [base]
     for (const memory of unique) {
-      const line = JSON.stringify({ id: memory.id, type: memory.kind, scope: memory.scope, source: memory.sourceIds, text: memory.text })
+      const line = serialize(memory)
       if (lines.join("\n").length + line.length + 1 > limit) continue
       lines.push(line)
     }
@@ -332,12 +479,48 @@ export class SoulStore {
   actions(taskId: string): Action[] { return this.db.query<JsonRow, [string]>("SELECT body FROM actions WHERE task_id=? ORDER BY rowid").all(taskId).map(row => JSON.parse(row.body)) }
   recordAction(action: Omit<Action, "updatedAt">) {
     this.db.transaction(() => {
-      if (this.redacted("action", action.id)) action = { ...action, text: "[已按要求删除]" }
+      if (this.redacted("action", action.id)) {
+        const { execution: _, ...redacted } = action
+        action = { ...redacted, text: "[已按要求删除]" }
+      }
+      else if (action.execution !== undefined) {
+        const execution = checkedExecution(action.tool, action.execution)
+        action = { ...action, status: execution.outcome, execution }
+      }
       const previous = this.db.query<JsonRow, [string]>("SELECT body FROM actions WHERE id=?").get(action.id)
-      if (previous && (JSON.parse(previous.body) as Action).revision === action.revision) return
+      const previousAction = previous ? JSON.parse(previous.body) as Action : null
+      // A quarantined inconsistent record may already carry the engine's current
+      // revision. Keep its withdrawn source, but admit validated reconciliation
+      // under a distinct immutable revision once; subsequent old replay is ignored.
+      if (action.execution && previousAction?.revision === `legacy-unverified:${action.revision}`) {
+        action = { ...action, revision: `${action.revision}:revalidated:${new Bun.CryptoHasher("sha256").update(JSON.stringify(action.execution)).digest("hex")}` }
+      }
+      if (previousAction?.revision === action.revision) return
+      // Reconciliation may replay an already seen old snapshot. A hash is not a
+      // sortable version; retain seen revisions instead of accepting rollback.
+      if (this.db.query("SELECT 1 FROM action_revisions WHERE action_id=? AND revision=?").get(action.id, action.revision)) return
+      const terminal = (value: Pick<Action, "status" | "execution">) => value.execution ? value.execution.lifecycle !== "unknown" : value.status === "succeeded" || value.status === "failed"
+      if (previousAction && terminal(previousAction)) {
+        // A never-before-seen running snapshot is still older than a completed
+        // result. An unknown lifecycle cannot revoke terminal evidence.
+        if (action.status === "running" || !terminal(action)) return
+        if (action.status === "unknown" && !Number.isFinite(action.execution?.finishedAt)) return
+        const before = previousAction.execution?.finishedAt
+        const incoming = action.execution?.finishedAt
+        if (typeof before === "number" && typeof incoming === "number" && incoming < before) return
+      }
+      const knownRoot = this.db.query<{ observed_at: number }, [string]>("SELECT MIN(observed_at) AS observed_at FROM action_revisions WHERE action_id=?").get(action.id)
+      const priorSources = this.db.query<JsonRow, [string]>("SELECT body FROM experiences WHERE json_extract(body,'$.evidence.actionId')=?").all(action.id).map(row => JSON.parse(row.body) as Experience)
+      const executionTime = action.execution?.finishedAt ?? action.execution?.startedAt
+      const priorTime = knownRoot?.observed_at ?? (priorSources.length ? Math.min(...priorSources.map(source => source.observedAt)) : this.clock())
+      const observedAt = typeof executionTime === "number" && Number.isFinite(executionTime) ? Math.min(priorTime, executionTime) : priorTime
       this.db.query("INSERT INTO actions(id,task_id,body) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body").run(action.id, action.taskId, JSON.stringify({ ...action, updatedAt: this.clock() }))
+      this.db.query("INSERT INTO action_revisions(action_id,revision,observed_at) VALUES(?,?,?)").run(action.id, action.revision, observedAt)
+      this.db.query("UPDATE action_revisions SET observed_at=? WHERE action_id=? AND observed_at>?").run(observedAt, action.id, observedAt)
+      this.retireEvidence(priorSources.filter(source => !source.retracted).map(source => source.id))
       const task = this.task(action.taskId)!
-      if (action.status !== "running") this.appendExperience({ sourceKey: `action:${action.id}:${action.revision}`, scope: task.scope, kind: action.status === "succeeded" ? "tool_success" : action.status === "failed" ? "tool_failure" : "tool_unknown", ownership: "experienced", text: action.text, evidence: { actionId: action.id, tool: action.tool, status: action.status } })
+      if (action.status !== "running") this.appendExperience({ sourceKey: `action:${action.id}:${action.revision}`, scope: task.scope, kind: action.status === "succeeded" ? "tool_success" : action.status === "failed" ? "tool_failure" : "tool_unknown", ownership: "experienced", text: action.text, observedAt, evidence: { actionId: action.id, actionRevision: action.revision, tool: action.tool, status: action.status, ...(action.execution ? { execution: action.execution } : {}) } })
+      if (previous || observedAt < this.clock()) this.rebuildAffect()
       this.changed("action", action.id)
     })()
   }

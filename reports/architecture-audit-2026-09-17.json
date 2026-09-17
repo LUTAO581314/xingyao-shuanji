@@ -1,0 +1,119 @@
+{
+  "productVersion": "0.1.0-dev.4",
+  "method": "Synthetic persisted-tool payloads through the real HTTP adapter and product server; temporary SQLite identities only. No live engine, model, credentials, or user data were accessed. Fixture health and session creation are stubbed; message normalization, action recording, affect, sleep, learning and memory APIs use product code.",
+  "outcomeContamination": {
+    "supplied": [
+      {
+        "name": "nonzero-exit-one",
+        "upstreamStatus": "completed",
+        "metadataExit": 1
+      },
+      {
+        "name": "timeout",
+        "upstreamStatus": "completed",
+        "metadataExit": null
+      },
+      {
+        "name": "nonzero-exit-two",
+        "upstreamStatus": "completed",
+        "metadataExit": 2
+      }
+    ],
+    "normalized": [
+      {
+        "type": "tool",
+        "callID": "nonzero-exit-one",
+        "status": "completed",
+        "metadataPreserved": false
+      },
+      {
+        "type": "tool",
+        "callID": "timeout",
+        "status": "completed",
+        "metadataPreserved": false
+      },
+      {
+        "type": "tool",
+        "callID": "nonzero-exit-two",
+        "status": "completed",
+        "metadataPreserved": false
+      }
+    ],
+    "storedActions": [
+      {
+        "status": "succeeded",
+        "text": "shell：执行成功\nsynthetic failing command"
+      },
+      {
+        "status": "succeeded",
+        "text": "shell：执行成功\n<shell_metadata>shell tool terminated command after exceeding timeout 100 ms.</shell_metadata>"
+      },
+      {
+        "status": "succeeded",
+        "text": "shell：执行成功\nsynthetic failing test"
+      }
+    ],
+    "experienceKinds": [
+      "tool_success",
+      "tool_success",
+      "tool_success"
+    ],
+    "emotionValenceAfterThree": 0.4046875,
+    "sleepCreated": 3,
+    "archivedKinds": [
+      "episode",
+      "episode",
+      "episode"
+    ],
+    "skillImmediatelyAfterPromotion": {
+      "status": "active",
+      "successes": 3,
+      "failures": 0,
+      "probability": 0.8
+    },
+    "skillAfterTenNewFailedCalls": {
+      "status": "active",
+      "successes": 3,
+      "failures": 0,
+      "probability": 0.8
+    }
+  },
+  "commitment": {
+    "omittedPinnedApiValue": false,
+    "omittedPinnedIncludedForUnrelatedQuery": false,
+    "oversizedLength": 7028,
+    "oversizedPinned": true,
+    "oversizedIncluded": false,
+    "projectionLength": 176
+  },
+  "sameCallRevisions": {
+    "callCount": 1,
+    "sourceCount": 3,
+    "valences": [
+      0.175,
+      0.30624999999999997,
+      0.4046875
+    ],
+    "sleepCreated": 3
+  },
+  "lateArchivalAge": {
+    "sourceObservedAt": 0,
+    "memoryCreatedAt": 7776000000,
+    "elapsedDays": 90,
+    "activationWithEmptyQuery": 1,
+    "activationIfUsingSourceAge": 0.011609330383882408,
+    "exactMatchAfterAnother90Days": 0.9011609330383883
+  },
+  "references": {
+    "normalizer": "src/adapter.ts:259-267",
+    "recorder": "src/server.ts:106-112",
+    "actionSources": "src/store.ts:334-340",
+    "sleep": "src/store.ts:274-284",
+    "memoryBudget": "src/store.ts:259-269",
+    "commitmentApi": "src/server.ts:215",
+    "learningEvidenceSelection": "src/learning.ts:145-173",
+    "memoryAge": "src/affect.ts:99-118",
+    "upstreamShell": "C:/Users/LT/Documents/trae/packages/opencode/src/tool/shell.ts:542-594",
+    "upstreamToolCompletion": "C:/Users/LT/Documents/trae/packages/opencode/src/session/processor.ts:174-179"
+  }
+}

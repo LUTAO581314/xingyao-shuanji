@@ -8,9 +8,109 @@ import type { OpenCodeAdapter, PermissionRequest } from "../src/adapter"
 import { PRODUCT_VERSION } from "../src/contracts"
 import { backupEngine, restoreEngine } from "../src/engine-backup"
 import { mountPortable } from "../src/portable"
+import { SoulStore } from "../src/store"
+import { startServer } from "../src/server"
+import { LearningStore } from "../src/learning"
 
 const executable = process.env.XINGYAO_TEST_OPENCODE ?? resolve(import.meta.dir, "../dist", `xingyao-${PRODUCT_VERSION}`, "opencode.exe")
 const real = process.platform === "win32" && existsSync(executable) ? test : test.skip
+
+real("real shell outcomes pass through the product without turning nonzero exits or timeouts into success", async () => {
+  const root = await mkdtemp(join(tmpdir(), "xingyao-real-outcomes-"))
+  const hostDir = join(root, "host"), projectDir = join(root, "project")
+  await mkdir(hostDir); await mkdir(projectDir)
+  const store = new SoulStore(join(root, "soul.db"))
+  let engine: Awaited<ReturnType<typeof startEngine>> | undefined
+  let app: ReturnType<typeof startServer> | undefined
+  let shellAdvertised = false
+  const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {
+    if (new URL(request.url).pathname !== "/v1/chat/completions") return new Response("Unexpected local fixture route", { status: 404 })
+    const body = await request.json() as Record<string, unknown>
+    const messages = body.messages as Array<Record<string, unknown>>
+    const last = messages.findLastIndex(message => message.role === "user")
+    const marker = JSON.stringify(messages[last] ?? {})
+    if (!marker.includes("OUTCOME_FIXTURE_")) return completion(body, { text: "Local result contract fixture" })
+    if (messages.slice(last + 1).some(message => message.role === "tool")) return completion(body, { text: "Tool round returned; the fixture makes no task-success claim." })
+    const offered = body.tools as Array<{ function?: { name?: string } }>
+    const name = offered.find(item => item.function?.name === "bash" || item.function?.name === "shell")?.function?.name
+    if (!name) return new Response("Shell contract missing", { status: 422 })
+    shellAdvertised = true
+    const timeout = marker.includes("TIMEOUT")
+    const command = timeout
+      ? 'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "Start-Sleep -Seconds 8"'
+      : marker.includes("REJECT") ? 'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "exit 0"' : `exit ${marker.includes("NONZERO") ? 7 : 0}`
+    return completion(body, { tool: { name, arguments: JSON.stringify({ command, description: "Run isolated outcome contract fixture", timeout: timeout ? 500 : 5000 }) } })
+  } })
+  try {
+    const configPath = join(hostDir, "fixture-provider.json")
+    await writeFile(configPath, JSON.stringify({
+      model: "outcome-local/test-model", small_model: "outcome-local/test-model", enabled_providers: ["outcome-local"],
+      provider: { "outcome-local": { name: "Local outcome test", npm: "@ai-sdk/openai-compatible", env: [], options: { baseURL: `${provider.url.origin}/v1`, apiKey: "synthetic-local-fixture", timeout: 5000, maxRetries: 0 }, models: { "test-model": { name: "Test", tool_call: true, limit: { context: 64000, output: 4096 } } } } },
+    }))
+    engine = await startEngine({ executable, hostDir, projectDir, configPath, requestTimeoutMs: 20_000 })
+    app = startServer({ store, adapter: engine.adapter, token: "synthetic-outcome-fixture", vaultDir: join(root, "vault") })
+    const executions: Array<{ marker: string; status: string; exitCode?: number | null }> = []
+    for (const marker of ["NONZERO", "TIMEOUT", "SUCCESS", "REJECT"]) {
+      const task = store.createTask(marker, "outcome-fixture")
+      const response = await fetch(`http://127.0.0.1:${app.server.port}/api/tasks/${task.id}/chat`, {
+        method: "POST", headers: { authorization: "Bearer synthetic-outcome-fixture", "content-type": "application/json" }, body: JSON.stringify({ key: marker, text: `OUTCOME_FIXTURE_${marker}` }),
+      })
+      expect(response.status).toBe(202)
+      const deadline = Date.now() + 18_000
+      let permissionCount = 0
+      while (app.jobs.has(task.id) && Date.now() < deadline) {
+        const sessionID = store.task(task.id)?.sessionId
+        for (const permission of await engine.adapter.permissions()) {
+          if (permission.sessionID !== sessionID) continue
+          await engine.adapter.replyPermission(permission.id, marker === "REJECT" ? "reject" : "once")
+          permissionCount++
+        }
+        await Bun.sleep(50)
+      }
+      expect(app.jobs.has(task.id)).toBe(false)
+      // The qualified shell's syntax scanner does not request permission for a
+      // bare exit statement. External process fixtures must request permission.
+      if (marker === "TIMEOUT" || marker === "REJECT") expect(permissionCount).toBeGreaterThan(0)
+      const actions = store.actions(task.id)
+      expect(actions).toHaveLength(1)
+      const action = actions[0]!
+      expect(action.execution?.version).toBe(1)
+      if (marker === "NONZERO") {
+        expect(action.status).toBe("failed")
+        expect(action.execution?.exitCode, action.text).toBe(7)
+        expect(action.execution?.lifecycle).toBe("completed")
+      } else if (marker === "TIMEOUT") {
+        expect(action.status).toBe("unknown")
+        expect(action.execution?.exitCode).toBeNull()
+        expect(action.execution?.lifecycle).toBe("completed")
+      } else if (marker === "SUCCESS") {
+        expect(action.status).toBe("succeeded")
+        expect(action.execution?.exitCode).toBe(0)
+      } else {
+        expect(action.status).toBe("failed")
+        expect(action.execution?.lifecycle).toBe("failed")
+      }
+      if (marker === "REJECT") expect(store.task(task.id)?.status).not.toBe("completed")
+      else expect(store.task(task.id)?.status).toBe("verifying")
+      executions.push({ marker, status: action.status, exitCode: action.execution?.exitCode })
+    }
+    const events = store.experiencesAfter(0, 500).filter(event => !event.retracted && event.kind.startsWith("tool_"))
+    expect(events.map(event => event.kind)).toEqual(["tool_failure", "tool_unknown", "tool_success", "tool_failure"])
+    expect(new LearningStore(store.db).observations("outcome-fixture").filter(item => item.outcome === "success")).toHaveLength(1)
+    expect(store.sleep().created).toBe(3)
+    expect(store.memories().filter(memory => memory.text.includes("进程退出码：7"))).toHaveLength(1)
+    expect(shellAdvertised).toBe(true)
+    console.info(`Verified real shell lifecycle/outcome separation via ${engine.version}: ${JSON.stringify(executions)}. Product task acceptance remains explicit; no public model used.`)
+  } finally {
+    await engine?.stop()
+    await Promise.allSettled([...app?.jobs.values() ?? []])
+    await app?.server.stop(true)
+    await provider.stop(true)
+    store.close()
+    if (resolve(dirname(root)) !== resolve(tmpdir())) throw new Error("Unexpected temporary directory")
+    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  }
+}, 60_000)
 
 real("real engine and loopback model: projected context, permissions and persistent success/failure evidence", async () => {
   const root = await mkdtemp(join(tmpdir(), "xingyao-real-engine-"))

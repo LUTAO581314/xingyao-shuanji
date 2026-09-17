@@ -151,9 +151,10 @@ describe("domain invariants under correction and deletion", () => {
     const action = { id: "stable-tool-call", taskId: task.id, tool: "read", status: "succeeded" as const, text: "PRIVATE-REPLAY-CONTENT", revision: "snapshot-1" }
     store.recordAction(action)
     const first = store.experiencesAfter(0)[0]!
-    store.recordAction({ ...action, text: "PRIVATE-REPLAY-CONTENT with metadata", revision: "snapshot-2" })
     const memory = store.remember({ text: first.text, scope: task.scope, kind: "episode", sourceIds: [first.id] })
-    store.forgetMemory(memory.id, memory.revision)
+    store.recordAction({ ...action, text: "PRIVATE-REPLAY-CONTENT with metadata", revision: "snapshot-2" })
+    expect(store.memory(memory.id)?.status).toBe("invalidated")
+    store.forgetMemory(memory.id, store.memory(memory.id)!.revision)
     const resource = resources.at(-1)!
     store.close()
     store = new SoulStore(join(resource.directory, "soul.db"), () => 1_000_000)

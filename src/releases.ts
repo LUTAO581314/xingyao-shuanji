@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto"
 import { constants, closeSync, copyFileSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, readSync, writeFileSync } from "node:fs"
 import { basename, dirname, isAbsolute, join, parse, resolve } from "node:path"
 import { acquireHostLock, listCheckpoints } from "./checkpoint"
-import { PROTOCOL_VERSION, SCHEMA_VERSION } from "./contracts"
+import { PROTOCOL_VERSION, isSupportedSchema, type CheckpointInfo } from "./contracts"
 
 export type ReleaseManifest = {
   product: "xingyao-xuanji"; version: string; protocolVersion: number; schemaVersion: number
@@ -23,6 +23,14 @@ export type ReleaseSelection = {
   validation: ReleaseValidationReport; recovery: ReleaseRecovery | null; warnings?: string[]
 }
 export type RollbackRecoveryInput = { vaultDir: string; generation: string; identityId: string; expectedRevision: number; restoredHostDb: string }
+
+/** Older binaries can ignore unsupported generations and append a second head.
+ * Inspect the entire verified vault, not only the snapshot selected for recovery.
+ */
+export function assertVaultSchemaCompatible(schemaVersion: number, checkpoints: readonly Pick<CheckpointInfo, "schemaVersion">[]): void {
+  if (checkpoints.some(checkpoint => checkpoint.schemaVersion > schemaVersion))
+    throw new Error("所选旧发行与当前便携库不匹配：库中已有更高 schema 的完整检查点。请使用隔离的便携库和宿主恢复副本，不能让旧程序继续写入这个库。")
+}
 const STAGED = ".staged.json"
 const RELEASE_ID = /^r-[a-z0-9]+-[a-f0-9-]{36}$/
 const SELECTION_ID = /^\d{12}-[a-f0-9-]{36}$/
@@ -79,7 +87,7 @@ function manifestOf(value: unknown): ReleaseManifest {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("发行清单不是对象")
   const m = value as ReleaseManifest
   if (m.product !== "xingyao-xuanji" || typeof m.version !== "string" || m.version.length > 128 || !VERSION.test(m.version)) throw new Error("发行产品或版本不受支持")
-  if (m.protocolVersion !== PROTOCOL_VERSION || m.schemaVersion !== SCHEMA_VERSION) throw new Error("发行协议或数据库 schema 不受支持，不能覆盖稳定版本")
+  if (m.protocolVersion !== PROTOCOL_VERSION || !isSupportedSchema(m.schemaVersion)) throw new Error("发行协议或数据库 schema 不受支持，不能覆盖稳定版本")
   if (m.platform !== "windows-x64" || m.adapter !== "legacy-http-v1") throw new Error("发行平台或 OpenCode 适配器不受支持")
   if (typeof m.validation !== "string" || !Array.isArray(m.knownLimitations) || m.knownLimitations.some(item => typeof item !== "string")) throw new Error("发行验收说明缺失")
   if (!m.files || typeof m.files !== "object" || Array.isArray(m.files) || Object.keys(m.files).length > 256) throw new Error("发行文件清单无效")
@@ -171,7 +179,7 @@ function selectionOf(value: unknown, id: string): ReleaseSelection {
     const recovery = s.recovery
     if (!recovery || typeof recovery.generation !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,95}$/.test(recovery.generation) ||
       typeof recovery.identityId !== "string" || !recovery.identityId || !Number.isSafeInteger(recovery.revision) || recovery.revision < 0 ||
-      recovery.schemaVersion !== SCHEMA_VERSION || typeof recovery.checkpointSha256 !== "string" || !HEX.test(recovery.checkpointSha256) ||
+      !isSupportedSchema(recovery.schemaVersion) || typeof recovery.checkpointSha256 !== "string" || !HEX.test(recovery.checkpointSha256) ||
       typeof recovery.hostDatabase !== "string" || !isAbsolute(recovery.hostDatabase)) throw new Error("切换记录缺少有效的配套恢复信息")
   }
   return s
@@ -253,6 +261,8 @@ async function selectRelease(systemDir: string, releaseId: string, report: Relea
     if (mode === "activate" && previous) {
       if (previous.releaseId === releaseId) return previous
       const old = await inspectRelease(previous.releasePath)
+      if (release.manifest.schemaVersion < old.manifest.schemaVersion)
+        throw new Error("较旧的数据库 schema 必须走配套检查点回滚流程，不能通过新版号激活旧数据结构")
       if (compareVersions(release.manifest.version, old.manifest.version) <= 0 || readSelections(systemDir).some(selection => selection.manifestHash === release.manifestHash))
         throw new Error("相同或更早的发行必须走配套检查点回滚流程，不能通过普通激活绕过数据检查")
       // An upgrade from a recovered branch must keep using that explicitly selected data.
@@ -290,6 +300,7 @@ export async function rollbackRelease(systemDir: string, releaseId: string, vali
   const release = await inspectRelease(join(resolve(systemDir), "releases", releaseId))
   validateReport(validationReport, release.manifestHash)
   const snapshots = await listCheckpoints(recovery.vaultDir)
+  assertVaultSchemaCompatible(release.manifest.schemaVersion, snapshots)
   const snapshot = snapshots.find(value => value.generation === recovery.generation)
   if (!snapshot || snapshot.identityId !== recovery.identityId || snapshot.revision !== recovery.expectedRevision || snapshot.schemaVersion !== release.manifest.schemaVersion) throw new Error("回滚检查点不可用，或身份、revision、schema 与所选代码不匹配")
   const path = resolve(recovery.restoredHostDb)

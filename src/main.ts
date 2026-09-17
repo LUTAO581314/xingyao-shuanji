@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, lstatSync } from "node:fs"
+import { Database } from "bun:sqlite"
 import { join, resolve } from "node:path"
 import { parseArgs } from "node:util"
 import { SoulStore } from "./store"
@@ -6,7 +7,7 @@ import { acquireHostLock, listCheckpoints } from "./checkpoint"
 import { startEngine } from "./engine"
 import { OpenCodeAdapter } from "./adapter"
 import { startServer, ModelConfigurationError } from "./server"
-import { PRODUCT_VERSION } from "./contracts"
+import { PRODUCT_VERSION, isSupportedSchema, type CheckpointInfo } from "./contracts"
 import { mountPortable } from "./portable"
 import { backupEngine } from "./engine-backup"
 import { resumeProductRestore, restoreProduct } from "./recovery"
@@ -45,29 +46,30 @@ export async function main(args = process.argv.slice(2)) {
     const snapshots = await listCheckpoints(vault)
     const heads = snapshots.filter(snapshot => !snapshots.some(other => other.parent === snapshot.generation))
     if (heads.length > 1) throw new Error("U 盘存在多个恢复分支，请先选择要恢复的检查点；未覆盖任何数据")
-    if (!existsSync(dbPath) && heads[0]) await restoreProduct({ ...recoveryOptions, generation: heads[0].generation })
-    store = new SoulStore(dbPath)
     const latest = heads[0]
-    if (latest && store.identityId !== latest.identityId) throw new Error("宿主和 U 盘身份不同，停止自动同步")
+    // Branch decisions must use the committed state *before* SoulStore performs
+    // its forward migration. A schema repair legitimately changes the revision;
+    // it must not turn a clean older host into a fictitious unsynced branch.
+    const before = readHostState(dbPath)
+    if (latest && before && before.identityId !== latest.identityId) throw new Error("宿主和 U 盘身份不同，停止自动同步")
     const recoveryGeneration = values["recovery-generation"]
-    if (recoveryGeneration && store.meta("checkpoint_generation") !== recoveryGeneration) throw new Error("恢复分支和选定代次不一致，停止自动启动")
-    if (recoveryGeneration && resumed.generation !== recoveryGeneration) {
+    if (recoveryGeneration && before?.generation !== recoveryGeneration) throw new Error("恢复分支和选定代次不一致，停止自动启动")
+    if (recoveryGeneration && !hasPairedRestoreAncestor(before, resumed.generation, snapshots)) {
       const selected = snapshots.find(snapshot => snapshot.generation === recoveryGeneration)
-      if (!selected || selected.revision !== store.revision) throw new Error("恢复分支已有新工作，需先核实配套引擎状态，不能重新覆盖")
-      store.db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); store.close(); store = undefined
+      if (!selected || selected.identityId !== before?.identityId || selected.revision !== before.revision || selected.schemaVersion !== before.schemaVersion)
+        throw new Error("恢复分支已有新工作，需先核实配套引擎状态，不能重新覆盖")
       await restoreProduct({ ...recoveryOptions, generation: recoveryGeneration })
-      store = new SoulStore(dbPath)
     }
-    if (latest && !recoveryGeneration && store.meta("checkpoint_generation") !== latest.generation) {
-      const parent = snapshots.find(snapshot => snapshot.generation === store!.meta("checkpoint_generation"))
-      const clean = parent && store.revision === parent.revision
+    if (latest && !recoveryGeneration && !before) await restoreProduct({ ...recoveryOptions, generation: latest.generation })
+    else if (latest && !recoveryGeneration && before && before.generation !== latest.generation) {
+      const parent = snapshots.find(snapshot => snapshot.generation === before.generation)
+      const clean = parent && before.revision === parent.revision && before.schemaVersion === parent.schemaVersion
       if (!clean) throw new Error(`检测到宿主未同步分支。活动库保留在 ${dbPath}；U 盘检查点未覆盖。请通过恢复流程选择分支。`)
-      store.db.exec("PRAGMA wal_checkpoint(TRUNCATE)")
-      store.close(); store = undefined
       await restoreProduct({ ...recoveryOptions, generation: latest.generation })
-      store = new SoulStore(dbPath)
     }
-    if (latest && store.revision === latest.revision) store.setMeta("checkpoint_revision", String(latest.revision))
+    store = new SoulStore(dbPath)
+    const savedBase = snapshots.find(snapshot => snapshot.generation === store!.meta("checkpoint_generation"))
+    if (savedBase && savedBase.identityId === store.identityId && store.revision >= savedBase.revision) store.setMeta("checkpoint_revision", String(savedBase.revision))
     store.recoverInterrupted()
     if (!values.project && !values.offline) mount = mountPortable(portable)
     const project = resolve(values.project ?? join(mount?.root ?? portable, "projects", "default"))
@@ -142,6 +144,46 @@ export async function main(args = process.argv.slice(2)) {
   } catch (error) {
     await engine?.stop(); store?.close(); mount?.release(); unlock(); throw error
   }
+}
+
+/** Caller owns the host lock. This read does not initialize, migrate or mutate
+ * domain records; paired restore owns preservation of any SQLite sidecars. */
+type HostState = { identityId: string; revision: number; generation: string | null; schemaVersion: number }
+function readHostState(path: string): HostState | null {
+  if (!existsSync(path)) return null
+  const stat = lstatSync(path)
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("宿主数据库必须是普通文件")
+  const db = new Database(path, { readonly: true, strict: true })
+  try {
+    db.exec("PRAGMA trusted_schema=OFF")
+    const schemaVersion = db.query<{ user_version: number }, []>("PRAGMA user_version").get()!.user_version
+    if (!isSupportedSchema(schemaVersion)) throw new Error("宿主数据库版本不受支持，不能迁移或覆盖")
+    const meta = (key: string) => db.query<{ value: string }, [string]>("SELECT value FROM meta WHERE key=?").get(key)?.value
+    const identityId = meta("identity_id"), revision = meta("revision"), generation = meta("checkpoint_generation")
+    if (!identityId || revision === undefined || !/^\d+$/.test(revision) || !Number.isSafeInteger(Number(revision)) || generation === undefined) throw new Error("宿主数据库身份或版本信息不完整，停止启动")
+    return { identityId, revision: Number(revision), generation: generation || null, schemaVersion }
+  } finally { db.close(true) }
+}
+
+/** A completed paired restore remains the host's origin after later local
+ * checkpoints and unsynced work. Preserve that work only when the current
+ * checkpoint has a verified, forward-only path back to the paired origin. */
+function hasPairedRestoreAncestor(host: HostState | null, generation: string | undefined, snapshots: CheckpointInfo[]): boolean {
+  if (!host?.generation || !generation) return false
+  const byGeneration = new Map(snapshots.map(snapshot => [snapshot.generation, snapshot]))
+  let checkpoint = byGeneration.get(host.generation)
+  let descendantSchema = host.schemaVersion, descendantRevision = host.revision
+  const seen = new Set<string>()
+  while (checkpoint) {
+    if (seen.has(checkpoint.generation) || checkpoint.identityId !== host.identityId
+      || checkpoint.schemaVersion > descendantSchema || checkpoint.revision > descendantRevision) return false
+    if (checkpoint.generation === generation) return true
+    seen.add(checkpoint.generation)
+    descendantSchema = checkpoint.schemaVersion
+    descendantRevision = checkpoint.revision
+    checkpoint = checkpoint.parent ? byGeneration.get(checkpoint.parent) : undefined
+  }
+  return false
 }
 
 async function reopenExisting(host: string, driveId: string, noOpen: boolean): Promise<boolean> {

@@ -21,10 +21,22 @@ export type AdapterCapabilities = {
 }
 
 export type Source = { sourceID: string; sessionID: string; messageID: string; id: string }
+/** Tool/OS execution only. Neither outcome proves the user's overall goal.
+ * basis is adapter-generated; arbitrary upstream metadata is never copied here.
+ */
+export type ToolExecutionEvidence = {
+  version: 1
+  lifecycle: "completed" | "failed" | "unknown"
+  outcome: "succeeded" | "failed" | "unknown"
+  basis: string
+  exitCode?: number | null
+  startedAt?: number
+  finishedAt?: number
+}
 export type NormalizedPart = Source & (
   | { type: "text"; text: string; synthetic: boolean; ignored: boolean }
   | { type: "tool"; callID: string; tool: string; status: "completed" | "failed" | "unknown";
-      upstreamStatus: string; input: Record<string, unknown>; output?: string; error?: string }
+      upstreamStatus: string; input: Record<string, unknown>; execution: ToolExecutionEvidence; output?: string; error?: string }
   | { type: "other"; kind: string }
 )
 export type NormalizedMessage = {
@@ -257,15 +269,53 @@ function normalizePart(value: unknown, sessionID: string, messageID: string): No
   if (type !== "tool") return { ...base, type: "other", kind: type }
   const state = record(part.state, "tool.state")
   const upstreamStatus = string(state.status, "tool.status")
+  const tool = string(part.tool, "tool.name")
   const input = record(state.input, "tool.input")
   if (upstreamStatus === "completed" && typeof state.output !== "string") throw protocol("Completed tool has no persisted output")
   if (upstreamStatus === "error" && typeof state.error !== "string") throw protocol("Failed tool has no persisted error")
   return {
-    ...base, type: "tool", callID: string(part.callID, "tool.callID"), tool: string(part.tool, "tool.name"), input,
+    ...base, type: "tool", callID: string(part.callID, "tool.callID"), tool, input,
     upstreamStatus, status: upstreamStatus === "completed" ? "completed" : upstreamStatus === "error" ? "failed" : "unknown",
+    execution: executionEvidence(tool, upstreamStatus, state, part),
     ...(upstreamStatus === "completed" ? { output: state.output as string } : {}),
     ...(upstreamStatus === "error" ? { error: state.error as string } : {}),
   }
+}
+
+function executionEvidence(tool: string, status: string, state: Record<string, unknown>, part: Record<string, unknown>): ToolExecutionEvidence {
+  const lifecycle = status === "completed" ? "completed" : status === "error" ? "failed" : "unknown"
+  const metadata = isRecord(state.metadata) ? state.metadata : {}
+  const time = isRecord(state.time) ? state.time : {}
+  const startedAt = timestamp(time.start) ? time.start : undefined
+  const finishedAt = timestamp(time.end) && (startedAt === undefined || time.end >= startedAt) ? time.end : undefined
+  const result: ToolExecutionEvidence = {
+    version: 1, lifecycle, outcome: "unknown", basis: "unrecognized-tool-contract",
+    ...(startedAt !== undefined ? { startedAt } : {}),
+    ...(finishedAt !== undefined ? { finishedAt } : {}),
+  }
+  // The qualified legacy runtime executes its shell under the historical "bash"
+  // name. "shell" accepts the same explicit metadata.exit contract. Names of
+  // unknown/custom/MCP tools do not inherit this meaning from their output text.
+  const shell = tool === "bash" || tool === "shell"
+  const builtin = tool === "read" || tool === "write" || tool === "edit"
+  // Provider-executed calls can use familiar tool names without executing the
+  // qualified local implementation. Their metadata is not an OS result contract.
+  if (isRecord(part.metadata) && part.metadata.providerExecuted === true) return { ...result, basis: "provider-executed-tool" }
+  if (shell && (metadata.exit === null || exitCode(metadata.exit))) result.exitCode = metadata.exit
+  // Legacy cancellation can retain metadata from a running tool. That progress
+  // must not become positive/negative learning about the eventual side effects.
+  if (metadata.interrupted === true) return { ...result, basis: "tool-interrupted" }
+  if (lifecycle === "unknown") return { ...result, basis: "tool-not-terminal" }
+  if (!shell && !builtin) return result
+  if (lifecycle === "failed") return { ...result, outcome: "failed", basis: "builtin-tool-error" }
+  if (shell) {
+    if (typeof result.exitCode !== "number") return { ...result, basis: "shell-exit-unavailable" }
+    return { ...result, outcome: result.exitCode === 0 ? "succeeded" : "failed", basis: result.exitCode === 0 ? "shell-exit-zero" : "shell-exit-nonzero" }
+  }
+  // Reviewed legacy read/write/edit return only after the tool operation has
+  // returned. Diagnostics or a partial read are not a whole-task verdict, and
+  // a tool exception may follow side effects. Never parse their output as proof.
+  return { ...result, outcome: "succeeded", basis: "builtin-tool-completed" }
 }
 
 function hasSystemField(doc: Record<string, unknown>, paths: Record<string, unknown>): boolean {
@@ -295,6 +345,8 @@ function record(value: unknown, field: string): Record<string, unknown> { if (!i
 function string(value: unknown, field: string): string { if (typeof value !== "string" || !value) throw protocol(`Invalid ${field}`); return value }
 function strings(value: unknown, field: string): string[] { if (!Array.isArray(value) || !value.every((item): item is string => typeof item === "string")) throw protocol(`Invalid ${field}`); return value }
 function finite(value: unknown): value is number { return typeof value === "number" && Number.isFinite(value) }
+function timestamp(value: unknown): value is number { return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 8_640_000_000_000_000 }
+function exitCode(value: unknown): value is number { return typeof value === "number" && Number.isSafeInteger(value) && value >= -2_147_483_648 && value <= 4_294_967_295 }
 function protocol(message: string): OpenCodeAdapterError { return new OpenCodeAdapterError("protocol", message) }
 function safeError(error: unknown): string { return error instanceof OpenCodeAdapterError ? error.message : "Invalid OpenCode response" }
 function errorName(error: unknown): string {

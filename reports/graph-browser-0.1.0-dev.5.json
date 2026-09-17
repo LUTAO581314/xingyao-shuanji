@@ -1,0 +1,23 @@
+{
+  "version": "0.1.0-dev.5",
+  "executableSha256": "919a53aa3c6b17f66d5f0f086824697e64be0bcf02f0126d9391ccf25ad60d7f",
+  "browser": "Microsoft Edge",
+  "result": "passed",
+  "checked": [
+    "local rendering",
+    "scope/privacy",
+    "source evidence",
+    "untrusted text rendering",
+    "pagination",
+    "local neighbors",
+    "search/type filters",
+    "unresolved links",
+    "correction refresh",
+    "stale revision detection",
+    "mobile layout"
+  ],
+  "pageErrors": 0,
+  "cspErrors": 0,
+  "externalRequests": 0,
+  "createdAt": "2026-09-17T16:16:48.619Z"
+}

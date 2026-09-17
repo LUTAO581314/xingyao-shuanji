@@ -1,0 +1,34 @@
+{
+  "Version": "0.1.0-dev.5",
+  "Identity": "487fe2aa-0a93-4186-ac4e-3d331fc286bd",
+  "Executable": "F:\\Xuanji\\system\\releases\\r-mu5qi4j5-e006eafc-0471-41b6-a909-36159aaae917\\xingyao.exe",
+  "ExecutableSha256": "919a53aa3c6b17f66d5f0f086824697e64be0bcf02f0126d9391ccf25ad60d7f",
+  "BeforeCheckpointUnsynced": true,
+  "Revision": 1,
+  "CheckpointRevision": 1,
+  "Unsynced": false,
+  "TaskCount": 0,
+  "Engine": {
+    "ok": true,
+    "version": "0.0.0-product-dev-20260917-engine.5",
+    "capabilities": {
+      "legacyHTTP": true,
+      "promptSystem": true,
+      "durableMessages": true,
+      "toolResults": true,
+      "permissions": true,
+      "v2Detected": true,
+      "v2Supported": false
+    }
+  },
+  "Checkpoint": {
+    "generation": "mu5qk13s-176e4666-5ee3-4b38-b7bb-72f752ea890f",
+    "identityId": "487fe2aa-0a93-4186-ac4e-3d331fc286bd",
+    "createdAt": 1789662015640,
+    "schemaVersion": 2,
+    "sha256": "231ec104d423efae02157b9b3200278ad3492a11e9db8241cad74c6c7cbff1e3",
+    "revision": 1,
+    "parent": "mu5qhhzx-621fb184-2f09-409b-8aa7-dff6a05c4b2f"
+  },
+  "VerifiedAt": "2026-09-17T16:20:15.7877371Z"
+}

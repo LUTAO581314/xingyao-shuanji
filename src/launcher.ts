@@ -3,7 +3,8 @@ import { lstatSync } from "node:fs"
 import { basename, dirname, isAbsolute, join, parse, resolve } from "node:path"
 import { parseArgs } from "node:util"
 import { acquireHostLock, listCheckpoints } from "./checkpoint"
-import { resolveCurrent, type ReleaseSelection } from "./releases"
+import { assertVaultSchemaCompatible, inspectRelease, resolveCurrent, type ReleaseSelection } from "./releases"
+import { isSupportedSchema, type CheckpointInfo } from "./contracts"
 
 export type LauncherChild = { pid: number; exited: Promise<number> }
 export type LauncherSpawnOptions = { cwd: string; stdin: "ignore"; stdout: "ignore"; stderr: "ignore"; windowsHide: true }
@@ -23,9 +24,10 @@ function noDirectoryLinks(path: string) {
   }
 }
 
-async function recoveryHost(selection: ReleaseSelection, options: LauncherOptions) {
+async function recoveryHost(selection: ReleaseSelection, options: LauncherOptions, targetSchema: number, snapshots: CheckpointInfo[]) {
   const expected = selection.recovery
   if (!expected) return { hostRoot: options.hostRoot && resolve(options.hostRoot), generation: undefined }
+  if (!isSupportedSchema(expected.schemaVersion) || expected.schemaVersion > targetSchema) throw new Error("恢复基点的数据 schema 比选定发行更新，不能用旧程序启动")
   const path = resolve(expected.hostDatabase)
   if (basename(path).toLowerCase() !== "soul.db") throw new Error("配套恢复库必须名为 soul.db，不能交给主程序打开另一个文件")
   const hostRoot = dirname(path)
@@ -35,7 +37,6 @@ async function recoveryHost(selection: ReleaseSelection, options: LauncherOption
   if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("恢复库不是普通文件")
   const unlock = acquireHostLock(hostRoot)
   try {
-    const snapshots = await listCheckpoints(join(options.portableRoot, "vault"))
     const base = snapshots.find(snapshot => snapshot.generation === expected.generation)
     if (!base || base.identityId !== expected.identityId || base.revision !== expected.revision || base.schemaVersion !== expected.schemaVersion || base.sha256 !== expected.checkpointSha256)
       throw new Error("便携恢复检查点缺失或已变化，停止启动")
@@ -46,18 +47,30 @@ async function recoveryHost(selection: ReleaseSelection, options: LauncherOption
       const version = (db.query("PRAGMA user_version").get() as { user_version: number }).user_version
       const meta = (key: string) => (db.query("SELECT value FROM meta WHERE key=?").get(key) as { value: string } | null)?.value
       const revision = meta("revision"), generation = meta("checkpoint_generation")
-      if (checks.length !== 1 || Object.values(checks[0]!)[0] !== "ok" || version !== expected.schemaVersion || meta("identity_id") !== expected.identityId || !revision || !/^\d+$/.test(revision) || !Number.isSafeInteger(Number(revision)) || Number(revision) < expected.revision || !generation)
+      if (checks.length !== 1 || Object.values(checks[0]!)[0] !== "ok" || !isSupportedSchema(version)
+        || (version !== expected.schemaVersion && version !== targetSchema) || version > targetSchema
+        || meta("identity_id") !== expected.identityId || !revision || !/^\d+$/.test(revision) || !Number.isSafeInteger(Number(revision)) || Number(revision) < expected.revision || !generation)
         throw new Error("实际宿主数据与所选恢复分支不符，停止启动")
       let checkpoint = snapshots.find(snapshot => snapshot.generation === generation)
-      if (!checkpoint || checkpoint.revision > Number(revision)) throw new Error("宿主数据的检查点起点无法核实")
+      if (!checkpoint || checkpoint.revision > Number(revision) || checkpoint.schemaVersion > version) throw new Error("宿主数据的检查点起点无法核实")
       const visited = new Set<string>()
+      let descendantSchema = version, descendantRevision = Number(revision)
       while (checkpoint.generation !== expected.generation) {
-        if (visited.has(checkpoint.generation) || checkpoint.identityId !== expected.identityId || checkpoint.schemaVersion !== expected.schemaVersion || !checkpoint.parent) throw new Error("宿主数据不属于所选恢复分支")
+        // Walk backwards through a forward-only schema migration. Old checkpoints
+        // stay byte-for-byte unchanged, while descendants may use the target schema.
+        if (visited.has(checkpoint.generation) || checkpoint.identityId !== expected.identityId
+          || !isSupportedSchema(checkpoint.schemaVersion) || checkpoint.schemaVersion < expected.schemaVersion
+          || checkpoint.schemaVersion > descendantSchema || checkpoint.revision > descendantRevision
+          || !checkpoint.parent) throw new Error("宿主数据不属于所选恢复分支，或 schema/版本链发生倒退")
         visited.add(checkpoint.generation)
+        descendantSchema = checkpoint.schemaVersion
+        descendantRevision = checkpoint.revision
         const parent = snapshots.find(snapshot => snapshot.generation === checkpoint!.parent)
         if (!parent) throw new Error("恢复分支的检查点链不完整")
         checkpoint = parent
       }
+      if (checkpoint.schemaVersion > descendantSchema || checkpoint.revision > descendantRevision)
+        throw new Error("恢复基点到宿主数据的 schema/版本链发生倒退")
       return { hostRoot, generation }
     } finally { db.close(true) }
   } finally { unlock() }
@@ -70,7 +83,13 @@ export async function launch(options: LauncherOptions): Promise<LauncherResult> 
   if (pathKey(dirname(options.systemDir)) !== pathKey(options.portableRoot)) throw new Error("系统目录必须直接位于指定便携根目录下")
   const selection = await resolveCurrent(options.systemDir)
   if (!selection) throw new Error("没有通过验收并激活的发行版本")
-  const { hostRoot, generation } = await recoveryHost(selection, options)
+  const release = await inspectRelease(selection.releasePath)
+  if (release.manifestHash !== selection.manifestHash) throw new Error("验证期间选定发行清单发生变化，停止启动")
+  // Every path, including a selection with no recovery record, must protect a
+  // newer vault from an older executable. Reuse this scan for branch validation.
+  const snapshots = await listCheckpoints(join(options.portableRoot, "vault"))
+  assertVaultSchemaCompatible(release.manifest.schemaVersion, snapshots)
+  const { hostRoot, generation } = await recoveryHost(selection, options, release.manifest.schemaVersion, snapshots)
   const command = [join(selection.releasePath, "xingyao.exe"), "--portable-root", options.portableRoot, "--engine", join(selection.releasePath, "opencode.exe")]
   if (hostRoot) command.push("--host-root", hostRoot)
   if (generation) command.push("--recovery-generation", generation)

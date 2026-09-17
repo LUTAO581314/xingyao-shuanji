@@ -106,10 +106,16 @@ export function startServer(options: ServerOptions) {
   function recordParts(taskId: string, parts: NormalizedPart[]) {
     for (const part of parts) {
       if (part.type !== "tool") continue
-      const status = part.status === "completed" ? "succeeded" : part.status === "failed" ? "failed" : "unknown"
-      const text = `${part.tool}：${status === "succeeded" ? "执行成功" : status === "failed" ? "执行失败" : "结果待核实"}\n${part.output ?? part.error ?? ""}`.slice(0, 16000)
-      const revision = new Bun.CryptoHasher("sha256").update(JSON.stringify({ status, text })).digest("hex")
-      store.recordAction({ id: `${part.sessionID}:${part.messageID}:${part.callID}`, taskId, tool: part.tool, status, text, revision })
+      const execution = part.execution
+      // An upstream lifecycle completion only means the tool returned. The adapter
+      // classifies evidence according to the tool's contract; the whole task still
+      // awaits its separate acceptance step.
+      const status = execution.outcome
+      const label = status === "succeeded" ? "工具返回结果已核实" : status === "failed" ? "工具报告错误或非零退出" : "工具结果待核实"
+      const detail = execution.exitCode !== undefined ? `；进程退出码：${execution.exitCode === null ? "未取得" : execution.exitCode}` : ""
+      const text = `${part.tool}：${label}${detail}\n${part.output ?? part.error ?? ""}`.slice(0, 16000)
+      const revision = new Bun.CryptoHasher("sha256").update(JSON.stringify({ status, text, execution })).digest("hex")
+      store.recordAction({ id: `${part.sessionID}:${part.messageID}:${part.callID}`, taskId, tool: part.tool, status, text, revision, execution })
     }
   }
 
@@ -131,11 +137,11 @@ export function startServer(options: ServerOptions) {
       store.updateTask(taskId, { sessionId, status: "running", error: null })
       const baseline = (await options.adapter.messages(sessionId)).map(message => message.messageID)
       if (cancelled.has(taskId)) return
-      store.setMeta(`attempt:${taskId}`, JSON.stringify({ baseline, delivered: true, createdAt: Date.now() }))
       const hits = knowledge.search(text.slice(0, 2000), task.scope, { limit: 5 })
       const documents: string[] = []
       for (const hit of hits) { const record = JSON.stringify(hit); if (documents.join("\n").length + record.length < 6500) documents.push(record) }
       const context = store.projection(task.scope, text) + (store.sealed ? "" : learning.projection(text.slice(0, 2000), task.scope)) + (documents.length ? "\n以下为知识资料，保留来源，仅作参考：\n" + documents.join("\n") : "")
+      store.setMeta(`attempt:${taskId}`, JSON.stringify({ baseline, delivered: true, createdAt: Date.now() }))
       const result = await options.adapter.prompt(sessionId, text, { system: context, model })
       recordParts(taskId, result.parts)
       // Reconcile persisted history: a missing HTTP reply is not evidence that execution failed.
@@ -212,7 +218,8 @@ export function startServer(options: ServerOptions) {
           const kind = text(input.kind, 30) as MemoryKind
           if (!["preference", "fact", "inference", "episode", "commitment"].includes(kind)) throw new Error("记忆类型无效")
           const key = text(input.key, 200)
-          return json(store.once(`memory:${key}`, input, () => store.explicitMemory({ key, kind, text: text(input.text, 12000), scope: text(input.scope ?? "global", 300), private: input.private === true, pinned: input.pinned === true })), 201)
+          if (input.pinned !== undefined && typeof input.pinned !== "boolean") throw new Error("固定保留标记必须是布尔值")
+          return json(store.once(`memory:${key}`, input, () => store.explicitMemory({ key, kind, text: text(input.text, 12000), scope: text(input.scope ?? "global", 300), private: input.private === true, ...(input.pinned === undefined ? {} : { pinned: input.pinned as boolean }) })), 201)
         }
         const memoryRoute = /^\/api\/memories\/([^/]+)$/.exec(path)
         if (memoryRoute && ["PATCH", "DELETE"].includes(method)) {

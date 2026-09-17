@@ -96,7 +96,7 @@ function terms(text: string): Set<string> {
 
 /** Scope/visibility/status filtering belongs to the store, before calling this scorer. */
 export function memoryActivation(memory: Memory, query: string, now: number): number {
-  const age = Math.max(0, finiteTime(now) - finiteTime(memory.createdAt))
+  const age = Math.max(0, finiteTime(now) - finiteTime(memory.sourceObservedAt ?? memory.createdAt))
   // Read access, text revisions and summaries do not refresh the source event's age.
   const freshness = memory.pinned ? 1 : 2 ** (-age / MEMORY_HALF_LIFE_MS)
   const needle = normalized(query)

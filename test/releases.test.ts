@@ -7,6 +7,7 @@ import { join } from "node:path"
 import { activateRelease, inspectRelease, resolveCurrent, rollbackRelease, stageRelease, type ReleaseInfo, type ReleaseValidationReport } from "../src/releases"
 import { acquireHostLock, createCheckpoint, restoreCheckpoint } from "../src/checkpoint"
 import { SoulStore } from "../src/store"
+import { SCHEMA_VERSION } from "../src/contracts"
 
 const roots: string[] = []
 const dbs: Database[] = []
@@ -15,11 +16,11 @@ function fixture() {
   const root = mkdtempSync(join(tmpdir(), "xingyao-releases-test-")); roots.push(root)
   return { root, system: join(root, "便携 system") }
 }
-function candidate(root: string, version = "0.1.0-dev.1") {
+function candidate(root: string, version = "0.1.0-dev.1", schemaVersion = SCHEMA_VERSION) {
   const directory = join(root, `candidate-${randomUUID()}`); mkdirSync(directory)
   const files = { "xingyao.exe": `fake product fixture ${version}`, "opencode.exe": `fake engine fixture ${version}` }
   for (const [name, body] of Object.entries(files)) writeFileSync(join(directory, name), body)
-  writeFileSync(join(directory, "release.json"), JSON.stringify({ product: "xingyao-xuanji", version, protocolVersion: 1, schemaVersion: 1, platform: "windows-x64", adapter: "legacy-http-v1", files: Object.fromEntries(Object.entries(files).map(([name, body]) => [name, hash(body)])), validation: "development-candidate", knownLimitations: ["Fake artifacts in isolated release-gate tests; never execute"] }, null, 2))
+  writeFileSync(join(directory, "release.json"), JSON.stringify({ product: "xingyao-xuanji", version, protocolVersion: 1, schemaVersion, platform: "windows-x64", adapter: "legacy-http-v1", files: Object.fromEntries(Object.entries(files).map(([name, body]) => [name, hash(body)])), validation: "development-candidate", knownLimitations: ["Fake artifacts in isolated release-gate tests; never execute"] }, null, 2))
   return directory
 }
 function report(release: ReleaseInfo): ReleaseValidationReport {
@@ -32,10 +33,13 @@ function editManifest(path: string, edit: (value: any) => void) {
   edit(manifest)
   writeFileSync(join(path, "release.json"), JSON.stringify(manifest))
 }
-async function recoveryFixture(root: string) {
+async function recoveryFixture(root: string, schemaVersion = SCHEMA_VERSION) {
   const store = new SoulStore(join(root, "original host", "soul.db")); dbs.push(store.db)
   const vaultDir = join(root, "vault")
   store.explicitMemory({ key: "release-test", text: "仅用于隔离回滚测试", scope: "global", kind: "fact" })
+  // Deliberately model historical bytes; never open this fixture through a newer
+  // SoulStore before testing restore/rollback's exact schema correspondence.
+  store.db.exec(`PRAGMA user_version=${schemaVersion}`)
   const checkpoint = await createCheckpoint(store.db, vaultDir, store.identityId, store.revision, null)
   const restoredHostDb = join(root, "restored host", "soul.db")
   await restoreCheckpoint(vaultDir, checkpoint.generation, restoredHostDb)
@@ -68,7 +72,7 @@ describe("release inspection and staging", () => {
     const corrupt = candidate(root)
     writeFileSync(join(corrupt, "opencode.exe"), "changed")
     await expect(inspectRelease(corrupt)).rejects.toThrow("SHA-256")
-    for (const change of [(m: any) => delete m.files["opencode.exe"], (m: any) => m.schemaVersion = 2, (m: any) => m.protocolVersion = 2, (m: any) => m.platform = "linux-x64", (m: any) => m.adapter = "v2-unknown"]) {
+    for (const change of [(m: any) => delete m.files["opencode.exe"], (m: any) => m.schemaVersion = SCHEMA_VERSION + 1, (m: any) => m.protocolVersion = 2, (m: any) => m.platform = "linux-x64", (m: any) => m.adapter = "v2-unknown"]) {
       const source = candidate(root); editManifest(source, change)
       await expect(inspectRelease(source)).rejects.toThrow()
     }
@@ -159,6 +163,60 @@ describe("activation gate and recoverable selection", () => {
 })
 
 describe("code and data rollback", () => {
+  test("matching schema 1 recovery bytes cannot select old code when the same vault contains schema 2", async () => {
+    const { root, system } = fixture()
+    const old = await stageRelease(candidate(root, "0.1.0", 1), system)
+    const next = await stageRelease(candidate(root, "0.2.0", SCHEMA_VERSION), system)
+    await activateRelease(system, old.id, report(old))
+    const current = await activateRelease(system, next.id, report(next))
+    const recovery = await recoveryFixture(root, 1)
+    const source = dbs.at(-1)!
+    source.exec(`PRAGMA user_version=${SCHEMA_VERSION}`)
+    source.query("UPDATE meta SET value=? WHERE key='checkpoint_generation'").run(recovery.generation)
+    source.query("UPDATE meta SET value=? WHERE key='revision'").run(String(recovery.expectedRevision + 1))
+    await createCheckpoint(source, recovery.vaultDir, recovery.identityId, recovery.expectedRevision + 1, recovery.generation)
+    const beforeHost = readFileSync(recovery.restoredHostDb)
+    const beforeManifest = readFileSync(join(recovery.vaultDir, "checkpoints", recovery.generation, "complete.json"))
+    await expect(rollbackRelease(system, old.id, report(old), recovery)).rejects.toThrow("隔离的便携库")
+    expect((await resolveCurrent(system))?.id).toBe(current.id)
+    expect(readFileSync(recovery.restoredHostDb)).toEqual(beforeHost)
+    expect(readFileSync(join(recovery.vaultDir, "checkpoints", recovery.generation, "complete.json"))).toEqual(beforeManifest)
+    // This guard does not alter restoreCheckpoint: new code still restores the
+    // historical generation to another destination, preserving its schema.
+    const another = join(root, "another-old-copy", "soul.db")
+    const restored = await restoreCheckpoint(recovery.vaultDir, recovery.generation, another)
+    expect(restored.schemaVersion).toBe(1)
+    const copy = new Database(another, { readonly: true }); dbs.push(copy)
+    expect(copy.query("PRAGMA user_version").get()).toEqual({ user_version: 1 })
+  })
+  test("reads schema 1 selection history, upgrades to schema 2, and requires matching schema for rollback", async () => {
+    const { root, system } = fixture()
+    const old = await stageRelease(candidate(root, "0.1.0", 1), system)
+    const first = await activateRelease(system, old.id, report(old))
+    expect((await resolveCurrent(system))?.id).toBe(first.id)
+    const next = await stageRelease(candidate(root, "0.2.0", SCHEMA_VERSION), system)
+    const selected = await activateRelease(system, next.id, report(next))
+    expect(selected.previousSelection).toBe(first.id)
+    expect((await resolveCurrent(system))?.id).toBe(selected.id)
+    const modern = await recoveryFixture(join(root, "new-recovery"), SCHEMA_VERSION)
+    await expect(rollbackRelease(system, old.id, report(old), modern)).rejects.toThrow("不匹配")
+    expect((await resolveCurrent(system))?.releaseId).toBe(next.id)
+    const historical = await recoveryFixture(join(root, "old-recovery"), 1)
+    const rolled = await rollbackRelease(system, old.id, report(old), historical)
+    expect(rolled.recovery?.schemaVersion).toBe(1)
+    expect((await resolveCurrent(system))?.id).toBe(rolled.id)
+    const wrongActual = new Database(historical.restoredHostDb)
+    wrongActual.exec(`PRAGMA user_version=${SCHEMA_VERSION}`); wrongActual.close()
+    await expect(rollbackRelease(system, old.id, report(old), historical)).rejects.toThrow("未实际恢复")
+  })
+  test("a greater product version cannot activate an older data schema without a paired rollback", async () => {
+    const { root, system } = fixture()
+    const current = await stageRelease(candidate(root, "0.2.0", SCHEMA_VERSION), system)
+    await activateRelease(system, current.id, report(current))
+    const olderSchema = await stageRelease(candidate(root, "0.3.0", 1), system)
+    await expect(activateRelease(system, olderSchema.id, report(olderSchema))).rejects.toThrow("schema")
+    expect((await resolveCurrent(system))?.releaseId).toBe(current.id)
+  })
   test("ordinary activation cannot bypass rollback data requirements", async () => {
     const { root, system } = fixture(), old = await stageRelease(candidate(root), system), next = await stageRelease(candidate(root, "0.2.0"), system)
     await activateRelease(system, old.id, report(old)); await activateRelease(system, next.id, report(next))

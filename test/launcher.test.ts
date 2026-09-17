@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { Database } from "bun:sqlite"
 import { createHash, randomUUID } from "node:crypto"
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { launch, launcherMain, type LauncherSpawnOptions } from "../src/launcher"
@@ -9,7 +9,7 @@ import { activateRelease, inspectRelease, resolveCurrent, rollbackRelease, stage
 import { createCheckpoint, restoreCheckpoint } from "../src/checkpoint"
 import { SoulStore } from "../src/store"
 import { install, starterScripts } from "../script/install"
-import { PRODUCT_VERSION } from "../src/contracts"
+import { PRODUCT_VERSION, SCHEMA_VERSION } from "../src/contracts"
 
 const roots: string[] = [], dbs: Database[] = []
 const hash = (value: string | Uint8Array) => createHash("sha256").update(value).digest("hex")
@@ -20,19 +20,19 @@ function fixture() {
   mkdirSync(systemDir, { recursive: true })
   return { root, portableRoot, systemDir }
 }
-function candidate(root: string, version = "0.1.0") {
+function candidate(root: string, version = "0.1.0", schemaVersion = SCHEMA_VERSION) {
   const directory = join(root, `candidate-${randomUUID()}`); mkdirSync(directory)
   const files = { "xingyao.exe": `fixture product ${version}`, "opencode.exe": `fixture engine ${version}` }
   for (const [file, body] of Object.entries(files)) writeFileSync(join(directory, file), body)
-  writeFileSync(join(directory, "release.json"), JSON.stringify({ product: "xingyao-xuanji", version, protocolVersion: 1, schemaVersion: 1, platform: "windows-x64", adapter: "legacy-http-v1", files: Object.fromEntries(Object.entries(files).map(([file, body]) => [file, hash(body)])), validation: "test-fixture", knownLimitations: ["Fake artifacts; launcher gate fixture only"] }))
+  writeFileSync(join(directory, "release.json"), JSON.stringify({ product: "xingyao-xuanji", version, protocolVersion: 1, schemaVersion, platform: "windows-x64", adapter: "legacy-http-v1", files: Object.fromEntries(Object.entries(files).map(([file, body]) => [file, hash(body)])), validation: "test-fixture", knownLimitations: ["Fake artifacts; launcher gate fixture only"] }))
   return directory
 }
 function report(release: ReleaseInfo): ReleaseValidationReport {
   const test = { passed: true, execution: "real" as const, evidence: ["fixture://contract-only; fake artifact is not a real release"], startedAt: Date.now() - 10, finishedAt: Date.now() }
   return { manifestHash: release.manifestHash, outcome: "passed", tests: { backendContract: test, restore: test, soulIntegration: test } }
 }
-async function selected(root: string, systemDir: string, version = "0.1.0") {
-  const staged = await stageRelease(candidate(root, version), systemDir)
+async function selected(root: string, systemDir: string, version = "0.1.0", schemaVersion = SCHEMA_VERSION) {
+  const staged = await stageRelease(candidate(root, version, schemaVersion), systemDir)
   await activateRelease(systemDir, staged.id, report(staged))
   return staged
 }
@@ -40,10 +40,11 @@ function recorder() {
   const calls: { args: string[]; options: LauncherSpawnOptions }[] = []
   return { calls, spawn(args: string[], options: LauncherSpawnOptions) { calls.push({ args, options }); return { pid: 12345, exited: Promise.resolve(0) } } }
 }
-async function rollbackFixture(root: string, portableRoot: string, systemDir: string) {
-  const old = await selected(root, systemDir)
-  await selected(root, systemDir, "0.2.0")
+async function rollbackFixture(root: string, portableRoot: string, systemDir: string, schemaVersion = SCHEMA_VERSION) {
+  const old = await selected(root, systemDir, "0.1.0", schemaVersion)
+  await selected(root, systemDir, "0.2.0", schemaVersion)
   const store = new SoulStore(join(root, "original host", "soul.db")); dbs.push(store.db)
+  store.db.exec(`PRAGMA user_version=${schemaVersion}`)
   const vaultDir = join(portableRoot, "vault")
   const checkpoint = await createCheckpoint(store.db, vaultDir, store.identityId, store.revision, null)
   const restoredHostDb = join(root, "restored host 中文", "soul.db")
@@ -114,6 +115,109 @@ describe("verified executable launcher", () => {
     const db = new Database(restoredHostDb); db.query("UPDATE meta SET value=CAST(value AS INTEGER)+1 WHERE key='revision'").run(); db.close()
     const recorded = recorder()
     expect((await launch({ systemDir, portableRoot, spawn: recorded.spawn })).child.pid).toBe(12345)
+  })
+  test("a schema 1 recovery base remains launchable through a schema 2 upgrade and descendant checkpoints", async () => {
+    const { root, portableRoot, systemDir } = fixture()
+    const { checkpoint, restoredHostDb } = await rollbackFixture(root, portableRoot, systemDir, 1)
+    const recorded = recorder()
+    expect((await launch({ systemDir, portableRoot, spawn: recorded.spawn })).args).toContain(checkpoint.generation)
+    const newer = await selected(root, systemDir, "0.3.0", SCHEMA_VERSION)
+    expect((await resolveCurrent(systemDir))?.recovery?.schemaVersion).toBe(1)
+    // The selected new executable gets the original host once, then the migrated
+    // host on later launches. Launch itself never writes a domain migration.
+    expect((await launch({ systemDir, portableRoot, spawn: recorded.spawn })).selection.releaseId).toBe(newer.id)
+    const host = new Database(restoredHostDb)
+    host.exec(`PRAGMA user_version=${SCHEMA_VERSION}`)
+    host.query("UPDATE meta SET value=CAST(value AS INTEGER)+1 WHERE key='revision'").run()
+    host.close()
+    expect((await launch({ systemDir, portableRoot, spawn: recorded.spawn })).args).toContain(checkpoint.generation)
+    const migrated = new Database(restoredHostDb)
+    const revision = Number((migrated.query("SELECT value FROM meta WHERE key='revision'").get() as { value: string }).value)
+    const child = await createCheckpoint(migrated, join(portableRoot, "vault"), checkpoint.identityId, revision, checkpoint.generation)
+    migrated.query("UPDATE meta SET value=? WHERE key='checkpoint_generation'").run(child.generation)
+    migrated.close()
+    expect(child.schemaVersion).toBe(SCHEMA_VERSION)
+    expect(child.parent).toBe(checkpoint.generation)
+    const continued = await launch({ systemDir, portableRoot, spawn: recorded.spawn })
+    expect(continued.args).toContain(child.generation)
+    expect(recorded.calls).toHaveLength(4)
+    expect(continued.selection.recovery?.generation).toBe(checkpoint.generation)
+  })
+  test("schema 1 code cannot launch schema 2 data from its earlier recovery base", async () => {
+    const { root, portableRoot, systemDir } = fixture()
+    const { restoredHostDb } = await rollbackFixture(root, portableRoot, systemDir, 1)
+    const host = new Database(restoredHostDb)
+    host.exec(`PRAGMA user_version=${SCHEMA_VERSION}`); host.close()
+    const recorded = recorder()
+    await expect(launch({ systemDir, portableRoot, spawn: recorded.spawn })).rejects.toThrow("不符")
+    expect(recorded.calls).toHaveLength(0)
+  })
+  test("an old recovery selection and schema 1 host cannot launch into a vault with a schema 2 descendant", async () => {
+    const { root, portableRoot, systemDir } = fixture()
+    const { checkpoint, restoredHostDb, store } = await rollbackFixture(root, portableRoot, systemDir, 1)
+    // The selected old snapshot and restored host are still a valid schema 1
+    // pair. Another branch has now published newer data to the same vault.
+    store.db.exec(`PRAGMA user_version=${SCHEMA_VERSION}`)
+    store.setMeta("checkpoint_generation", checkpoint.generation)
+    store.setMeta("revision", String(checkpoint.revision + 1))
+    const newer = await createCheckpoint(store.db, join(portableRoot, "vault"), store.identityId, store.revision, checkpoint.generation)
+    const unchangedHost = readFileSync(restoredHostDb)
+    const unchangedSnapshot = readFileSync(join(portableRoot, "vault", "checkpoints", checkpoint.generation, "state.sqlite"))
+    const recorded = recorder()
+    await expect(launch({ systemDir, portableRoot, spawn: recorded.spawn })).rejects.toThrow("隔离的便携库")
+    expect(recorded.calls).toHaveLength(0)
+    expect(readFileSync(restoredHostDb)).toEqual(unchangedHost)
+    expect(readFileSync(join(portableRoot, "vault", "checkpoints", checkpoint.generation, "state.sqlite"))).toEqual(unchangedSnapshot)
+    // A supported new executable may still launch the explicitly selected old
+    // recovery branch; it understands both generations and checks fork rules.
+    await selected(root, systemDir, "0.3.0", SCHEMA_VERSION)
+    expect((await launch({ systemDir, portableRoot, spawn: recorded.spawn })).args).toContain(checkpoint.generation)
+    expect(recorded.calls).toHaveLength(1)
+    expect(newer.parent).toBe(checkpoint.generation)
+  })
+  test("ordinary schema 1 launch is allowed in an old-only vault and blocked after a schema 2 checkpoint appears", async () => {
+    const { root, portableRoot, systemDir } = fixture()
+    await selected(root, systemDir, "0.1.0", 1)
+    expect((await resolveCurrent(systemDir))?.recovery).toBeNull()
+    const store = new SoulStore(join(root, "source-host", "soul.db")); dbs.push(store.db)
+    store.db.exec("PRAGMA user_version=1")
+    const first = await createCheckpoint(store.db, join(portableRoot, "vault"), store.identityId, store.revision, null)
+    const recorded = recorder()
+    expect((await launch({ systemDir, portableRoot, spawn: recorded.spawn })).child.pid).toBe(12345)
+    store.db.exec(`PRAGMA user_version=${SCHEMA_VERSION}`)
+    store.setMeta("checkpoint_generation", first.generation)
+    store.setMeta("revision", String(first.revision + 1))
+    await createCheckpoint(store.db, join(portableRoot, "vault"), store.identityId, store.revision, first.generation)
+    await expect(launch({ systemDir, portableRoot, spawn: recorded.spawn })).rejects.toThrow("隔离的便携库")
+    await expect(launch({ systemDir, portableRoot, hostRoot: join(root, "empty-host"), spawn: recorded.spawn })).rejects.toThrow("隔离的便携库")
+    expect(recorded.calls).toHaveLength(1)
+    expect(existsSync(join(root, "empty-host"))).toBe(false)
+  })
+  test("a checksummed recovery chain cannot migrate forward then back to schema 1", async () => {
+    const { root, portableRoot, systemDir } = fixture()
+    const { checkpoint, restoredHostDb } = await rollbackFixture(root, portableRoot, systemDir, 1)
+    await selected(root, systemDir, "0.3.0", SCHEMA_VERSION)
+    const host = new Database(restoredHostDb)
+    host.exec(`PRAGMA user_version=${SCHEMA_VERSION}`)
+    host.query("UPDATE meta SET value='1' WHERE key='revision'").run()
+    const upgraded = await createCheckpoint(host, join(portableRoot, "vault"), checkpoint.identityId, 1, checkpoint.generation)
+    host.close()
+    // Model a fully hashed foreign/damaged history, not a production writer:
+    // createCheckpoint itself refuses a backward schema append.
+    const generation = `bad-schema-${randomUUID()}`, directory = join(portableRoot, "vault", "checkpoints", generation)
+    cpSync(join(portableRoot, "vault", "checkpoints", upgraded.generation), directory, { recursive: true })
+    const database = join(directory, "state.sqlite"), manifestPath = join(directory, "complete.json")
+    const wrong = new Database(database)
+    wrong.exec("PRAGMA user_version=1"); wrong.query("UPDATE meta SET value='2' WHERE key='revision'").run(); wrong.close()
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"))
+    writeFileSync(manifestPath, JSON.stringify({ ...manifest, generation, parent: upgraded.generation, schemaVersion: 1, revision: 2, sha256: hash(readFileSync(database)) }))
+    const current = new Database(restoredHostDb)
+    current.query("UPDATE meta SET value='2' WHERE key='revision'").run()
+    current.query("UPDATE meta SET value=? WHERE key='checkpoint_generation'").run(generation)
+    current.close()
+    const recorded = recorder()
+    await expect(launch({ systemDir, portableRoot, spawn: recorded.spawn })).rejects.toThrow("倒退")
+    expect(recorded.calls).toHaveLength(0)
   })
   test.skipIf(process.platform !== "win32")("compiled loader executes its dedicated entrypoint and fails safely without required arguments", async () => {
     const { root } = fixture(), outfile = join(root, "compiled-loader.exe")

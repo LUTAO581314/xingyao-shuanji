@@ -1,0 +1,214 @@
+{
+  "mode": "after-fixes-regression",
+  "baseline": {
+    "path": "reports/architecture-audit-2026-09-17.json",
+    "available": true,
+    "sha256": "bf6ac1ee9d2a63e3d3c1fbab06d5bc646a0f2b678e9ccf6576bcfbfa9f63bf81",
+    "policy": "Historical pre-fix results are not rewritten. This run repeats their semantic scenarios against current source; it does not claim a new release or full-suite acceptance."
+  },
+  "productVersion": "0.1.0-dev.5",
+  "method": "Synthetic persisted-tool payloads through the real HTTP adapter and product server; temporary SQLite identities only. No live engine, model, credentials, or user data were accessed. Fixture health and session creation are stubbed; message normalization, action recording, affect, sleep, learning and memory APIs use product code.",
+  "outcomeContamination": {
+    "supplied": [
+      {
+        "name": "nonzero-exit-one",
+        "upstreamStatus": "completed",
+        "metadataExit": 1
+      },
+      {
+        "name": "timeout",
+        "upstreamStatus": "completed",
+        "metadataExit": null
+      },
+      {
+        "name": "nonzero-exit-two",
+        "upstreamStatus": "completed",
+        "metadataExit": 2
+      }
+    ],
+    "normalized": [
+      {
+        "type": "tool",
+        "callID": "nonzero-exit-one",
+        "lifecycleStatus": "completed",
+        "execution": {
+          "version": 1,
+          "lifecycle": "completed",
+          "outcome": "failed",
+          "basis": "shell-exit-nonzero",
+          "startedAt": 1000000000,
+          "finishedAt": 1000000001,
+          "exitCode": 1
+        },
+        "arbitraryMetadataCopied": false
+      },
+      {
+        "type": "tool",
+        "callID": "timeout",
+        "lifecycleStatus": "completed",
+        "execution": {
+          "version": 1,
+          "lifecycle": "completed",
+          "outcome": "unknown",
+          "basis": "shell-exit-unavailable",
+          "startedAt": 1000000000,
+          "finishedAt": 1000000001,
+          "exitCode": null
+        },
+        "arbitraryMetadataCopied": false
+      },
+      {
+        "type": "tool",
+        "callID": "nonzero-exit-two",
+        "lifecycleStatus": "completed",
+        "execution": {
+          "version": 1,
+          "lifecycle": "completed",
+          "outcome": "failed",
+          "basis": "shell-exit-nonzero",
+          "startedAt": 1000000000,
+          "finishedAt": 1000000001,
+          "exitCode": 2
+        },
+        "arbitraryMetadataCopied": false
+      }
+    ],
+    "storedActions": [
+      {
+        "status": "failed",
+        "text": "shell：工具报告错误或非零退出；进程退出码：1\nsynthetic failing command",
+        "execution": {
+          "version": 1,
+          "lifecycle": "completed",
+          "outcome": "failed",
+          "basis": "shell-exit-nonzero",
+          "exitCode": 1,
+          "startedAt": 1000000000,
+          "finishedAt": 1000000001
+        }
+      },
+      {
+        "status": "unknown",
+        "text": "shell：工具结果待核实；进程退出码：未取得\n<shell_metadata>shell tool terminated command after exceeding timeout 100 ms.</shell_metadata>",
+        "execution": {
+          "version": 1,
+          "lifecycle": "completed",
+          "outcome": "unknown",
+          "basis": "shell-exit-unavailable",
+          "exitCode": null,
+          "startedAt": 1000000000,
+          "finishedAt": 1000000001
+        }
+      },
+      {
+        "status": "failed",
+        "text": "shell：工具报告错误或非零退出；进程退出码：2\nsynthetic failing test",
+        "execution": {
+          "version": 1,
+          "lifecycle": "completed",
+          "outcome": "failed",
+          "basis": "shell-exit-nonzero",
+          "exitCode": 2,
+          "startedAt": 1000000000,
+          "finishedAt": 1000000001
+        }
+      }
+    ],
+    "experienceKinds": [
+      "tool_failure",
+      "tool_unknown",
+      "tool_failure"
+    ],
+    "emotionValenceAfterThree": -0.28437500000000004,
+    "sleepCreated": 2,
+    "archivedKinds": [
+      "episode",
+      "episode"
+    ],
+    "skillPromotion": {
+      "promoted": false,
+      "error": "至少需要 3 个可判定的独立工具调用，且不能有未知结果",
+      "status": "draft",
+      "successes": 0,
+      "failures": 2,
+      "unknownSources": 1,
+      "selectedCallStatistic": 0.25,
+      "statisticMeaning": "Beta statistic over the selected decidable calls; not verified skill efficacy. No manual override was supplied."
+    },
+    "skillAfterTenNewFailedCalls": {
+      "status": "draft",
+      "successes": 0,
+      "failures": 2,
+      "unknownSources": 1,
+      "selectedCallStatistic": 0.25,
+      "limitation": "New calls outside the selected source IDs remain unlinked to the skill; automatic skill-use attribution is still absent."
+    }
+  },
+  "commitment": {
+    "omittedPinnedApiValue": true,
+    "omittedPinnedIncludedForUnrelatedQuery": true,
+    "oversizedLength": 7028,
+    "oversizedPinned": true,
+    "oversizedProjectionReturned": false,
+    "coverageError": {
+      "code": "MEMORY_CONSTRAINT_OVERFLOW",
+      "requiredCharacters": 7443,
+      "limit": 6500,
+      "fixedMemoryCount": 2
+    }
+  },
+  "sameCallRevisions": {
+    "callCount": 1,
+    "historicalSourceCount": 3,
+    "activeSourceCount": 1,
+    "activeMemoryCount": 1,
+    "valences": [
+      0.175,
+      0.175,
+      0.175
+    ],
+    "sleepCreated": 1
+  },
+  "lateArchivalAge": {
+    "sourceObservedAt": 0,
+    "memorySourceObservedAt": 0,
+    "memoryCreatedAt": 7776000000,
+    "elapsedDays": 90,
+    "activationWithEmptyQuery": 0.011609330383882408,
+    "activationIfUsingSourceAge": 0.011609330383882408,
+    "exactMatchAfterAnother90Days": 0.9000134776551962,
+    "limitation": "Recency decay still affects ranking only; semantic compression and automatic deletion were not added by these fixes."
+  },
+  "legacyMemoryAge": {
+    "marker": "1",
+    "memoryCreatedAt": 7776000000,
+    "sourceObservedAt": 0,
+    "repeatedOpenChangedRevision": false
+  },
+  "assertions": {
+    "passed": 8,
+    "checks": [
+      "Nonzero shell exits are failed; absent exit code remains unknown and none is succeeded",
+      "Whitelisted execution evidence preserves exit=1/null/2 without positive emotion or successful skill samples",
+      "Omitted pinned defaults to true for a commitment and is included for an unrelated query",
+      "Oversized pinned commitment raises an explicit coverage error rather than disappearing",
+      "Three revisions of one call keep one active source, one active memory and one emotional contribution",
+      "Archiving a ninety-day-old source retains its actual age",
+      "Missing source-revision marker backfills legacy memory age once and preserves it on another reopen",
+      "Historical audit baseline remains byte-for-byte unchanged"
+    ]
+  },
+  "references": {
+    "normalizer": "src/adapter.ts#executionEvidence",
+    "recorder": "src/server.ts#recordParts",
+    "actionSources": "src/store.ts#recordAction",
+    "sleep": "src/store.ts#sleep",
+    "memoryBudget": "src/store.ts#projection",
+    "memoryUpgrade": "src/store.ts#upgradeSourceEvidence",
+    "commitmentApi": "src/server.ts POST /api/memories",
+    "learningEvidenceSelection": "src/learning.ts#assessment",
+    "memoryAge": "src/affect.ts#memoryActivation",
+    "upstreamShell": "C:/Users/LT/Documents/trae/packages/opencode/src/tool/shell.ts:542-594",
+    "upstreamToolCompletion": "C:/Users/LT/Documents/trae/packages/opencode/src/session/processor.ts:174-179"
+  }
+}

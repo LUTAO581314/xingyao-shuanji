@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto"
 import { constants, closeSync, copyFileSync, existsSync, fsyncSync, linkSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs"
 import { hostname, tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
-import { SCHEMA_VERSION, type CheckpointInfo } from "./contracts"
+import { isSupportedSchema, type CheckpointInfo } from "./contracts"
 
 const DATABASE_FILE = "state.sqlite"
 const MANIFEST_FILE = "complete.json"
@@ -11,6 +11,8 @@ const LOCK_FILE = ".xingyao-writer.lock"
 const GENERATION = /^[A-Za-z0-9][A-Za-z0-9_-]{0,95}$/
 type LockOwner = { pid: number; host: string; token: string; createdAt: number }
 type Manifest = CheckpointInfo & { format: 1; complete: true; database: typeof DATABASE_FILE; extensions?: Record<string, string> }
+
+export class UnsupportedCheckpointError extends Error {}
 
 function isMissing(error: unknown) { return (error as NodeJS.ErrnoException).code === "ENOENT" }
 function isExisting(error: unknown) { return (error as NodeJS.ErrnoException).code === "EEXIST" }
@@ -108,11 +110,11 @@ function inspectDatabase(path: string) {
     const checks = db.query("PRAGMA integrity_check").all() as Record<string, unknown>[]
     if (checks.length !== 1 || Object.values(checks[0]!)[0] !== "ok") throw new Error("SQLite integrity_check failed")
     const schemaVersion = (db.query("PRAGMA user_version").get() as { user_version: number }).user_version
+    if (!isSupportedSchema(schemaVersion)) throw new UnsupportedCheckpointError(`Unsupported checkpoint schema: ${schemaVersion}; use a compatible release or an isolated recovery vault`)
     const identityId = (db.query("SELECT value FROM meta WHERE key='identity_id'").get() as { value: string } | null)?.value
     const rawRevision = (db.query("SELECT value FROM meta WHERE key='revision'").get() as { value: string } | null)?.value
     const revision = Number(rawRevision)
     if (!identityId || rawRevision === undefined || !/^\d+$/.test(rawRevision) || !Number.isSafeInteger(revision)) throw new Error("Checkpoint domain metadata is missing or invalid")
-    if (schemaVersion !== SCHEMA_VERSION) throw new Error(`Unsupported checkpoint schema: ${schemaVersion}`)
     return { identityId, revision, schemaVersion }
   } finally { db.close(true) }
 }
@@ -123,12 +125,15 @@ function parseManifest(directory: string, generation: string): Manifest {
   const path = join(directory, MANIFEST_FILE)
   if (plainFile(path).size > 16_384) throw new Error("Oversized checkpoint manifest")
   const m = JSON.parse(readFileSync(path, "utf8")) as Manifest
+  if (m.complete === true && m.generation === generation && Number.isSafeInteger(m.format) && m.format > 1)
+    throw new UnsupportedCheckpointError("Unsupported checkpoint completion format; do not append to this vault with an older release")
   if (m.format !== 1 || m.complete !== true || m.database !== DATABASE_FILE || m.generation !== generation ||
       typeof m.identityId !== "string" || !m.identityId || !Number.isSafeInteger(m.createdAt) || m.createdAt < 0 ||
-      !Number.isSafeInteger(m.revision) || m.revision < 0 || m.schemaVersion !== SCHEMA_VERSION ||
+      !Number.isSafeInteger(m.revision) || m.revision < 0 || !Number.isSafeInteger(m.schemaVersion) || m.schemaVersion < 0 ||
       typeof m.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(m.sha256) ||
       !(m.parent === null || (typeof m.parent === "string" && GENERATION.test(m.parent) && m.parent !== generation)))
     throw new Error("Invalid or unsupported checkpoint completion manifest")
+  if (!isSupportedSchema(m.schemaVersion)) throw new UnsupportedCheckpointError(`Unsupported checkpoint schema: ${m.schemaVersion}; use a compatible release or an isolated recovery vault`)
   return m
 }
 function info(m: Manifest): CheckpointInfo {
@@ -155,7 +160,9 @@ function validateExtensions(directory: string, manifest: Manifest) {
   }
 }
 
-/** Enumerates all independently verified generations, including divergent heads. */
+/** Enumerates independently verified generations, including divergent heads.
+ * Recognizable unsupported completions block use of the vault: silently hiding
+ * them would let an older writer manufacture a second history branch. */
 export async function listCheckpoints(vaultDir: string): Promise<CheckpointInfo[]> {
   const root = join(vaultDir, "checkpoints")
   let entries: string[]
@@ -169,7 +176,10 @@ export async function listCheckpoints(vaultDir: string): Promise<CheckpointInfo[
       validateSnapshot(join(directory, DATABASE_FILE), manifest)
       validateExtensions(directory, manifest)
       result.push(info(manifest))
-    } catch { /* Incomplete, damaged or unsupported generations are not recovery candidates. */ }
+    } catch (error) {
+      if (error instanceof UnsupportedCheckpointError) throw error
+      // Incomplete or damaged generations are not recovery candidates.
+    }
   }
   return result.sort((a, b) => b.createdAt - a.createdAt || b.generation.localeCompare(a.generation))
 }
@@ -187,14 +197,17 @@ function assertCanAppend(checkpoints: CheckpointInfo[], identityId: string, revi
   if (revision < heads[0]!.revision) throw new Error("Checkpoint revision cannot move backwards")
 }
 
-/** Captures committed SQLite state (including WAL) without copying the active .db. */
+/** Captures committed SQLite state (including WAL) without copying the active .db.
+ * Supported historical schemas remain unchanged; migration belongs to SoulStore.
+ */
 export async function createCheckpoint(db: Database, vaultDir: string, identityId: string, revision: number, parent: string | null, beforeComplete?: (directory: string) => Promise<Record<string, string>>): Promise<CheckpointInfo> {
   if (!identityId || !Number.isSafeInteger(revision) || revision < 0 || (parent !== null && !GENERATION.test(parent))) throw new Error("Invalid checkpoint metadata")
   if (db.inTransaction) throw new Error("Commit the active transaction before creating a checkpoint")
   const release = acquireHostLock(join(vaultDir, ".checkpoint-writer"))
   let staging: string | undefined
   try {
-    assertCanAppend(await listCheckpoints(vaultDir), identityId, revision, parent)
+    const checkpoints = await listCheckpoints(vaultDir)
+    assertCanAppend(checkpoints, identityId, revision, parent)
     const currentIdentity = (db.query("SELECT value FROM meta WHERE key='identity_id'").get() as { value: string } | null)?.value
     const currentRevision = (db.query("SELECT value FROM meta WHERE key='revision'").get() as { value: string } | null)?.value
     const currentGeneration = (db.query("SELECT value FROM meta WHERE key='checkpoint_generation'").get() as { value: string } | null)?.value || null
@@ -210,6 +223,8 @@ export async function createCheckpoint(db: Database, vaultDir: string, identityI
     try { snapshotDb.exec("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL") } finally { snapshotDb.close(true) }
     const captured = inspectDatabase(snapshot)
     if (captured.identityId !== identityId || captured.revision !== revision) throw new Error("Snapshot revision changed during capture")
+    const previous = checkpoints.find(checkpoint => checkpoint.generation === parent)
+    if (previous && captured.schemaVersion < previous.schemaVersion) throw new Error("Checkpoint schema cannot move backwards; preserve a separate recovery branch")
     const generation = `${Date.now().toString(36)}-${randomUUID()}`
     const manifest: Manifest = { format: 1, complete: true, database: DATABASE_FILE, generation, identityId, revision, parent, schemaVersion: captured.schemaVersion, createdAt: Date.now(), sha256: hashFile(snapshot) }
     const root = join(vaultDir, "checkpoints")
