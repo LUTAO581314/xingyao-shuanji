@@ -22,6 +22,8 @@ test("browser assets load and APIs require both token and valid origin", async (
   const { request } = setup()
   const page = await request("/")
   expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'none'")
+  expect(page.headers.get("content-security-policy")).toContain("style-src 'self' 'sha256-pgvDUBa4IjFA2yuSJ2cqcyxmNYJMborsd0ORcRv9vw8='")
+  expect(page.headers.get("content-security-policy")).not.toContain("unsafe-inline")
   expect(await page.text()).toContain("星杳")
   expect((await request("/app.js")).headers.get("content-type")).toContain("javascript")
   expect((await request("/api/state", undefined, "GET", { authorization: "Bearer invalid" })).status).toBe(401)

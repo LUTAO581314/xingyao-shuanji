@@ -4,7 +4,7 @@ const date = (value) => new Date(value).toLocaleString('zh-CN', {month:'2-digit'
 const uuid = () => crypto.randomUUID()
 const statusNames = {ready:'准备开始',running:'正在处理',waiting:'待核实',verifying:'等待验收',completed:'已完成',failed:'执行失败',cancelled:'已取消'}
 const kindNames = {preference:'偏好',fact:'事实',inference:'待验证认识',episode:'经历',commitment:'承诺'}
-const titles = {chat:'对话与任务',memory:'记忆',knowledge:'知识库',skills:'经验技能',sleep:'睡眠整理',files:'文件管家',system:'系统中心'}
+const titles = {chat:'对话与任务',memory:'记忆',knowledge:'知识库',graph:'知识图谱',skills:'经验技能',sleep:'睡眠整理',files:'文件管家',system:'系统中心'}
 const token = location.hash.startsWith('#token=') ? decodeURIComponent(location.hash.slice(7)) : sessionStorage.getItem('xingyao-token')
 if (token) sessionStorage.setItem('xingyao-token', token)
 history.replaceState(null, '', location.pathname)
@@ -20,6 +20,7 @@ async function api(path, data, method = data === undefined ? 'GET' : 'POST') {
 function notice(message, error = false) { $('#notice').textContent = message; $('#notice').className = `notice${error ? ' error' : ''}` }
 async function action(fn) { try { await fn() } catch (error) { notice(error.message, true) } }
 async function navigate(next) {
+  if (view === 'graph' && next !== 'graph') resetGraph('重新打开时会读取最新资料。')
   view = next
   document.querySelectorAll('.view').forEach(item => item.classList.toggle('hidden', item.id !== `view-${view}`))
   document.querySelectorAll('.nav').forEach(item => item.classList.toggle('active', item.dataset.view === view))
@@ -54,6 +55,7 @@ async function refresh() {
 async function refreshView() {
   if (view === 'memory') await refreshMemories()
   if (view === 'knowledge') await refreshKnowledge()
+  if (view === 'graph') await refreshGraph()
   if (view === 'sleep') renderSleep()
   if (view === 'files') await refreshFiles()
   if (view === 'skills') await refreshSkills()
@@ -139,6 +141,305 @@ async function refreshSkills() {
 }
 $('#skill-form').onsubmit = event => { event.preventDefault(); action(async () => { const form = new FormData(event.target); await api('/skills', {title:form.get('title'),scope:form.get('scope'),when:form.get('when'),steps:form.get('steps'),avoid:form.get('avoid'),sourceIds:form.getAll('source').map(Number)}); notice('方法已保存为候选，尚未自动启用。'); await refreshSkills(); await refresh() }) }
 $('#skill-list').onclick = event => action(async () => { const promote = event.target.closest('[data-promote-skill]'), retract = event.target.closest('[data-retract-skill]'); if (promote) { const manualCheck = prompt('你验证了什么？请写下方法的适用条件与实际结果。'); if (manualCheck === null) return; await api(`/skills/${promote.dataset.promoteSkill}/promote`, {revision:Number(promote.dataset.revision),manualCheck}) } if (retract) await api(`/skills/${retract.dataset.retractSkill}`, undefined, 'DELETE'); await refreshSkills(); await refresh() })
+
+// The graph is a read-only projection. Source content is rendered as text, never HTML.
+const graphKinds = {document:'资料',memory:'记忆',experience:'来源经历'}
+const graphExperienceNames = {user_message:'用户消息',assistant_message:'助理消息',tool_success:'工具成功结果',tool_failure:'工具失败结果',tool_unknown:'待核实的工具结果',preference:'明确告知的偏好',correction:'纠正记录',observation:'观察记录'}
+const graphEdgeNames = {wikilink:'双向链接语法',markdown_link:'Markdown 链接',memory_source:'记忆来源'}
+const graphReasons = {missing:'目标未导入或不可见',ambiguous:'同名目标不唯一',external:'外部链接',unsupported:'暂不支持的链接',index_limit:'资料索引达到本轮上限',node_limit:'目标超出节点上限'}
+const graphUI = {data:null,cy:null,selected:null,local:null,request:0,sourceRequest:0,script:null,visible:new Set(),folders:new Map()}
+function graphElement(tag, text, className) {
+  const element = document.createElement(tag)
+  if (text !== undefined) element.textContent = String(text)
+  if (className) element.className = className
+  return element
+}
+function graphButton(text, handler, className = 'secondary') {
+  const button = graphElement('button', text, className)
+  button.type = 'button'
+  button.addEventListener('click', () => action(handler))
+  return button
+}
+function graphField(parent, label, value) {
+  if (value === undefined || value === null || value === '') return
+  const item = graphElement('div', undefined, 'graph-field')
+  item.append(graphElement('span', label), graphElement('div', value))
+  parent.append(item)
+}
+function resetGraph(message = '正在读取最新图谱…') {
+  graphUI.request++; graphUI.sourceRequest++
+  graphUI.data = null; graphUI.selected = null; graphUI.local = null; graphUI.visible.clear()
+  if (graphUI.cy) graphUI.cy.elements().remove()
+  $('#graph-files').replaceChildren(); $('#graph-records').replaceChildren(); $('#graph-unresolved-list').replaceChildren()
+  $('#graph-count').textContent = ''; $('#graph-local').disabled = true
+  $('#graph-unresolved-title').textContent = '未解析的链接'
+  $('#graph-status').textContent = message
+  $('#graph-status').classList.remove('graph-warning')
+  $('#graph-empty').textContent = message; $('#graph-empty').classList.remove('hidden')
+  $('#graph-detail').replaceChildren(graphElement('h3', '查看依据'), graphElement('p', '选择节点或连线，查看正文、来源和修订。', 'empty'))
+}
+async function loadGraphLibrary() {
+  if (typeof window.cytoscape === 'function') return
+  if (!graphUI.script) graphUI.script = new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = '/vendor/cytoscape.min.js'
+    script.onload = () => typeof window.cytoscape === 'function' ? resolve() : reject(new Error('图谱组件未正确加载'))
+    script.onerror = () => { script.remove(); reject(new Error('本地图谱组件加载失败，请重试或检查当前发行包')) }
+    document.head.append(script)
+  }).catch(error => { graphUI.script = null; throw error })
+  await graphUI.script
+}
+async function refreshGraph() {
+  resetGraph()
+  const request = graphUI.request
+  const scope = $('#graph-scope').value.trim()
+  $('#graph-refresh').disabled = true
+  try {
+    if (!scope) throw new Error('请填写资料范围')
+    const params = new URLSearchParams({scope,private:String($('#graph-private').checked),maxNodes:$('#graph-limit').value,maxEdges:'1000'})
+    const [data] = await Promise.all([api(`/graph?${params}`), loadGraphLibrary()])
+    if (request !== graphUI.request || view !== 'graph') return
+    graphUI.data = data
+    ensureGraphCanvas()
+    renderGraph()
+    renderGraphUnresolved()
+    const cutNames = {nodes:'节点',edges:'关系',unresolved:'未解析链接',index:'资料索引',content:'正文扫描'}
+    const cuts = Object.entries(data.truncation ?? {}).filter(([,cut]) => cut).map(([key]) => cutNames[key] ?? key)
+    $('#graph-status').textContent = `范围：${data.scope} · ${data.includePrivate ? '包含私密' : '不含私密'} · 已加载 ${data.nodes.length} 个节点、${data.edges.length} 条关系。${cuts.length ? `本轮已截断：${cuts.join('、')}。可扩大节点上限或缩小资料范围；当前图不代表全部关联。` : '连线来自资料中的明确链接或已保存的记忆来源。'}`
+    $('#graph-status').classList.toggle('graph-warning', Boolean(data.truncated))
+  } catch (error) {
+    if (request !== graphUI.request || view !== 'graph') return
+    $('#graph-status').textContent = error.message
+    $('#graph-empty').textContent = `${error.message}。可点击“刷新图谱”重试。`
+    $('#graph-status').classList.add('graph-warning')
+  } finally { $('#graph-refresh').disabled = false }
+}
+function ensureGraphCanvas() {
+  if (graphUI.cy) return
+  graphUI.cy = window.cytoscape({container:$('#graph-canvas'),elements:[],minZoom:.08,maxZoom:4,wheelSensitivity:.22,boxSelectionEnabled:false,
+    style:[
+      {selector:'node',style:{'label':'data(shortLabel)','background-color':'#8baa9a','color':'#243a3b','font-family':'Segoe UI, Microsoft YaHei, sans-serif','font-size':11,'text-wrap':'ellipsis','text-max-width':115,'text-valign':'bottom','text-margin-y':7,'width':28,'height':28,'border-width':2,'border-color':'#fffefa'}},
+      {selector:'node[kind="memory"]',style:{'background-color':'#bda376','shape':'round-rectangle'}},
+      {selector:'node[kind="experience"]',style:{'background-color':'#94a6ba','shape':'diamond','width':24,'height':24}},
+      {selector:'edge',style:{'width':1.5,'line-color':'#bccbc1','target-arrow-color':'#97ad9d','target-arrow-shape':'triangle','curve-style':'bezier','arrow-scale':.7}},
+      {selector:'edge[type="memory_source"]',style:{'line-style':'dashed','line-color':'#b7ac97','target-arrow-color':'#b7ac97'}},
+      {selector:':selected',style:{'border-width':4,'border-color':'#335f55','line-color':'#335f55','target-arrow-color':'#335f55','width':4}},
+      {selector:'node:selected',style:{'width':34,'height':34,'font-weight':'bold'}}
+    ]})
+  graphUI.cy.on('tap','node',event => action(() => selectGraphNode(event.target.id())))
+  graphUI.cy.on('tap','edge',event => showGraphEdge(event.target.id()))
+  new ResizeObserver(() => {
+    if (view !== 'graph') return
+    graphUI.cy.resize()
+    if (graphUI.cy.nodes().length) graphUI.cy.fit(undefined,38)
+  }).observe($('#graph-canvas'))
+}
+function filteredGraphNodes() {
+  if (!graphUI.data) return []
+  const kinds = new Set([...document.querySelectorAll('[data-graph-kind]:checked')].map(input => input.dataset.graphKind))
+  const query = $('#graph-search').value.trim().toLocaleLowerCase()
+  let neighborhood = null
+  if (graphUI.local) {
+    neighborhood = new Set([graphUI.local])
+    for (const edge of graphUI.data.edges) if (edge.from === graphUI.local || edge.to === graphUI.local) { neighborhood.add(edge.from); neighborhood.add(edge.to) }
+  }
+  return graphUI.data.nodes.filter(node => kinds.has(node.kind) && (!neighborhood || neighborhood.has(node.id)) && (!query || `${node.label} ${node.path ?? ''} ${node.memoryKind ? kindNames[node.memoryKind] : ''}`.toLocaleLowerCase().includes(query)))
+}
+function renderGraph() {
+  if (!graphUI.data || !graphUI.cy) return
+  const nodes = filteredGraphNodes(), ids = new Set(nodes.map(node => node.id))
+  const edges = graphUI.data.edges.filter(edge => ids.has(edge.from) && ids.has(edge.to))
+  graphUI.visible = ids
+  if (graphUI.selected && !ids.has(graphUI.selected)) clearGraphSelection()
+  graphUI.cy.batch(() => {
+    graphUI.cy.elements().remove()
+    graphUI.cy.add([...nodes.map(node => ({data:{id:node.id,kind:node.kind,shortLabel:Array.from(node.label).slice(0,22).join('')}})), ...edges.map(edge => ({data:{id:edge.id,source:edge.from,target:edge.to,type:edge.type}}))])
+    if (graphUI.selected) graphUI.cy.getElementById(graphUI.selected).select()
+  })
+  renderGraphFiles(nodes.filter(node => node.kind === 'document'))
+  const records = $('#graph-records'); records.replaceChildren()
+  for (const node of nodes.filter(node => node.kind !== 'document')) records.append(graphNodeButton(node))
+  if (!records.childElementCount) records.append(graphElement('p','当前筛选没有记忆或经历。','graph-hint'))
+  $('#graph-count').textContent = `${graphUI.local ? '已加载的相邻视图 · ' : ''}${nodes.length} 个节点 / ${edges.length} 条关系`
+  $('#graph-all').disabled = !graphUI.local
+  $('#graph-local').disabled = !graphUI.selected
+  $('#graph-empty').classList.toggle('hidden', nodes.length > 0)
+  $('#graph-empty').textContent = graphUI.data.nodes.length ? '当前筛选没有匹配节点。调整搜索或类型，或返回全图。' : '还没有可显示的资料或记忆。先在“知识库”导入文件，或在“记忆”中保存内容。'
+  requestAnimationFrame(() => {
+    if (view !== 'graph' || !graphUI.data) return
+    graphUI.cy.resize()
+    if (nodes.length) graphUI.cy.layout({name:nodes.length > 600 ? 'grid' : 'cose',animate:false,fit:true,padding:38,randomize:true,nodeDimensionsIncludeLabels:true,nodeRepulsion:16000,nodeOverlap:20,idealEdgeLength:120,numIter:700,componentSpacing:95}).run()
+  })
+}
+function graphNodeButton(node) {
+  const button = graphButton(node.kind === 'document' ? node.label : `${graphKinds[node.kind]} · ${node.label}`, () => selectGraphNode(node.id), 'graph-node-button')
+  button.dataset.graphNode = node.id
+  button.classList.toggle('selected', graphUI.selected === node.id)
+  button.title = node.path ?? node.label
+  return button
+}
+function renderGraphFiles(nodes) {
+  const container = $('#graph-files'); container.replaceChildren()
+  if (!nodes.length) { container.append(graphElement('p','当前筛选没有已导入资料。','graph-hint')); return }
+  const root = {directories:new Map(),nodes:[]}
+  for (const node of nodes) {
+    const parts = (node.path ?? node.label).replaceAll('\\','/').split('/').filter(Boolean)
+    parts.pop()
+    let branch = root
+    for (const part of parts) {
+      if (!branch.directories.has(part)) branch.directories.set(part,{directories:new Map(),nodes:[]})
+      branch = branch.directories.get(part)
+    }
+    branch.nodes.push(node)
+  }
+  const count = branch => branch.nodes.length + [...branch.directories.values()].reduce((total, child) => total + count(child),0)
+  const append = (parent, branch, prefix = '', depth = 0) => {
+    for (const [firstName, firstDirectory] of [...branch.directories].sort(([a],[b]) => a.localeCompare(b,'zh-CN'))) {
+      let name = firstName, directory = firstDirectory
+      while (!directory.nodes.length && directory.directories.size === 1) {
+        const [childName, childDirectory] = directory.directories.entries().next().value
+        name += `/${childName}`; directory = childDirectory
+      }
+      const path = `${prefix}/${name}`, item = graphElement('details',undefined,'graph-directory')
+      item.open = Boolean($('#graph-search').value.trim()) || (graphUI.folders.get(path) ?? (depth === 0 || count(directory) <= 8))
+      const pieces = name.split('/'), label = name.length > 38 && pieces.length > 2 ? `${pieces[0]}/…/${pieces.at(-1)}` : name
+      const summary = graphElement('summary',`${label} (${count(directory)})`)
+      summary.title = path; item.append(summary)
+      item.addEventListener('toggle', () => graphUI.folders.set(path,item.open))
+      append(item,directory,path,depth + 1); parent.append(item)
+    }
+    for (const node of branch.nodes.sort((a,b) => a.label.localeCompare(b.label,'zh-CN'))) parent.append(graphNodeButton(node))
+  }
+  append(container,root)
+}
+function clearGraphSelection() {
+  graphUI.selected = null; graphUI.sourceRequest++
+  $('#graph-local').disabled = true
+  if (graphUI.cy) graphUI.cy.elements().unselect()
+  $('#graph-detail').replaceChildren(graphElement('h3','查看依据'),graphElement('p','选择节点或连线，查看正文、来源和修订。','empty'))
+}
+function markGraphSelection(id) {
+  graphUI.selected = id
+  $('#graph-local').disabled = !id
+  document.querySelectorAll('[data-graph-node]').forEach(button => button.classList.toggle('selected',button.dataset.graphNode === id))
+  if (graphUI.cy) { graphUI.cy.elements().unselect(); if (id) graphUI.cy.getElementById(id).select() }
+}
+async function selectGraphNode(id, startLine = 1) {
+  if (!graphUI.data) return
+  const node = graphUI.data.nodes.find(item => item.id === id)
+  if (!node) return
+  markGraphSelection(id)
+  const request = ++graphUI.sourceRequest, graphRequest = graphUI.request
+  const detail = $('#graph-detail'); detail.replaceChildren(graphElement('h3',node.label),graphElement('p','正在读取来源…','graph-hint'))
+  try {
+    const params = new URLSearchParams({id,scope:graphUI.data.scope,private:String(graphUI.data.includePrivate),startLine:String(startLine),lineLimit:'80'})
+    const source = await api(`/graph/source?${params}`)
+    if (request !== graphUI.sourceRequest || graphRequest !== graphUI.request || view !== 'graph') return
+    const changedDocument = source.kind === 'document' && (source.contentHash !== node.contentHash || source.revision !== node.revision)
+    const changedMemory = source.kind === 'memory' && source.memory?.revision !== node.revision
+    if (changedDocument || changedMemory) {
+      markGraphSelection(null)
+      detail.replaceChildren(graphElement('h3','资料已更新，请刷新图谱'),graphElement('p','当前图中的关系来自较早修订。刷新后再查看正文与来源，避免将旧关系配到新内容。','graph-hint'),graphButton('刷新图谱',refreshGraph))
+      return
+    }
+    detail.replaceChildren(graphElement('span',graphKinds[node.kind],'tag'),graphElement('h3',source.label ?? node.label))
+    graphField(detail,'范围',source.scope ?? node.scope)
+    if (source.private ?? node.private) graphField(detail,'可见性','私密')
+    if (source.kind === 'document') {
+      graphField(detail,'原始路径',source.path)
+      graphField(detail,'导入修订',source.revision)
+      graphField(detail,'内容校验',source.contentHash)
+      detail.append(graphElement('p','下方是导入时保存的正文；源文件变化后，请在知识库刷新资料。','graph-hint'))
+      const pre = graphElement('div',undefined,'graph-source-lines')
+      for (const line of source.lines ?? []) {
+        const row = graphElement('div',undefined,'graph-source-line')
+        row.append(graphElement('span',line.number,'graph-line-number'),graphElement('code',`${line.text}${line.truncated ? ' …（本行已截断）' : ''}`))
+        pre.append(row)
+      }
+      if (!pre.childElementCount) pre.append(graphElement('p','这一页没有正文。','graph-hint'))
+      detail.append(pre)
+      if (source.lines?.some(line => line.truncated)) detail.append(graphElement('p','超长行只显示前段；下一页从下一原始行开始，不续接本行。','graph-hint'))
+      else if (source.truncated && source.endLine < source.startLine) detail.append(graphElement('p','这一页的导入正文不完整，请刷新资料索引后重试。','graph-hint'))
+      const pages = graphElement('div',undefined,'graph-pagination')
+      const previous = graphButton('上一页',() => selectGraphNode(id,Math.max(1,source.startLine - 80)))
+      const next = graphButton('下一页',() => selectGraphNode(id,source.endLine + 1))
+      previous.disabled = source.startLine <= 1
+      next.disabled = source.endLine >= source.totalLines || source.endLine < source.startLine
+      pages.append(previous,graphElement('span',source.totalLines ? `${source.startLine}–${source.endLine} / ${source.totalLines} 行` : '空文档'),next); detail.append(pages)
+    } else {
+      const record = source.memory ?? source.experience ?? source.record ?? {}
+      graphField(detail,'类型',source.kind === 'memory' ? kindNames[record.kind] ?? record.kind : graphExperienceNames[record.kind] ?? record.kind)
+      detail.append(graphElement('p',record.text ?? '', 'graph-record-text'))
+      graphField(detail,'修订',record.revision)
+      graphField(detail,'来源编号',record.sourceIds?.join('、'))
+      graphField(detail,'来源键',record.sourceKey)
+      graphField(detail,'记录时间',record.updatedAt || record.recordedAt ? date(record.updatedAt ?? record.recordedAt) : undefined)
+      if (source.truncated) detail.append(graphElement('p','较长内容已截断显示。','graph-hint'))
+    }
+    appendGraphRelations(detail,node)
+  } catch (error) {
+    if (request !== graphUI.sourceRequest || graphRequest !== graphUI.request || view !== 'graph') return
+    markGraphSelection(null)
+    detail.replaceChildren(graphElement('h3','来源暂不可用'),graphElement('p',`${error.message}。资料可能已被纠正、移除或改变可见范围，请刷新图谱。`,'graph-hint'),graphButton('刷新图谱',refreshGraph))
+  }
+}
+function appendGraphRelations(parent,node) {
+  const relations = graphUI.data.edges.filter(edge => edge.from === node.id || edge.to === node.id)
+  parent.append(graphElement('h4',`已加载的关系 · ${relations.length}`))
+  if (!relations.length) parent.append(graphElement('p','当前已加载图谱中没有明确关系。','graph-hint'))
+  for (const edge of relations) {
+    const other = graphUI.data.nodes.find(item => item.id === (edge.from === node.id ? edge.to : edge.from))
+    parent.append(graphButton(`${graphEdgeNames[edge.type]} → ${other?.label ?? '相关节点'}`,() => showGraphEdge(edge.id),'graph-relation-button'))
+  }
+}
+function showGraphEdge(id) {
+  const edge = graphUI.data?.edges.find(item => item.id === id)
+  if (!edge) return
+  graphUI.sourceRequest++; markGraphSelection(null)
+  graphUI.cy?.getElementById(edge.id).select()
+  const detail = $('#graph-detail'), evidence = edge.evidence
+  detail.replaceChildren(graphElement('span','关系依据','tag'),graphElement('h3',graphEdgeNames[edge.type]))
+  for (const [label,nodeID] of [['起点',edge.from],['终点',edge.to]]) {
+    const node = graphUI.data.nodes.find(item => item.id === nodeID)
+    detail.append(graphElement('h4',label),graphButton(node?.label ?? nodeID,() => selectGraphNode(nodeID),'graph-relation-button'))
+  }
+  appendGraphEvidence(detail,evidence)
+}
+function appendGraphEvidence(parent,evidence) {
+  parent.append(graphElement('h4','原始依据'),graphElement('p',evidence.snippet,'graph-record-text'))
+  if (evidence.kind === 'document') {
+    graphField(parent,'所在文件',evidence.path)
+    graphField(parent,'位置',`第 ${evidence.line} 行，第 ${evidence.column} 列`)
+    graphField(parent,'原始链接',evidence.rawTarget)
+    graphField(parent,'锚点',evidence.anchor)
+    graphField(parent,'内容校验',evidence.contentHash)
+    parent.append(graphButton('阅读这段来源',() => selectGraphNode(`document:${evidence.documentId}`,Math.max(1,evidence.line - 8))))
+  } else {
+    graphField(parent,'来源编号',evidence.experienceId)
+    graphField(parent,'来源键',evidence.sourceKey)
+    parent.append(graphButton('阅读来源经历',() => selectGraphNode(`experience:${evidence.experienceId}`)))
+  }
+}
+function renderGraphUnresolved() {
+  const items = graphUI.data?.unresolved ?? [], container = $('#graph-unresolved-list')
+  container.replaceChildren()
+  $('#graph-unresolved-title').textContent = `未解析的链接 · ${items.length}${graphUI.data?.truncation.unresolved ? '（还有未显示项）' : ''}`
+  for (const item of items) {
+    const row = graphElement('div',undefined,'graph-unresolved-item')
+    row.append(graphElement('span',graphReasons[item.reason] ?? item.reason,'tag'),graphElement('span',item.evidence.rawTarget),graphButton(`${item.evidence.path} · 第 ${item.evidence.line} 行`,() => selectGraphNode(item.from,Math.max(1,item.evidence.line - 8)),'graph-relation-button'))
+    container.append(row)
+  }
+  if (!items.length) container.append(graphElement('p','本轮扫描未记录未解析链接。','graph-hint'))
+}
+$('#graph-query').onsubmit = event => { event.preventDefault(); action(refreshGraph) }
+$('#graph-scope').oninput = () => resetGraph('范围已改变，点击“刷新图谱”应用。')
+$('#graph-private').onchange = () => resetGraph('私密范围已改变，点击“刷新图谱”应用。')
+$('#graph-limit').onchange = () => resetGraph('节点上限已改变，点击“刷新图谱”应用。')
+$('#graph-search').oninput = () => { clearGraphSelection(); renderGraph() }
+document.querySelectorAll('[data-graph-kind]').forEach(input => input.onchange = () => { clearGraphSelection(); renderGraph() })
+$('#graph-local').onclick = () => { if (graphUI.selected) { graphUI.local = graphUI.selected; renderGraph() } }
+$('#graph-all').onclick = () => { graphUI.local = null; renderGraph() }
+$('#graph-fit').onclick = () => { if (graphUI.cy) { graphUI.cy.resize(); graphUI.cy.fit(undefined,38) } }
 
 let engineHealth
 async function renderSystem() {

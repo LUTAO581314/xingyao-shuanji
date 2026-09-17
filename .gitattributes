@@ -1,3 +1,5 @@
 * text=auto eol=lf
 # Preserve published patch hashes and meaningful diff context spaces.
 *.patch -text -whitespace
+# Preserve the upstream browser distribution checksum.
+src/web/vendor/cytoscape.min.js -text

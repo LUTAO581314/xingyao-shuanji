@@ -9,6 +9,7 @@
       <button class="nav active" data-view="chat"><span>◌</span> 对话与任务</button>
       <button class="nav" data-view="memory"><span>◇</span> 记忆</button>
       <button class="nav" data-view="knowledge"><span>▤</span> 知识库</button>
+      <button class="nav" data-view="graph"><span>⌘</span> 知识图谱</button>
       <button class="nav" data-view="skills"><span>⌘</span> 经验技能</button>
       <button class="nav" data-view="sleep"><span>☾</span> 睡眠整理</button>
       <button class="nav" data-view="files"><span>▱</span> 文件管家</button>
@@ -32,6 +33,22 @@
     </section>
     <section id="view-memory" class="view hidden"><div class="intro"><h2>记住你，也允许重新认识。</h2><p>每条记忆保留来源。你可以纠正、封存或删除；私密记忆不会自动用于对话。</p></div><div class="two-columns"><form id="memory-form" class="panel form-panel"><h3>留下一条记忆</h3><label>内容<textarea name="text" required placeholder="例如：我喜欢先看到结论，再看详细解释。"></textarea></label><div class="form-row"><label>类型<select name="kind"><option value="preference">偏好</option><option value="fact">已知事实</option><option value="commitment">待办承诺</option><option value="inference">待验证认识</option></select></label><label>范围<input name="scope" value="global" required></label></div><label class="check"><input type="checkbox" name="pinned"> 固定保留</label><label class="check"><input type="checkbox" name="private"> 私密，仅在记忆管理中查看</label><button>记住这件事</button></form><div><div class="toolbar"><input id="memory-search" placeholder="搜索记忆"><label class="check"><input id="private-memories" type="checkbox">显示私密</label></div><div id="memory-list"></div></div></div></section>
     <section id="view-knowledge" class="view hidden"><div class="intro"><h2>资料有出处，判断有依据。</h2><p>导入本机文本、Markdown 或代码文件。变更后可刷新索引，回答时引用原始位置。</p></div><form id="knowledge-form" class="panel inline-form"><label>文件路径<input name="path" placeholder="例如 F:\资料\项目说明.md" required></label><label>范围<input name="scope" value="global" required></label><button>导入资料</button></form><div class="toolbar"><input id="knowledge-search" placeholder="输入关键词，检索资料"><button id="search-knowledge" class="secondary">搜索</button></div><div id="knowledge-results"></div><div id="document-list" class="card-grid"></div></section>
+    <section id="view-graph" class="view hidden">
+      <div class="intro"><h2>沿着联系，找到事情的来处。</h2><p>浏览已导入的资料、记忆和来源经历。点击连线查看依据，点击资料阅读已保存的正文。</p></div>
+      <form id="graph-query" class="graph-query panel"><label>资料范围<input id="graph-scope" value="global" maxlength="256" required></label><label>节点上限<select id="graph-limit"><option value="300">300</option><option value="1000">1000</option><option value="2000">2000</option></select></label><label class="check"><input id="graph-private" type="checkbox">包含私密资料与记忆</label><button id="graph-refresh">刷新图谱</button><span class="graph-hint">所选范围包含共享资料；global 只显示共享范围。</span></form>
+      <div id="graph-status" class="graph-status" role="status" aria-live="polite">打开后加载图谱。</div>
+      <div class="graph-workspace">
+        <aside class="graph-sidebar panel" aria-label="图谱筛选与已导入资料">
+          <h3>查找与筛选</h3><label class="sr-only" for="graph-search">搜索当前图谱的名称、路径或摘要</label><input id="graph-search" type="search" placeholder="搜索名称、路径或摘要">
+          <fieldset class="graph-kinds"><legend>显示类型</legend><label class="check"><input type="checkbox" data-graph-kind="document" checked>资料</label><label class="check"><input type="checkbox" data-graph-kind="memory" checked>记忆</label><label class="check"><input type="checkbox" data-graph-kind="experience" checked>来源经历</label></fieldset>
+          <h3>已导入资料</h3><p class="graph-hint">这里只列出当前图谱中的资料，不扫描磁盘。可展开目录。</p><div id="graph-files"></div>
+          <h3 class="graph-other-heading">记忆与经历</h3><div id="graph-records"></div>
+        </aside>
+        <div class="graph-center panel"><div class="graph-controls"><button id="graph-local" class="secondary" disabled>只看已加载的相邻节点</button><button id="graph-all" class="secondary">返回全图</button><button id="graph-fit" class="secondary">适应窗口</button><span id="graph-count" class="graph-hint"></span></div><div class="graph-stage"><div id="graph-canvas" role="img" aria-label="知识关系图。也可用左侧列表选择节点，右侧阅读正文和关系。"></div><div id="graph-empty" class="graph-empty">尚未加载图谱。</div></div><div class="graph-legend"><span class="graph-dot document"></span>资料 <span class="graph-dot memory"></span>记忆 <span class="graph-dot experience"></span>经历<span>实线：明确链接 · 虚线：记忆来源</span></div></div>
+        <aside id="graph-detail" class="graph-detail panel" aria-label="节点与来源详情"><h3>查看依据</h3><p class="empty">选择节点或连线，查看正文、来源和修订。</p></aside>
+      </div>
+      <details id="graph-unresolved" class="panel graph-unresolved"><summary id="graph-unresolved-title">未解析的链接</summary><p class="graph-hint">外部链接、未导入目标、同名歧义或本轮数量限制都可能使链接无法连成边。不会据此推断关联。</p><div id="graph-unresolved-list"></div></details>
+    </section>
     <section id="view-sleep" class="view hidden"><div class="intro"><h2>让经历沉淀，让明天更清楚。</h2><p>增量归档已验证的工具经历，保留事实与来源。封存期间暂停学习。</p></div><div class="panel sleep-hero"><div class="moon">☾</div><div><h3>准备好整理这一段经历了吗？</h3><p>每轮最多处理 100 条新事件，前台任务优先。当前使用确定性归档，不产生模型费用。</p><button id="run-sleep">开始整理</button><button id="toggle-seal" class="secondary">封存记忆</button></div></div><div id="sleep-reports"></div></section>
     <section id="view-skills" class="view hidden"><div class="intro"><h2>把做过的事，变成有依据的经验。</h2><p>从真实工具结果中提出方法，保留适用与不适用条件。重复记录只算一次证据。</p></div><div class="two-columns"><form id="skill-form" class="panel form-panel"><h3>提出一个经验方法</h3><label>名称<input name="title" required></label><label>范围<input name="scope" value="global" required></label><label>适用条件<input name="when" required></label><label>步骤（每行一条）<textarea name="steps" required></textarea></label><label>不适用的情况<textarea name="avoid"></textarea></label><label>实际来源</label><div id="skill-sources"></div><button>保存为待验证方法</button></form><div id="skill-list"></div></div></section>
     <section id="view-files" class="view hidden"><div class="intro"><h2>给文件一个合适的位置。</h2><p>先预览分类清单，再执行移动。每次操作保存校验与撤销记录。</p></div><form id="files-form" class="panel inline-form"><label>要整理的目录<input name="directory" placeholder="例如 F:\收件箱" required></label><button>生成整理预览</button></form><div id="file-plans"></div></section>

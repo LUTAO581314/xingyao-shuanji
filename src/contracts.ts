@@ -1,6 +1,6 @@
 export const PROTOCOL_VERSION = 1
 export const SCHEMA_VERSION = 1
-export const PRODUCT_VERSION = "0.1.0-dev.2"
+export const PRODUCT_VERSION = "0.1.0-dev.4"
 
 export type Ownership = "experienced" | "told" | "observed"
 export type ExperienceKind = "user_message" | "assistant_message" | "tool_success" | "tool_failure" | "tool_unknown" | "preference" | "correction" | "observation"

@@ -4,6 +4,16 @@ import type { Experience, Memory, MemoryKind } from "./contracts"
 import type { DocumentSummary } from "./knowledge"
 
 export type GraphOptions = { scope: string; includePrivate?: boolean; maxNodes?: number; maxEdges?: number }
+export type GraphSourceOptions = { scope: string; includePrivate?: boolean; id: string; startLine?: number; lineLimit?: number }
+export type GraphSourceLine = { number: number; text: string; truncated?: boolean }
+export type DocumentSource = {
+  kind: "document"; id: string; label: string; path: string; scope: string; private: boolean
+  contentHash: string; revision: number; startLine: number; endLine: number; totalLines: number
+  lines: GraphSourceLine[]; truncated: boolean
+}
+export type GraphSource = DocumentSource
+  | NodeBase & { kind: "memory"; memory: Memory; truncated: boolean }
+  | NodeBase & { kind: "experience"; experience: Omit<Experience, "evidence">; truncated: boolean }
 type NodeBase = { id: string; label: string; scope: string; private: boolean }
 export type GraphNode =
   | NodeBase & { kind: "document"; documentId: string; path: string; contentHash: string; revision: number }
@@ -36,6 +46,7 @@ export type KnowledgeGraph = {
 
 const INDEX_LIMIT = 10_000
 const CONTENT_LIMIT = 8 * 1024 * 1024
+export const MAX_SOURCE_CHARACTERS = 256 * 1024
 const docID = (id: string) => `document:${id}`
 const memoryID = (id: string) => `memory:${id}`
 const sourceID = (id: number) => `experience:${id}`
@@ -55,9 +66,99 @@ const nameKey = (value: string) => process.platform === "win32" ? value.toLowerC
 export class GraphStore {
   constructor(readonly db: Database) {}
 
+  /** Only imported snapshots and visible records; no live file reads. A clipped
+   * line keeps its original number, without claiming a continuation character offset.
+   */
+  source(options: GraphSourceOptions): GraphSource | null {
+    visibleOptions(options)
+    if (typeof options.id !== "string" || options.id.length > 512) throw new Error("来源节点标识无效")
+    const startLine = limit(options.startLine, 1, 1, Number.MAX_SAFE_INTEGER)
+    const lineLimit = limit(options.lineLimit, 80, 1, 200)
+    const includePrivate = Number(options.includePrivate === true)
+    const match = /^(document|memory|experience):(.+)$/.exec(options.id)
+    if (!match) return null
+    return this.db.transaction((): GraphSource | null => {
+      const tables = new Set(this.db.query<{ name: string }, []>("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => row.name))
+      const id = match[2]!
+      if (match[1] === "document") {
+        if (!tables.has("knowledge_documents")) return null
+        const row = this.db.query<{ id: string; path: string; scope: string; private: number; body: string }, [string, string, number]>(
+          "SELECT id,path,scope,private,body FROM knowledge_documents WHERE id=? AND (scope=? OR scope='global') AND (private=0 OR ?=1)",
+        ).get(id, options.scope, includePrivate)
+        if (!row) return null
+        const doc = JSON.parse(row.body) as DocumentSummary, totalLines = doc.lineCount
+        if (!Number.isSafeInteger(totalLines) || totalLines < 0) throw new Error("导入资料的行数元数据无效")
+        const end = Math.min(totalLines, startLine + lineLimit - 1)
+        const result: DocumentSource = { kind: "document", id: docID(row.id), label: pathname(row.path).basename(row.path), path: row.path, scope: row.scope, private: row.private !== 0, contentHash: doc.contentHash, revision: doc.revision, startLine, endLine: Math.min(totalLines, startLine - 1), totalLines, lines: [], truncated: false }
+        if (startLine > totalLines) return result
+        if (!tables.has("knowledge_chunks")) return { ...result, truncated: true }
+        const chunks = this.db.query<CachedChunk, [string, string, number, number, number]>(`
+          SELECT c.start_line,c.end_line,c.text FROM knowledge_chunks c JOIN knowledge_documents d ON d.id=c.document_id
+          WHERE d.id=? AND (d.scope=? OR d.scope='global') AND (d.private=0 OR ?=1) AND c.end_line>=? AND c.start_line<=?
+          ORDER BY c.start_line,CAST(substr(c.id,length(c.document_id)+2) AS INTEGER)
+        `).iterate(id, options.scope, includePrivate, startLine, end)
+        const cached = reconstructLines(chunks, CONTENT_LIMIT)
+        result.truncated = !cached.complete
+        let used = 0
+        for (let number = startLine; number <= end; number++) {
+          const text = cached.lines.get(number)
+          if (text === undefined) { result.truncated = true; break }
+          const available = MAX_SOURCE_CHARACTERS - used - Number(result.lines.length > 0)
+          if (available < 0 || available === 0 && text.length > 0) { result.truncated = true; break }
+          const shown = utf16Prefix(text, available), truncated = shown.length < text.length
+          result.lines.push({ number, text: shown, ...(truncated ? { truncated: true } : {}) })
+          used += shown.length + Number(result.lines.length > 1)
+          result.endLine = number
+          if (truncated) { result.truncated = true; break }
+        }
+        result.truncated ||= result.endLine < totalLines
+        return result
+      }
+      if (match[1] === "memory") {
+        if (!tables.has("memories")) return null
+        const row = this.db.query<{ body: string }, [string, string, number]>(`
+          SELECT body FROM memories WHERE id=? AND json_extract(body,'$.status')='active'
+            AND (json_extract(body,'$.scope')=? OR json_extract(body,'$.scope')='global')
+            AND (COALESCE(json_extract(body,'$.private'),0)=0 OR ?=1)
+        `).get(id, options.scope, includePrivate)
+        if (!row) return null
+        const memory = JSON.parse(row.body) as Memory
+        const visible = tables.has("memory_sources") && tables.has("experiences") ? this.db.query<{ id: number }, [string, string, number]>(`
+          SELECT e.id FROM memory_sources s JOIN experiences e ON e.id=s.source_id WHERE s.memory_id=?
+            AND (json_extract(e.body,'$.scope')=? OR json_extract(e.body,'$.scope')='global')
+            AND (COALESCE(json_extract(e.body,'$.private'),0)=0 OR ?=1)
+            AND COALESCE(json_extract(e.body,'$.retracted'),0)=0 ORDER BY e.id
+        `).all(id, options.scope, includePrivate) : []
+        const sourceIds = visible.map(row => row.id).filter(id => memory.sourceIds.includes(id))
+        const supersedes = memory.supersedes && this.db.query<{ id: string }, [string, string, number]>(`
+          SELECT id FROM memories WHERE id=? AND json_extract(body,'$.status')='active'
+            AND (json_extract(body,'$.scope')=? OR json_extract(body,'$.scope')='global')
+            AND (COALESCE(json_extract(body,'$.private'),0)=0 OR ?=1)
+        `).get(memory.supersedes, options.scope, includePrivate)?.id || null
+        const text = utf16Prefix(memory.text, MAX_SOURCE_CHARACTERS)
+        return {
+          kind: "memory", id: memoryID(id), label: clip(text, 120), scope: memory.scope, private: memory.private, truncated: text.length < memory.text.length,
+          memory: { id, revision: memory.revision, text, scope: memory.scope, kind: memory.kind, sourceIds, status: "active", pinned: memory.pinned, private: memory.private, createdAt: memory.createdAt, updatedAt: memory.updatedAt, supersedes },
+        }
+      }
+      if (!tables.has("experiences") || !/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))) return null
+      const row = this.db.query<{ body: string }, [number, string, number]>(`
+        SELECT body FROM experiences WHERE id=? AND (json_extract(body,'$.scope')=? OR json_extract(body,'$.scope')='global')
+          AND (COALESCE(json_extract(body,'$.private'),0)=0 OR ?=1) AND COALESCE(json_extract(body,'$.retracted'),0)=0
+      `).get(Number(id), options.scope, includePrivate)
+      if (!row) return null
+      const experience = JSON.parse(row.body) as Experience, text = utf16Prefix(experience.text, MAX_SOURCE_CHARACTERS)
+      return {
+        kind: "experience", id: sourceID(Number(id)), label: clip(text, 120), scope: experience.scope, private: experience.private === true, truncated: text.length < experience.text.length,
+        // Free-form evidence can include unrelated IDs and unbounded tool output.
+        // Expose only the visible experience's explicit, bounded detail fields.
+        experience: { id: Number(id), sourceKey: experience.sourceKey, scope: experience.scope, kind: experience.kind, ownership: experience.ownership, text, observedAt: experience.observedAt, recordedAt: experience.recordedAt, private: experience.private === true, retracted: false },
+      }
+    })()
+  }
+
   build(options: GraphOptions): KnowledgeGraph {
-    if (!options || typeof options.scope !== "string" || !options.scope.trim() || options.scope.length > 256) throw new Error("图谱需要明确的资料范围，且不能超过 256 字符")
-    if (options.includePrivate !== undefined && typeof options.includePrivate !== "boolean") throw new Error("图谱私密标记必须是布尔值")
+    visibleOptions(options)
     const maxNodes = limit(options.maxNodes, 300, 1, 2000)
     const maxEdges = limit(options.maxEdges, 1000, 0, 10_000)
     const includePrivate = options.includePrivate === true
@@ -109,28 +210,15 @@ export class GraphStore {
         if (!nodeIDs.has(docID(doc.id))) continue
         const extension = pathname(doc.path).extname(doc.path).toLowerCase()
         if (![".md", ".markdown", ".mdx", ".txt", ""].includes(extension)) continue
-        const cachedLines = new Map<number, { pieces: string[]; tail: string }>()
-        const chunks = this.db.query<{ start_line: number; end_line: number; text: string }, [string, string, number]>(`
+        const chunks = this.db.query<CachedChunk, [string, string, number]>(`
           SELECT c.start_line,c.end_line,c.text FROM knowledge_chunks c JOIN knowledge_documents d ON d.id=c.document_id
           WHERE d.id=? AND (d.scope=? OR d.scope='global') AND (d.private=0 OR ?=1)
           ORDER BY c.start_line,CAST(substr(c.id,length(c.document_id)+2) AS INTEGER)
         `).iterate(doc.id, options.scope, Number(includePrivate))
-        for (const chunk of chunks) {
-          characters += chunk.text.length
-          if (characters > CONTENT_LIMIT) { graph.truncation.content = true; break documentsLoop }
-          for (const [offset, text] of chunk.text.split("\n").entries()) {
-            const line = chunk.start_line + offset, previous = cachedLines.get(line), points = Array.from(text)
-            if (previous === undefined) cachedLines.set(line, { pieces: [text], tail: points.slice(-120).join("") })
-            else {
-              // KnowledgeStore's long-line cache uses a 120-code-point overlap.
-              // Verify it before joining; never invent a source position from a gap.
-              if (previous.tail !== points.slice(0, 120).join("")) { graph.truncation.content = true; break documentsLoop }
-              previous.pieces.push(points.slice(120).join("")); previous.tail = points.slice(-120).join("")
-            }
-          }
-        }
-        const lines = new Map([...cachedLines].map(([line, cached]) => [line, cached.pieces.join("")]))
-        for (const reference of references(lines)) {
+        const cached = reconstructLines(chunks, CONTENT_LIMIT - characters)
+        characters += cached.characters
+        if (!cached.complete) { graph.truncation.content = true; break documentsLoop }
+        for (const reference of references(cached.lines)) {
           const evidence: DocumentEvidence = { kind: "document", documentId: doc.id, path: doc.path, contentHash: doc.contentHash, line: reference.line, column: reference.column, snippet: reference.snippet, rawTarget: clip(reference.target, 2048), ...(reference.alias !== undefined ? { alias: clip(reference.alias, 120) } : {}) }
           const resolved = resolveTarget(reference, doc, paths, names, indexIncomplete)
           if (resolved.anchor !== undefined) evidence.anchor = resolved.anchor
@@ -173,6 +261,35 @@ function limit(value: number | undefined, fallback: number, min: number, max: nu
   if (value === undefined) return fallback
   if (!Number.isSafeInteger(value) || value < min || value > max) throw new Error(`图谱数量必须是 ${min} 到 ${max} 之间的整数`)
   return value
+}
+function visibleOptions(options: { scope: string; includePrivate?: boolean }) {
+  if (!options || typeof options.scope !== "string" || !options.scope.trim() || options.scope.length > 256) throw new Error("图谱需要明确的资料范围，且不能超过 256 字符")
+  if (options.includePrivate !== undefined && typeof options.includePrivate !== "boolean") throw new Error("图谱私密标记必须是布尔值")
+}
+function utf16Prefix(text: string, length: number) {
+  let end = Math.min(text.length, length)
+  if (end > 0 && end < text.length && /[\uD800-\uDBFF]/.test(text[end - 1]!)) end--
+  return text.slice(0, end)
+}
+type CachedChunk = { start_line: number; end_line: number; text: string }
+function reconstructLines(chunks: Iterable<CachedChunk>, maxCharacters: number) {
+  const cached = new Map<number, { pieces: string[]; tail: string }>()
+  let characters = 0, complete = true
+  chunksLoop: for (const chunk of chunks) {
+    characters += chunk.text.length
+    if (characters > maxCharacters) { cached.delete(chunk.start_line); complete = false; break }
+    for (const [offset, text] of chunk.text.split("\n").entries()) {
+      const line = chunk.start_line + offset, previous = cached.get(line), points = Array.from(text)
+      if (previous === undefined) cached.set(line, { pieces: [text], tail: points.slice(-120).join("") })
+      else {
+        // Long imported lines overlap by 120 code points. Reject gaps instead of
+        // presenting fragments as one contiguous, correctly positioned source.
+        if (previous.tail !== points.slice(0, 120).join("")) { cached.delete(line); complete = false; break chunksLoop }
+        previous.pieces.push(points.slice(120).join("")); previous.tail = points.slice(-120).join("")
+      }
+    }
+  }
+  return { lines: new Map([...cached].map(([line, item]) => [line, item.pieces.join("")])), characters, complete }
 }
 function push(map: Map<string, DocumentSummary[]>, key: string, value: DocumentSummary) { const items = map.get(key) ?? []; items.push(value); map.set(key, items) }
 type Reference = { type: "wikilink" | "markdown_link"; target: string; alias?: string; line: number; column: number; snippet: string }

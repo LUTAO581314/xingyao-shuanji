@@ -5,7 +5,7 @@ import { dirname, join } from "node:path"
 import { tmpdir } from "node:os"
 import { SoulStore } from "../src/store"
 import { KnowledgeStore } from "../src/knowledge"
-import { GraphStore, type DocumentEvidence, type KnowledgeGraph } from "../src/knowledge-graph"
+import { GraphStore, MAX_SOURCE_CHARACTERS, type DocumentEvidence, type KnowledgeGraph } from "../src/knowledge-graph"
 
 let root: string, soul: SoulStore, knowledge: KnowledgeStore, graph: GraphStore
 beforeEach(async () => {
@@ -13,6 +13,136 @@ beforeEach(async () => {
   soul = new SoulStore(join(root, "host", "soul.db"))
   knowledge = new KnowledgeStore(soul.db)
   graph = new GraphStore(soul.db)
+})
+
+describe("graph node source viewing", () => {
+  test("pages original cached lines with defaults, maximum page size, empty documents and end boundaries", async () => {
+    const text = Array.from({ length: 245 }, (_, i) => `原始第 ${i + 1} 行🙂`)
+    const doc = await document("paged.md", text.join("\r\n"))
+    const first = graph.source({ scope: "project-a", id: `document:${doc.id}` })
+    if (first?.kind !== "document") throw new Error("Expected document")
+    expect(first).toMatchObject({ id: `document:${doc.id}`, label: "paged.md", path: doc.path, scope: "project-a", private: false, contentHash: doc.contentHash, revision: 1, startLine: 1, endLine: 80, totalLines: 245, truncated: true })
+    expect(first.lines).toEqual(text.slice(0, 80).map((text, i) => ({ number: i + 1, text })))
+    const middle = graph.source({ scope: "project-a", id: first.id, startLine: 45, lineLimit: 200 })
+    if (middle?.kind !== "document") throw new Error("Expected document")
+    expect(middle.lines).toEqual(text.slice(44, 244).map((text, i) => ({ number: i + 45, text })))
+    const end = graph.source({ scope: "project-a", id: first.id, startLine: 245 })
+    expect(end).toMatchObject({ startLine: 245, endLine: 245, truncated: false, lines: [{ number: 245, text: text[244] }] })
+    expect(graph.source({ scope: "project-a", id: first.id, startLine: 246 })).toMatchObject({ startLine: 246, endLine: 245, lines: [], totalLines: 245, truncated: false })
+    const empty = await document("empty.md", "")
+    expect(graph.source({ scope: "project-a", id: `document:${empty.id}` })).toMatchObject({ startLine: 1, endLine: 0, totalLines: 0, lines: [], truncated: false })
+  })
+
+  test("source lookup enforces scope and private visibility on documents, memories and experiences before returning detail", async () => {
+    const publicDoc = await document("public.md", "visible"), shared = await document("shared.md", "global", "global")
+    const privateDoc = await document("personal.md", "hidden", "project-a", true), foreign = await document("foreign.md", "foreign", "project-b")
+    const privateMemory = soul.explicitMemory({ key: "private-source", scope: "project-a", private: true, text: "personal memory", kind: "fact" })
+    const foreignMemory = soul.explicitMemory({ key: "foreign-source", scope: "project-b", text: "other memory", kind: "fact" })
+    for (const id of [`document:${privateDoc.id}`, `document:${foreign.id}`, `memory:${privateMemory.id}`, `memory:${foreignMemory.id}`, `experience:${privateMemory.sourceIds[0]}`, `experience:${foreignMemory.sourceIds[0]}`]) expect(graph.source({ scope: "project-a", id })).toBeNull()
+    for (const id of [`document:${privateDoc.id}`, `memory:${privateMemory.id}`, `experience:${privateMemory.sourceIds[0]}`]) expect(graph.source({ scope: "project-a", includePrivate: true, id })?.private).toBe(true)
+    expect(graph.source({ scope: "project-a", includePrivate: true, id: `document:${foreign.id}` })).toBeNull()
+    expect(graph.source({ scope: "project-a", id: `document:${publicDoc.id}` })).not.toBeNull()
+    expect(graph.source({ scope: "other", id: `document:${shared.id}` })).not.toBeNull()
+    expect(graph.source({ scope: "global", id: `document:${publicDoc.id}` })).toBeNull()
+    soul.db.query("UPDATE knowledge_documents SET body='unparseable private metadata' WHERE id=?").run(privateDoc.id)
+    expect(graph.source({ scope: "project-a", id: `document:${privateDoc.id}` })).toBeNull()
+  })
+
+  test("source displays the imported revision after live edits or deletion and changes only after reimport", async () => {
+    const doc = await document("revision.md", "cached original\nsecond")
+    const id = `document:${doc.id}`, before = graph.source({ scope: "project-a", id }), revision = soul.revision
+    await writeFile(doc.path, "unimported revision")
+    expect(graph.source({ scope: "project-a", id })).toEqual(before)
+    expect(soul.revision).toBe(revision)
+    const revised = await knowledge.refresh(doc.id)
+    expect(graph.source({ scope: "project-a", id })).toMatchObject({ revision: 2, contentHash: revised.contentHash, lines: [{ number: 1, text: "unimported revision" }] })
+    await unlink(doc.path)
+    expect(graph.source({ scope: "project-a", id })).toMatchObject({ revision: 2, contentHash: revised.contentHash })
+    knowledge.remove(doc.id)
+    expect(graph.source({ scope: "project-a", id })).toBeNull()
+  })
+
+  test("long Unicode lines reconstruct cached overlaps then clip without inventing line offsets or splitting surrogate pairs", async () => {
+    const long = "🙂".repeat(150_000) + "END_MARKER", doc = await document("long.md", `头部\n${long}\n最后一行`)
+    const result = graph.source({ scope: "project-a", id: `document:${doc.id}` })
+    if (result?.kind !== "document") throw new Error("Expected document")
+    expect(result.totalLines).toBe(3)
+    expect(result.lines).toHaveLength(2)
+    expect(result.lines[0]).toEqual({ number: 1, text: "头部" })
+    expect(result.lines[1]!.number).toBe(2)
+    expect(result.lines[1]!.truncated).toBe(true)
+    expect(result.lines[1]!.text).toBe(long.slice(0, MAX_SOURCE_CHARACTERS - 4))
+    expect(result.lines.map(line => line.text).join("\n").length).toBeLessThanOrEqual(MAX_SOURCE_CHARACTERS)
+    expect(result.lines[1]!.text.endsWith("🙂")).toBe(true)
+    expect(result).toMatchObject({ startLine: 1, endLine: 2, truncated: true })
+    expect(graph.source({ scope: "project-a", id: result.id, startLine: 3 })).toMatchObject({ startLine: 3, endLine: 3, lines: [{ number: 3, text: "最后一行" }], truncated: false })
+    const shorter = await document("short-long.md", "🙂".repeat(3000) + "tail")
+    expect(graph.source({ scope: "project-a", id: `document:${shorter.id}` })).toMatchObject({ lines: [{ number: 1, text: "🙂".repeat(3000) + "tail" }], truncated: false })
+  })
+
+  test("character budget applies across a requested page and preserves its next real line number", async () => {
+    const text = Array.from({ length: 180 }, (_, i) => `${String(i + 1).padStart(3, "0")}:` + "x".repeat(1996))
+    const doc = await document("budget.md", text.join("\n"))
+    const result = graph.source({ scope: "project-a", id: `document:${doc.id}`, lineLimit: 200 })
+    if (result?.kind !== "document") throw new Error("Expected document")
+    expect(result.truncated).toBe(true)
+    expect(result.lines.map(line => line.text).join("\n").length).toBe(MAX_SOURCE_CHARACTERS)
+    expect(result.lines.at(-1)?.truncated).toBe(true)
+    expect(result.endLine).toBe(result.lines.at(-1)!.number)
+    expect(result.lines.every((line, index) => line.number === index + 1 && text[index]!.startsWith(line.text))).toBe(true)
+    const next = graph.source({ scope: "project-a", id: result.id, startLine: result.endLine + 1 })
+    if (next?.kind !== "document") throw new Error("Expected document")
+    expect(next.lines[0]).toEqual({ number: result.endLine + 1, text: text[result.endLine] })
+  })
+
+  test("memory details filter hidden source IDs and arbitrary experience evidence, while corrections and forgetting revoke views", () => {
+    const original = soul.explicitMemory({ key: "detail", scope: "project-a", text: "original memory", kind: "fact" })
+    const privateEvent = soul.appendExperience({ sourceKey: "private-detail", scope: "project-a", private: true, kind: "observation", ownership: "observed", text: "private" })
+    const foreignEvent = soul.appendExperience({ sourceKey: "foreign-detail", scope: "project-b", kind: "observation", ownership: "observed", text: "foreign" })
+    const revokedEvent = soul.appendExperience({ sourceKey: "revoked-detail", scope: "project-a", kind: "observation", ownership: "observed", text: "revoked" })
+    for (const source of [privateEvent, foreignEvent, revokedEvent]) soul.db.query("INSERT INTO memory_sources(memory_id,source_id) VALUES(?,?)").run(original.id, source.id)
+    soul.db.query("UPDATE experiences SET body=? WHERE id=?").run(JSON.stringify({ ...revokedEvent, retracted: true }), revokedEvent.id)
+    soul.db.query("UPDATE memories SET body=? WHERE id=?").run(JSON.stringify({ ...original, sourceIds: [...original.sourceIds, privateEvent.id, foreignEvent.id, revokedEvent.id], supersedes: "hidden-prior-memory" }), original.id)
+    const result = graph.source({ scope: "project-a", id: `memory:${original.id}` })
+    expect(result).toMatchObject({ kind: "memory", memory: { text: "original memory", sourceIds: original.sourceIds, supersedes: null }, truncated: false })
+    expect(graph.source({ scope: "project-a", includePrivate: true, id: `memory:${original.id}` })).toMatchObject({ memory: { sourceIds: [...original.sourceIds, privateEvent.id] } })
+    expect(graph.source({ scope: "project-a", includePrivate: true, id: `experience:${revokedEvent.id}` })).toBeNull()
+    const observed = soul.appendExperience({ sourceKey: "visible-observation", scope: "project-a", kind: "observation", ownership: "observed", text: "visible detail", evidence: { documentId: "unrelated-private-id", huge: "not released" } })
+    const viewed = graph.source({ scope: "project-a", id: `experience:${observed.id}` })
+    expect(viewed).toMatchObject({ kind: "experience", experience: { id: observed.id, sourceKey: observed.sourceKey, text: observed.text, observedAt: observed.observedAt, recordedAt: observed.recordedAt } })
+    expect(JSON.stringify(viewed)).not.toContain("unrelated-private-id")
+    expect(viewed?.kind === "experience" && Object.hasOwn(viewed.experience, "evidence")).toBe(false)
+    // Restore the valid source relation before exercising normal domain correction.
+    soul.db.query("UPDATE memories SET body=? WHERE id=?").run(JSON.stringify(original), original.id)
+    const corrected = soul.correctMemory(original.id, original.revision, "corrected detail")
+    expect(graph.source({ scope: "project-a", id: `memory:${original.id}` })).toBeNull()
+    expect(graph.source({ scope: "project-a", id: `experience:${original.sourceIds[0]}` })).toBeNull()
+    expect(graph.source({ scope: "project-a", id: `memory:${corrected.id}` })).toMatchObject({ memory: { text: "corrected detail", supersedes: null } })
+    soul.forgetMemory(corrected.id, corrected.revision)
+    expect(graph.source({ scope: "project-a", id: `memory:${corrected.id}` })).toBeNull()
+    expect(graph.source({ scope: "project-a", id: `experience:${corrected.sourceIds[0]}` })).toBeNull()
+  })
+
+  test("broken cached overlap is reported as incomplete instead of presenting assembled false source text", async () => {
+    const doc = await document("broken.md", "header\n" + "a".repeat(5000) + "\nfooter")
+    const row = soul.db.query<{ id: string; text: string }, [string]>("SELECT id,text FROM knowledge_chunks WHERE document_id=? AND start_line=2 ORDER BY id LIMIT 1 OFFSET 1").get(doc.id)!
+    soul.db.query("UPDATE knowledge_chunks SET text=? WHERE id=?").run("DIFFERENT_OVERLAP" + row.text, row.id)
+    const result = graph.source({ scope: "project-a", id: `document:${doc.id}` })
+    expect(result).toMatchObject({ lines: [{ number: 1, text: "header" }], endLine: 1, totalLines: 3, truncated: true })
+  })
+
+  test("validates paging before lookup, refuses malformed IDs and does not initialize an empty database", () => {
+    for (const startLine of [0, -1, 1.5, NaN, Infinity]) expect(() => graph.source({ scope: "project-a", id: "document:missing", startLine })).toThrow("整数")
+    for (const lineLimit of [0, -1, 201, 1.5, NaN, Infinity]) expect(() => graph.source({ scope: "project-a", id: "document:missing", lineLimit })).toThrow("整数")
+    expect(() => graph.source({ scope: " ", id: "document:missing" })).toThrow("范围")
+    expect(() => graph.source({ scope: "project-a", id: "document:missing", includePrivate: "false" as unknown as boolean })).toThrow("布尔")
+    for (const id of ["../note.md", "unknown:1", "experience:01", "experience:NaN", "experience:9007199254740992", "document:", "memory:missing"]) expect(graph.source({ scope: "project-a", id })).toBeNull()
+    const empty = new Database(":memory:", { strict: true })
+    try {
+      for (const id of ["document:any", "memory:any", "experience:1"]) expect(new GraphStore(empty).source({ scope: "global", id })).toBeNull()
+      expect(empty.query("SELECT name FROM sqlite_master WHERE type='table'").all()).toEqual([])
+    } finally { empty.close() }
+  })
 })
 afterEach(async () => { soul.close(); await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) })
 async function document(name: string, text: string, scope = "project-a", privateValue = false) {

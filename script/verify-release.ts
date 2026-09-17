@@ -26,6 +26,15 @@ await Bun.write(logPath, output)
 const clean = output.replace(/\x1b\[[0-9;]*m/g, "")
 if (results[2] !== 0 || /[1-9]\d* (?:skip|todo|fail)\b/.test(clean)) throw new Error(`发行测试失败或有未执行项，详见 ${logPath}`)
 for (const required of ["real engine and loopback model", "product-integration", "compiled Windows product", "portable", "recovery"]) if (!clean.includes(required)) throw new Error(`缺少发行验收证据：${required}`)
+// New workbench releases must exercise the actual compiled graph UI. The
+// isolated browser fixture never reads or modifies the installed identity.
+const browser = Bun.spawn([process.execPath, "run", "script/graph-browser-check.mjs", join(candidate, "xingyao.exe")], { cwd: root, stdout: "pipe", stderr: "pipe" })
+const browserResult = await Promise.all([new Response(browser.stdout).text(), new Response(browser.stderr).text(), browser.exited])
+await Bun.write(join(reports, `${stamp}-browser.txt`), browserResult[0] + browserResult[1])
+if (browserResult[2] !== 0) throw new Error(`图谱浏览器验收失败，详见 ${join(reports, `${stamp}-browser.txt`)}`)
+const browserReportPath = join(reports, `graph-browser-${PRODUCT_VERSION}.json`)
+const browserReport = await Bun.file(browserReportPath).json() as { version?: string; executableSha256?: string; result?: string }
+if (browserReport.result !== "passed" || browserReport.version !== inspected.manifest.version || browserReport.executableSha256 !== inspected.manifest.files["xingyao.exe"]) throw new Error("图谱浏览器报告未绑定当前编译制品")
 const rechecked = await inspectRelease(candidate)
 if (rechecked.manifestHash !== inspected.manifestHash) throw new Error("验收过程中候选制品发生变化")
 if (buildMetadata.sourceHash !== await sourceHash(root)) throw new Error("验收过程中产品源码发生变化")
@@ -34,7 +43,7 @@ const evidence = (names: string[]): ReleaseTestEvidence => ({ passed: true, exec
 const report: ReleaseValidationReport = { manifestHash: inspected.manifestHash, outcome: "passed", tests: {
   backendContract: evidence(["test/adapter.test.ts", "test/engine.test.ts", "test/real-engine.test.ts"]),
   restore: evidence(["test/checkpoint.test.ts", "test/engine-backup.test.ts", "test/recovery.test.ts", "test/compiled.test.ts"]),
-  soulIntegration: evidence(["test/product-integration.test.ts", "test/compiled.test.ts"]),
+  soulIntegration: evidence(["test/product-integration.test.ts", "test/compiled.test.ts", browserReportPath, join(reports, `${stamp}-browser.txt`)]),
 } }
 await Bun.write(join(candidate, "release-validation.json"), JSON.stringify(report, null, 2))
 console.log(JSON.stringify({ candidate, manifestHash: inspected.manifestHash, tests: clean.match(/\d+ pass\s+\d+ fail/)?.[0] ?? "passed", logPath, report: join(candidate, "release-validation.json") }, null, 2))

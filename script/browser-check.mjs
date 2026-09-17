@@ -4,6 +4,8 @@ import { join } from 'node:path'
 
 const host = process.argv[2]
 if (!host) throw new Error('Pass the isolated development host directory')
+const screenshotRoot = process.argv[3] ?? 'F:/codex/design'
+mkdirSync(screenshotRoot, { recursive: true })
 const running = JSON.parse(readFileSync(join(host, 'running.json'), 'utf8'))
 const browser = await chromium.launch({ executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true })
 const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, deviceScaleFactor: 1 })
@@ -56,9 +58,9 @@ try {
   await page.locator('.nav[data-view="chat"]').click()
   await page.evaluate(() => document.querySelector('#notice').classList.add('hidden'))
   await page.mouse.move(1400, 20)
-  await page.screenshot({ path: 'F:/codex/design/xingyao-first-build.png', fullPage: true })
+  await page.screenshot({ path: join(screenshotRoot, 'xingyao-first-build.png'), fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.screenshot({ path: 'F:/codex/design/xingyao-mobile-check.png', fullPage: true })
+  await page.screenshot({ path: join(screenshotRoot, 'xingyao-mobile-check.png'), fullPage: true })
   if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) throw new Error('Mobile horizontal overflow')
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(JSON.stringify({ browser: 'Microsoft Edge', result: 'passed', checked: ['navigation','memory create/correct','knowledge import/search','skills form/empty state','sleep','file plan/apply/undo','checkpoint','system/model settings','mobile layout'], pageErrors: errors.length }))

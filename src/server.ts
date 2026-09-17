@@ -3,6 +3,7 @@ import { OpenCodeAdapter } from "./adapter"
 import type { NormalizedMessage, NormalizedPart } from "./adapter"
 import { createCheckpoint, listCheckpoints } from "./checkpoint"
 import { KnowledgeStore } from "./knowledge"
+import { GraphStore } from "./knowledge-graph"
 import { FileOrganizer } from "./files"
 import { LearningStore } from "./learning"
 import { PRODUCT_VERSION, PROTOCOL_VERSION } from "./contracts"
@@ -10,6 +11,11 @@ import type { MemoryKind } from "./contracts"
 import html from "./web/index.html" with { type: "text" }
 import css from "./web/style.css" with { type: "text" }
 import javascript from "./web/app.js" with { type: "text" }
+import cytoscape from "./web/vendor/cytoscape.min.js" with { type: "text" }
+
+// Cytoscape 3.34.3 inserts this one fixed stylesheet. Authorize its exact bytes
+// while keeping arbitrary inline styles and scripts blocked.
+const cytoscapeStyleHash = new Bun.CryptoHasher("sha256").update(".__________cytoscape_container { position: relative; }").digest("base64")
 
 export type ServerOptions = {
   store: SoulStore
@@ -31,6 +37,7 @@ export class ModelConfigurationError extends Error {
 export function startServer(options: ServerOptions) {
   const store = options.store
   const knowledge = new KnowledgeStore(store.db)
+  const graph = new GraphStore(store.db)
   const files = new FileOrganizer(store.db)
   const learning = new LearningStore(store.db)
   const jobs = new Map<string, Promise<void>>()
@@ -152,9 +159,9 @@ export function startServer(options: ServerOptions) {
       if (!url.pathname.startsWith("/api/")) {
         if (request.method !== "GET") return json({ error: "方法不允许" }, 405)
         // Bun's import attribute loads text; its HTML declaration otherwise assumes a bundle.
-        const asset = url.pathname === "/" ? [html as unknown as string, "text/html"] : url.pathname === "/style.css" ? [css, "text/css"] : url.pathname === "/app.js" ? [javascript, "text/javascript"] : null
+        const asset = url.pathname === "/" ? [html as unknown as string, "text/html"] : url.pathname === "/style.css" ? [css, "text/css"] : url.pathname === "/app.js" ? [javascript, "text/javascript"] : url.pathname === "/vendor/cytoscape.min.js" ? [cytoscape, "text/javascript"] : null
         if (!asset) return json({ error: "不存在" }, 404)
-        return new Response(asset[0], { headers: { "Content-Type": `${asset[1]}; charset=utf-8`, "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" } })
+        return new Response(asset[0], { headers: { "Content-Type": `${asset[1]}; charset=utf-8`, "Cache-Control": "no-store", "Content-Security-Policy": `default-src 'self'; script-src 'self'; style-src 'self' 'sha256-${cytoscapeStyleHash}'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" } })
       }
       if (request.headers.get("authorization") !== `Bearer ${options.token}`) return json({ error: "请通过启动器打开工作台" }, 401)
       const mutation = !["GET", "HEAD"].includes(request.method)
@@ -219,6 +226,20 @@ export function startServer(options: ServerOptions) {
         if (method === "POST" && path === "/api/sleep") { if (jobs.size) throw new ConflictError("前台正在工作，整理暂缓"); return json(store.sleep()) }
         if (method === "POST" && path === "/api/checkpoint") return json(await checkpoint(true))
         if (method === "GET" && path === "/api/checkpoints") return json(await listCheckpoints(options.vaultDir))
+        if (method === "GET" && ["/api/graph", "/api/graph/source"].includes(path)) {
+          const includePrivate = url.searchParams.get("private")
+          if (includePrivate !== null && !["true", "false"].includes(includePrivate)) throw new Error("图谱私密选项需要 true 或 false")
+          const context = { scope: url.searchParams.get("scope") ?? "global", includePrivate: includePrivate === "true" }
+          const optionalInteger = (name: string) => {
+            const raw = url.searchParams.get(name)
+            if (raw === null) return undefined
+            if (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw))) throw new Error("图谱分页与数量需要非负整数")
+            return Number(raw)
+          }
+          if (path === "/api/graph") return json(graph.build({ ...context, maxNodes: optionalInteger("maxNodes"), maxEdges: optionalInteger("maxEdges") }))
+          const source = graph.source({ ...context, id: text(url.searchParams.get("id"), 1024), startLine: optionalInteger("startLine"), lineLimit: optionalInteger("lineLimit") })
+          return source ? json(source) : json({ error: "当前范围内没有可查看的来源，请刷新图谱" }, 404)
+        }
         if (method === "GET" && path === "/api/knowledge") return json(knowledge.documents())
         if (method === "GET" && path === "/api/knowledge/search") return json(knowledge.search(url.searchParams.get("q") ?? "", url.searchParams.get("scope") ?? "global"))
         if (method === "POST" && path === "/api/knowledge") { const input = await body(); return json(await knowledge.importFile(text(input.path, 4096), text(input.scope ?? "global", 300), { private: input.private === true }), 201) }
