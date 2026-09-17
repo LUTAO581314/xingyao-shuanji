@@ -1,6 +1,6 @@
 # /root/upstream_compat
 
-导出时间：2026-09-17T14:07:06.819Z
+导出时间：2026-09-17T14:50:16.283Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T19-09-35-01a0af0e-c4fc-7720-9f82-68bf4038f0f8.jsonl`
 
@@ -1675,3 +1675,126 @@ Payload:
 
 我继续完成知识图谱后端。图谱会保留文件链接和记忆来源的真实依据；同名文件无法唯一确定时会明确列为未解析，避免画出看似确定、实际猜测的关系。
 
+
+## 2026-09-17T14:11:13.184Z · /root → /root/upstream_compat
+
+Message Type: MESSAGE
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T14:12:14.140Z · 助理
+
+图谱已通过第一轮 11 项针对性测试。现在能追溯到导入文件的具体版本、行列和记忆的实际来源；即使原文件删除或后来改写，图谱仍使用已导入的缓存。隐私与作用域过滤、同名歧义、代码块误识别和数量截断也都已有回归覆盖。
+
+
+## 2026-09-17T14:16:33.760Z · 助理
+
+知识图谱后端已完成，可直接接入工作台 API 和前端。只新增了两个文件：
+
+- [knowledge-graph.ts](/F:/codex/xingyao/src/knowledge-graph.ts)
+- [knowledge-graph.test.ts](/F:/codex/xingyao/test/knowledge-graph.test.ts)
+
+稳定接口如下：
+
+```ts
+const graph = new GraphStore(store.db).build({
+  scope: "project-a",
+  includePrivate: false,
+  maxNodes: 300,
+  maxEdges: 1000,
+})
+```
+
+同步返回：
+
+```ts
+{
+  scope,
+  includePrivate,
+  nodes,
+  edges,
+  unresolved,
+  truncated,
+  truncation: {
+    nodes,
+    edges,
+    unresolved,
+    index,
+    content,
+  },
+  limits,
+}
+```
+
+节点有 `document`、`memory`、`experience` 三种，使用稳定 ID 前缀，并分别携带文档 ID/路径、记忆 ID、经历 ID。边有 `wikilink`、`markdown_link`、`memory_source` 三种；文件边保留导入版本哈希、行列、来源片段、原目标、别名和标题锚点。记忆边指向实际经历来源，其证据明确为 `sourceIds`，非文件来源的行列返回 `null`。
+
+作用域、私密标记、记忆状态和经历撤回状态在 SQL 中先过滤，再解析数据。裸文件名出现歧义时不连接；外部 URL、未导入目标和超出限制的目标进入 `unresolved`。没有按关键词或相似度伪造引用关系，也不读取现场文件或扫描目录。
+
+验证结果为 **14 项通过、0 失败、95 个断言**，TypeScript 检查通过。回归涵盖中文链接、别名/标题、相对路径、代码块与注释排除、同名歧义、私密/跨项目隔离、撤回来源、长行缓存重组、原文件删除或变更、截断及节点端点完整性。
+
+当前支持 Markdown/纯文本中的 wiki 链接与内联 Markdown 链接；引用式 Markdown 和跨行链接暂未解析。默认上限为 300 节点、1000 边，硬上限为 2000 节点、10000 边；元数据索引与正文处理也有明确预算及截断标志。
+
+## 2026-09-17T14:26:51.676Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T14:26:58.863Z · 助理
+
+我继续补齐图谱节点的来源查看：文件按导入缓存的原始行号分页，记忆和经历也先做可见性校验，点击节点时能看到实际依据。
+
+
+## 2026-09-17T14:31:28.683Z · /root → /root/upstream_compat
+
+Message Type: MESSAGE
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T14:31:53.777Z · 助理
+
+来源查看接口已实现，现有图谱测试仍然通过。接下来补充分页、修订和长行测试，确认超长正文会明确标记截断，并始终保留原始行号。
+
+
+## 2026-09-17T14:35:23.781Z · 助理
+
+`GraphStore.source()` 已完成，接口可直接供来源面板使用，未修改 server 或 UI。
+
+```ts
+graph.source({
+  scope: "project-a",
+  includePrivate: false,
+  id: "document:...",
+  startLine: 1,
+  lineLimit: 80,
+})
+```
+
+返回 `GraphSource | null`：
+
+- 文档返回约定的平铺字段：`kind/id/label/path/scope/private/contentHash/revision/startLine/endLine/totalLines/lines/truncated`。
+- 记忆返回 `{ kind: "memory", id, label, scope, private, memory, truncated }`，正文位于 `memory.text`。`sourceIds` 仅保留 SQL 可见且由 `memory_sources` 确认的实际来源；不可见或非活动的 `supersedes` 返回 `null`。
+- 经历返回 `{ kind: "experience", id, label, scope, private, experience, truncated }`。保留实际经历的正文、种类、归属、来源键和时间；不外放任意结构的 `evidence`。
+- 未找到、跨范围、未授权私密、非活动记忆或已撤回经历均返回 `null`。
+
+文档只读取导入缓存，分页默认 80 行、最多 200 行，正文合计上限为 **256 × 1024 个 UTF-16 单元**。长行先验证并重组缓存重叠，再截断；不会切断 emoji 代理对，也不会把一条长行伪装成多条原始行。截断的行带 `truncated: true`，仍使用原始行号。缓存重组逻辑已与图谱构建复用。
+
+验证结果：
+
+- [knowledge-graph.test.ts](/F:/codex/xingyao/test/knowledge-graph.test.ts)：**22 通过，173 个断言**，包含原有 14 项图谱测试和新增 8 项来源测试。
+- 主代理新增的 `graph-api.test.ts`：**4 通过，50 个断言**。
+- `bun run typecheck` 通过。
+
+修改仅在 [knowledge-graph.ts](/F:/codex/xingyao/src/knowledge-graph.ts) 与对应测试文件中。
