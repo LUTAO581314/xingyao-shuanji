@@ -1,6 +1,6 @@
 # /root/canvas_research
 
-导出时间：2026-09-17T17:50:09.521Z
+导出时间：2026-09-17T18:28:16.018Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T22-03-54-01a0afae-59d0-7cb2-b50a-8bf96bfdf4ff.jsonl`
 
@@ -795,3 +795,30 @@ files.save(rootId, relativePath, { expectedSha256, text })
 - `git diff --check`：通过。
 
 尚未支持**进程崩溃或断电后的自动日志重放恢复**：若在“原件归档、目标尚未完成”之间退出，目标可能缺失或不完整，原件与拟写内容保留在 `.xingyao-edit-*` 中，需要显式恢复。此边界有真实子进程退出测试。自动回滚发布使用硬链接；不支持硬链接的文件系统会保留恢复副本并报告待核实。当前路径检查与协作锁也不构成对恶意本地进程竞速系统调用的操作系统沙盒。
+
+## 2026-09-17T18:10:00.020Z · /root → /root/canvas_research
+
+Message Type: NEW_TASK
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T18:18:27.398Z · 助理
+
+已完成新增 [engine-binding.test.ts](F:/codex/xingyao/test/engine-binding.test.ts)，仅修改该测试文件，未构建、覆盖或安装 `.6` 制品，现已停止修改。
+
+测试使用已有 `dist/engines/0.0.0-product-dev-20260918-engine.6-source/opencode.exe`，所有宿主身份、项目、数据库和配置均为临时夹具。覆盖：
+
+- 同宿主版本不匹配：启动在领域迁移、配置创建和引擎数据库写入前被拒绝，领域库及引擎库文件哈希保持不变。
+- 相同版本、SHA-256 不匹配：拒绝启动，保留原绑定。
+- `opencode.db`、`opencode-product-dev.db` 已存在但无版本绑定：均拒绝自动接管。
+- 离线启动：允许管理旧身份，保留原版本和哈希，不启动引擎、不修改引擎数据库。
+- 真实源码构建引擎：新身份绑定版本与哈希，同宿主正常停止后重新启动，以及合法模型重配置均通过真实健康握手。
+- CLI 与服务版本不同：通过真实 Bun 子进程运行合成 HTTP 引擎，验证错误服务进程被停止、不会成为产品适配器；模型重配置和失败恢复也不能重新接纳它。
+
+测试额外复现了模型设置入口的两个绕过问题：离线宿主可借设置接口启动另一版本；初次启动拒绝的服务也可借设置接口重新接入。已报给 root，由 root 在 `main.ts` 统一了启动与模型重配置检查；回归现已通过。
+
+最终验证：`bun test test/engine-binding.test.ts` **8 项通过，60 个断言通过**；`bun run typecheck`、`git diff --check` 均通过。

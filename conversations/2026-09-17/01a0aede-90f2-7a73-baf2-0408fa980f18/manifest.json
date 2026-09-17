@@ -2,7 +2,7 @@
   "format": 1,
   "rootThread": "01a0aede-90f2-7a73-baf2-0408fa980f18",
   "title": "检测 F 盘健康状态",
-  "exportedAt": "2026-09-17T17:50:09.521Z",
+  "exportedAt": "2026-09-17T18:28:16.018Z",
   "repository": "LUTAO581314/xingyao-shuanji",
   "visibility": "public",
   "scope": "当前根任务的全部本地历史片段，以及按 parent_thread_id 递归找到的全部子智能体；不包含其他无关任务。",
@@ -110,25 +110,25 @@
       "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "parentThreadId": null,
       "source": "sessions/2026/09/17/rollout-2026-09-17T18-59-26-01a0aede-90f2-7a73-baf2-0408fa980f18_01a0af05-78db-74a0-81af-9379588e9314.jsonl",
-      "originalBytes": 22751497,
-      "sourceRecords": 4641,
-      "exportedRecords": 1363,
-      "messages": 294,
-      "toolCalls": 535,
-      "toolResults": 534,
+      "originalBytes": 26238366,
+      "sourceRecords": 5289,
+      "exportedRecords": 1554,
+      "messages": 315,
+      "toolCalls": 620,
+      "toolResults": 619,
       "markdown": "05-root.md",
       "jsonl": "05-root.jsonl",
       "excluded": {
         "session_meta": 1,
-        "event_msg": 1990,
+        "event_msg": 2273,
         "internal_developer": 3,
-        "world_state": 18,
-        "turn_context": 16,
-        "reasoning": 492,
-        "token_usage_record": 547,
-        "inter_agent_communication_metadata": 194,
-        "compacted": 6,
-        "runtime_context": 11
+        "world_state": 19,
+        "turn_context": 18,
+        "reasoning": 564,
+        "token_usage_record": 634,
+        "inter_agent_communication_metadata": 204,
+        "compacted": 7,
+        "runtime_context": 12
       }
     },
     {
@@ -191,25 +191,25 @@
       "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "parentThreadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "source": "sessions/2026/09/17/rollout-2026-09-17T19-09-35-01a0af0e-c4fc-7720-9f82-68bf4038f0f8.jsonl",
-      "originalBytes": 13050124,
-      "sourceRecords": 2415,
-      "exportedRecords": 661,
-      "messages": 117,
-      "toolCalls": 272,
-      "toolResults": 272,
+      "originalBytes": 16257726,
+      "sourceRecords": 2878,
+      "exportedRecords": 794,
+      "messages": 132,
+      "toolCalls": 331,
+      "toolResults": 331,
       "markdown": "08-root--upstream_compat.md",
       "jsonl": "08-root--upstream_compat.jsonl",
       "excluded": {
         "session_meta": 2,
-        "event_msg": 1110,
+        "event_msg": 1314,
         "internal_developer": 4,
         "runtime_context": 3,
-        "world_state": 11,
-        "turn_context": 24,
-        "inter_agent_communication_metadata": 49,
-        "token_usage_record": 289,
-        "reasoning": 259,
-        "compacted": 3
+        "world_state": 12,
+        "turn_context": 27,
+        "inter_agent_communication_metadata": 54,
+        "token_usage_record": 351,
+        "reasoning": 313,
+        "compacted": 4
       }
     },
     {
@@ -244,47 +244,47 @@
       "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "parentThreadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "source": "sessions/2026/09/17/rollout-2026-09-17T22-03-54-01a0afae-59d0-7cb2-b50a-8bf96bfdf4ff.jsonl",
-      "originalBytes": 6179862,
-      "sourceRecords": 921,
-      "exportedRecords": 272,
-      "messages": 40,
-      "toolCalls": 116,
-      "toolResults": 116,
+      "originalBytes": 6614465,
+      "sourceRecords": 1049,
+      "exportedRecords": 318,
+      "messages": 42,
+      "toolCalls": 138,
+      "toolResults": 138,
       "markdown": "10-root--canvas_research.md",
       "jsonl": "10-root--canvas_research.jsonl",
       "excluded": {
         "session_meta": 2,
         "compacted": 2,
         "world_state": 10,
-        "turn_context": 14,
-        "event_msg": 384,
+        "turn_context": 15,
+        "event_msg": 435,
         "runtime_context": 5,
         "internal_developer": 3,
-        "inter_agent_communication_metadata": 27,
-        "token_usage_record": 125,
-        "reasoning": 77
+        "inter_agent_communication_metadata": 28,
+        "token_usage_record": 148,
+        "reasoning": 83
       }
     }
   ],
   "redactions": {
-    "credential_assignment": 137,
-    "encrypted_runtime": 393,
-    "url_token": 15,
-    "auth_header": 37,
+    "credential_assignment": 162,
+    "encrypted_runtime": 406,
+    "url_token": 21,
+    "auth_header": 40,
     "escaped_credential": 3,
     "private_key": 2
   },
   "excluded": {
     "session_meta": 15,
-    "event_msg": 4708,
+    "event_msg": 5246,
     "internal_developer": 30,
-    "runtime_context": 24,
-    "world_state": 56,
-    "turn_context": 97,
-    "token_usage_record": 1264,
-    "reasoning": 1149,
-    "inter_agent_communication_metadata": 314,
-    "compacted": 14
+    "runtime_context": 25,
+    "world_state": 58,
+    "turn_context": 103,
+    "token_usage_record": 1436,
+    "reasoning": 1281,
+    "inter_agent_communication_metadata": 330,
+    "compacted": 16
   },
   "files": [
     {
@@ -294,7 +294,7 @@
     },
     {
       "path": "01-root.md",
-      "sha256": "19d917f67f2fe10efec3f98607a540a55013dd5082e7bca2d3453a4f6cdc10e4",
+      "sha256": "71da043960b29691760dbb5f82a12775f6fdf2f09d29de04288defc79b425b55",
       "bytes": 47572
     },
     {
@@ -304,7 +304,7 @@
     },
     {
       "path": "02-root.md",
-      "sha256": "26cd70049663746b24d8e42b4abdc57d969cbc8b7cc2be696ad1fdadd8d1128d",
+      "sha256": "ae9824ff04b73722b5f6790170fb598b6cd3ff43c72f4e4fe98ab0abe04774a9",
       "bytes": 568
     },
     {
@@ -314,7 +314,7 @@
     },
     {
       "path": "03-root.md",
-      "sha256": "6c638777681ca27cbe41bb35b4948a36a7eea1cd1d36b6e82064baff52e338a1",
+      "sha256": "8af04badb3d01869e810e8b614cc3919a15807895b3fb1fb93b859bd7915959a",
       "bytes": 568
     },
     {
@@ -324,18 +324,18 @@
     },
     {
       "path": "04-root.md",
-      "sha256": "7acc4aa11b1fa7153c285476f40d9441bee28a35eebffaac40fd85fcaf97bd92",
+      "sha256": "e0e4bb736879c950aff62112052633c06783d58d8a8eaf95da75457aa076641c",
       "bytes": 939
     },
     {
       "path": "05-root.jsonl",
-      "sha256": "2d98baa55b5ddc0c11eefa7d432b0ebbc04606474ef355c05871395ea575cc8a",
-      "bytes": 5468487
+      "sha256": "3957d2df7a1610118f4101bcf8a3d0c027007840d3c986e4fd52fb89bf02a429",
+      "bytes": 6167976
     },
     {
       "path": "05-root.md",
-      "sha256": "8fc6b3716e4e3902233c8a8ad6f007f01ac0ba74985a2960692af3842c8f7cc6",
-      "bytes": 349596
+      "sha256": "5f3b7d7345bca12448cc43a184a35e2037c5e4f4df08024df7041fb8a2583e85",
+      "bytes": 387581
     },
     {
       "path": "06-root--soul_dynamics.jsonl",
@@ -344,7 +344,7 @@
     },
     {
       "path": "06-root--soul_dynamics.md",
-      "sha256": "6c02d428765e62cd7dd301f5c13d6687dcd594eb1bffb798fe4933f1812b442a",
+      "sha256": "6c460bb0de1003dc2d66c07830e615c50ec0ad3f5b3ee63b48bd990951bae51c",
       "bytes": 99271
     },
     {
@@ -354,18 +354,18 @@
     },
     {
       "path": "07-root--soul_stability.md",
-      "sha256": "0558dbaeff02cf369cfc922358454c8bb0612649cf13d42ed42093d432670915",
+      "sha256": "39cef6bf1b0f3e2ab0c2df6698c3901cbb91d3eaf6395e19b1051cc71fec614f",
       "bytes": 80702
     },
     {
       "path": "08-root--upstream_compat.jsonl",
-      "sha256": "42509ef5473d95b9953ac5b104843e2243f90581d139951d5e0fca72048c77d4",
-      "bytes": 2632556
+      "sha256": "ec445e70891407559fe554e6d6ce297c0a7216b1cf8395632622ff21cbda77ac",
+      "bytes": 3273492
     },
     {
       "path": "08-root--upstream_compat.md",
-      "sha256": "095731a4b93a2ba293f8dc79867efa335c4b640536fc7110388697b6e9b5585c",
-      "bytes": 156608
+      "sha256": "6c35dd9360a385f4b197595d79fe79deffd58b6676af9b8c66b5fdb660583441",
+      "bytes": 182508
     },
     {
       "path": "09-root--upstream_compat--launcher_entry_review.jsonl",
@@ -374,18 +374,18 @@
     },
     {
       "path": "09-root--upstream_compat--launcher_entry_review.md",
-      "sha256": "ebb4fdaf7f76f93efc2b58278e2a23b4f50b1df7ce7a7d5d07eeacd5505fb228",
+      "sha256": "85183b8924a00d5d81cb571fd63988f1ee36f16f9d3c52c101fb07ff2749e07e",
       "bytes": 7976
     },
     {
       "path": "10-root--canvas_research.jsonl",
-      "sha256": "a6f5b652157b18902c2cf7aaf2c9a038a3cc48f0d7c474bd800d4a896bba65de",
-      "bytes": 1283623
+      "sha256": "bfccfc574058b0441392f5656a7626f20ebd25b87a78331cac4e5bbe75c8b798",
+      "bytes": 1390685
     },
     {
       "path": "10-root--canvas_research.md",
-      "sha256": "d6028fde697c4e81642cd042043ae8a03aecc36d2e7bc21209ee94df266424bb",
-      "bytes": 43501
+      "sha256": "cbd74725646593a4929b2bebd2f6e80f340c8919147a7201dff9c72f2d9a5c2b",
+      "bytes": 45302
     }
   ]
 }

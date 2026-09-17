@@ -1,6 +1,6 @@
 # /root
 
-导出时间：2026-09-17T17:50:09.521Z
+导出时间：2026-09-17T18:28:16.018Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T18-59-26-01a0aede-90f2-7a73-baf2-0408fa980f18_01a0af05-78db-74a0-81af-9379588e9314.jsonl`
 
@@ -5923,3 +5923,580 @@ Windows 自动构建流程已写好，会校验源码、编译引擎和产品、
 
 最终候选已通过：304 项测试、9,257 个断言，零失败、零跳过；实际浏览器也通过，未出现页面错误、CSP 错误或外部请求。我会把构建流程与文件工作区分别提交为可审阅的本地变更，并更新你已授权上传的聊天档案。现用版本仍是 `.5`，新候选需要继续验证旧身份的引擎迁移。
 
+
+## 2026-09-17T17:51:40.108Z · 助理
+
+看过了。**我建议把这个 GitHub 仓库建设成星杳的“开发、验证和发行中心”**：保存她的代码、架构演进、补丁来源和验收依据，让以后每次改装、升级、回退都有记录可查。
+
+目前你的[仓库](https://github.com/LUTAO581314/xingyao-shuanji)是公开的，默认分支仍是 `conversation-archive`。聊天档案已经在里面；产品源码、自动构建和安装包发布入口还没有上线。我已经把这些工程准备推进到了可审阅、可实际构建的程度。
+
+我建议这样分工：
+
+| GitHub 中的部分 | 在星杳体系中的用途 |
+|---|---|
+| **产品主分支 `main`** | 保存自有运行时、界面、记忆逻辑、文件管理和 OpenCode 适配代码 |
+| **`patches/opencode`** | 固定上游提交、完整补丁、依赖锁和来源校验，明确我们改了什么 |
+| **Pull Requests** | 审阅功能修改和上游升级，记录行为变化、测试结果及迁移影响 |
+| **Actions** | 在新的 Windows 环境中自动编译、运行真实引擎测试、恢复测试和浏览器验收 |
+| **Releases** | 提供经过验收的便携安装包、版本说明、哈希与兼容范围，保留历史版本 |
+| **Issues / Milestones** | 把记忆质量、文件恢复、容量管理、子智能体和视觉画布拆成有验收标准的任务 |
+| **`conversation-archive`** | 继续保存你要求的主任务与子智能体可导出聊天，标明截止时间和脱敏范围 |
+
+星杳的活动记忆库、个人文件和检查点继续由便携系统管理；GitHub 保存它们的结构设计、处理规则和测试依据。这样，产品开发记录与个人身份数据都有明确的保存方式。
+
+**这次已经落实了几个关键部分：**
+
+- **补齐完整引擎来源。** 发现旧记录中的“上游基线”其实是一个本地产品提交，公共构建环境无法直接取得。现在已改为公开 OpenCode 固定提交，加四份完整补丁，并在全新目录成功重放、安装依赖和编译。
+- **加强来源校验。** 校验覆盖全部 **6,646 个受跟踪文件**，包括链接条目；能发现被 Git 特殊索引标记隐藏的修改。模型目录快照也已固定并随构建记录归档。
+- **写好 Windows 自动构建流程。** 固定主要工具版本，依次构建引擎、构建产品、运行完整门禁，只有通过才保存候选包。工作流已经在本地仓库中，**尚未在 GitHub 服务器上运行**。
+- **完成本地 `.6` 候选验收。** 最终制品通过 **304 项测试、9,257 个断言，零失败、零跳过**；实际浏览器检查也通过。此前要的项目文件侧栏、文本编辑、冲突提示，以及保存后同步知识库，已进入这个候选。
+
+本地变更已分别提交为 `c00b87c`（构建与 GitHub 流程）和 `5295a11`（文件工作区），工作区干净。完整方案放在[仓库使用方案](/F:/codex/xingyao/docs/github-product-workflow.md)，具体测试和限制放在[候选验收记录](/F:/codex/xingyao/docs/verification-workspace.md)。
+
+**接下来最值得优先推进的是三件事：**
+
+1. **建立正式的产品源码入口。** 发布产品分支，完成第一次 GitHub Windows 构建，再设置默认分支和必需检查。当前产品源码与工作流仍在本地，远端尚无产品 Release。
+2. **把 OpenCode 升级做成候选验证流程。** 每次上游更新先测试补丁、旧会话续接、工具结果和配套恢复。现用安装仍是 `.5`；新候选的 engine.6 尚未完成 engine.5 历史检查点迁移，因此这次没有切换现用身份。
+3. **用仓库约束三个月后的质量问题。** 优先建立中文记忆纠错评估、备份与附件容量测量、文件中断恢复任务。否则最容易出现的情况是：功能越来越多，错误记忆、历史备份和升级差异也一起累积，维护越来越困难。
+
+你之前授权上传的聊天档案也已更新到 GitHub，远端提交已核对为 [`ec21455`](https://github.com/LUTAO581314/xingyao-shuanji/commit/ec214552d88eb59d57000e88914dcdec2fac1d9c)。本次快照截止 **2026 年 9 月 18 日 01:50（北京时间）**，包含 **6 个任务身份、10 个历史片段、2,995 条可见消息与工具记录**；凭据已脱敏，隐藏推理与加密运行内容不在导出范围内。
+
+先前一次独立测试目录清理被自动审批审查以 `blocked by policy` 拒绝；该目录已保留，未重试，不影响现用系统或本次验收。
+
+## 2026-09-17T17:51:54.981Z · 助理
+
+上一轮已完成可复现构建准备和 `.6` 本地候选验收，属于实质进展。接下来我先补上新旧引擎之间的迁移与回退验证，让新版功能能接续现有身份；同时检查文件编辑中断后的恢复流程，继续向日常主力助理推进。
+
+
+## 2026-09-17T17:55:11.471Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T17:57:37.108Z · 助理
+
+检查发现一个需要先修的缺口：从检查点恢复时会严格检查引擎版本，但已有宿主数据库直接启动时，旧代码可能绕过这道检查。我会统一启动边界；升级则先在副本中运行新引擎，对照已有任务的会话记录，通过后生成新的配套检查点，保留原检查点用于恢复。
+
+
+## 2026-09-17T18:03:27.503Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T18:04:00.817Z · 助理
+
+已验证指定的旧引擎与新引擎能够保留会话历史，并在恢复原检查点后继续使用旧引擎。现在正把这条路径接成产品迁移功能：核对两个程序的哈希、拒绝未同步宿主和待核实任务，在隔离副本中对照历史，再发布新检查点。会话列表接口默认只返回一部分记录，因此校验将逐一覆盖星杳已有任务绑定的会话。
+
+
+## 2026-09-17T18:06:09.493Z · /root/upstream_compat → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+迁移摘要 API 与真实升级回归已完成。最终运行：
+
+```text
+bun test test/adapter.test.ts test/engine-upgrade.test.ts
+26 pass，0 fail，0 skip，271 个断言，约 11.3 秒
+bun run typecheck
+通过
+```
+
+新增 [OpenCodeAdapter.migrationDigest](/F:/codex/xingyao/src/adapter.ts:166)，返回：
+
+```ts
+Promise<{ sessionID: string; messageCount: number; sha256: string }>
+```
+
+它按顺序读取会话元数据、无 `limit` 的完整消息历史、再次读取会话元数据。验证会话存在与 ID、消息角色和来源、part 来源、重复消息与 part，以及有效时间字段；两次会话元数据有任何变化都会拒绝。SHA-256 包含原始会话和完整消息 JSON 的全部字段，递归排序对象键，保留数组顺序，包含附件、未知扩展字段、工具元数据等普通界面归一化没有保留的内容。输出只有会话 ID、消息数和摘要，不返回正文或认证资料。它要求调用方先停止写入，元数据前后比对不等于数据库事务快照。
+
+[test/adapter.test.ts](/F:/codex/xingyao/test/adapter.test.ts) 新增了摘要回归，验证字段完整性、键顺序稳定、附件变化、会话变化、空会话和不存在会话的区别、跨会话引用、重复记录、未知结构及非有限数值拒绝。
+
+[test/engine-upgrade.test.ts](/F:/codex/xingyao/test/engine-upgrade.test.ts) 对这两个准确二进制完成实际验证：
+
+| 引擎 | SHA-256 |
+|---|---|
+| `0.0.0-product-dev-20260917-engine.5` | `528277b2ea4178093a192da0fe33ef4768e7ae5514a7b21de006d07212c6df83` |
+| `0.0.0-product-dev-20260918-engine.6-source` | `f02b6bbba598d4f2e9e1c1f75794104b9581129ae199d3130b4bc2e552ee748b` |
+
+测试创建两个真实旧会话，保存文本、允许读取、shell 退出码 7、拒绝读取等证据，然后：
+
+1. 停止旧引擎，保存旧检查点。
+2. 用**旧版本号**恢复旧检查点到全新 staging；用新版本号直接恢复旧检查点仍被拒绝。
+3. 启动新引擎，让它执行自身启动迁移。继续前，两个会话的完整公开摘要和归一化历史与旧引擎完全一致。
+4. 新引擎继续同一会话，实际请求新的读取权限，分别验证 `once` 和 `reject`。
+5. 保存新检查点，再用新引擎恢复到另一个新宿主，摘要保持一致并可继续读取。
+6. 从原始旧检查点恢复旧引擎；旧摘要保持一致，新引擎后续消息没有混入，旧引擎仍能独立继续会话。
+7. 原始旧检查点和两份 exe 的哈希在验证结束时保持不变。
+
+全部模型响应来自本地确定性 HTTP 服务，没有调用公网模型，没有读写上游私有表或真实身份。SQLite 的 `schemaVersion` 从旧快照的 38 变为新快照的 39 是 SQLite 元数据观察值，不能据此宣称某个上游业务迁移已执行；功能兼容结论来自公开历史比对及后续真实执行。
+
+公开 `GET /session` 合同也已核实，并在真实 engine.6-source 上验证子会话：
+
+- 默认包含当前项目／目录范围内的子会话，`roots=true` 才排除子会话。
+- 默认 `limit` 是 **100**，按更新时间倒序。
+- `start` 是 `time_updated >= start` 的下界过滤，**不是向更旧会话翻页的游标**。
+- 该 legacy 路由没有 `cursor`／`before` 参数，受 `limit` 截断时也没有 `Link` 或 `X-Next-Cursor`。不能将一次 `GET /session` 当成所有会话的完整清单。
+- `GET /session/{id}/children` 能取得该父会话的子会话。
+- 消息路由不同：`GET /session/{id}/message` 不传 `limit` 时返回完整历史；传正数 `limit` 才使用 `before` 和响应游标分页。迁移摘要使用完整模式。
+
+CI 需要显式提供旧引擎制品。新测试允许通过 `XINGYAO_UPGRADE_FROM_ENGINE`、`XINGYAO_UPGRADE_TO_ENGINE` 指定路径，但仍严格验证上述固定哈希；若缺任一二进制，测试会显示 skipped，而当前发行门禁会因此拒绝通过。当前尚没有公开发行可供干净 runner 自动取得 engine.5，这应作为明确的 CI 输入条件处理。
+
+本轮只修改了 `src/adapter.ts`、`test/adapter.test.ts`，新增 `test/engine-upgrade.test.ts`。Root 已将迁移调用统一为 `migrationDigest`，最终类型检查通过。
+
+## 2026-09-17T18:09:14.286Z · 助理
+
+## Active goal and scope
+
+Persistent goal **“开始吧”** remains **active**. Build the full approved **星杳 · 璇玑 V2** portable personal assistant; do not redefine completion around current infrastructure or a release.
+
+User’s full intent includes:
+- Own product based on OpenCode, compatible with upstream updates.
+- Personality **温暖、有主见、稳定**.
+- Soul as persistent structure/processes, not a giant prompt.
+- Memory, forgetting, learning, sleep, files, knowledge graph, subagents.
+- Windows portable launcher + localhost browser UI; optional Docker.
+- **Infinite Canvas only for visual/image/video creation**, separate from file/memory graphs.
+- Explicit authorization to upload visible root/subagent chat archives to GitHub persists.
+- Avoid needless permission questions.
+- Existing F: OpenCode, identity, data must be preserved.
+- Latest ordinary user request was **“github仓库你看看怎么利用”**; local GitHub build preparation completed, product source still not pushed publicly.
+- Current automatic goal continuation is implementing **engine upgrade migration and startup version binding**.
+- Previous turn is **progress**, not a wait/block.
+
+## Environment and working rules
+
+- Windows PowerShell; Bun **1.4.2**.
+- Product repo: **`F:/codex/xingyao`**, branch **`product-v2`**.
+- Original modified engine repo: **`C:/Users/LT/Documents/trae`**. Do **not** mutate/reset/install in it.
+- Archive repo: **`F:/codex/conversation-archive`**.
+- F: exFAT; C: NTFS.
+- Unrestricted filesystem/network; approval policy never.
+- Read `AGENTS.md` already: strict TS/Bun, bun:sqlite single writer; OpenCode coupling through public adapter; no private DB table edits; provenance/scope; temporary identities for tests; run `bun test`, `bun run typecheck`.
+- Prefer rg; batch independent tool calls in `functions.exec` with Promise.allSettled.
+- Collaboration tools direct, not inside exec.
+- Chinese meaningful commentary at least every ~60s.
+- Don’t print credentials or runtime token URLs.
+- No skills used/needed for current generic engineering.
+- All root exec sessions are terminal; no live root processes to poll.
+
+## Installed production remains `.5`
+
+User installation:
+- launcher `F:/启动星杳.cmd`
+- root `F:/Xuanji`
+- host `C:/Users/LT/AppData/Local/Xuanji/58c7da30-1594-4275-b11b-8816f9494e15`
+- identity **`487fe2aa-0a93-4186-ac4e-3d331fc286bd`**
+- SUBST X: → F:/Xuanji
+- installed release:
+  **`F:/Xuanji/system/releases/r-mu5qi4j5-e006eafc-0471-41b6-a909-36159aaae917`**
+- product `0.1.0-dev.5`, schema 2.
+- engine `0.0.0-product-dev-20260917-engine.5`
+- engine SHA:
+  **`528277b2ea4178093a192da0fe33ef4768e7ae5514a7b21de006d07212c6df83`**
+- engine path also available `F:/codex/xingyao/dist/xingyao-0.1.0-dev.5/opencode.exe`.
+- latest production checkpoint schema2 `mu5qk13s-176e4666-5ee3-4b38-b7bb-72f752ea890f`.
+- No production data used in tests. No migration/installation performed this continuation.
+
+Earlier cleanup automatic review rejected deletion of:
+`C:/Users/LT/AppData/Local/Temp/xingyao-upgrade-main-same-Zznz7Z`
+reason **blocked by policy**. Kept, no retry. User already informed. Summary instruction was to mention in short separate final paragraph if reporting that older cleanup work; don’t retry.
+
+## Last completed turn: `.6` candidate, source replay, CI preparation
+
+Commits (both local, not pushed):
+- **`c00b87c`** `build: replay complete OpenCode source and prepare Windows CI`
+- **`5295a11`** `feat: add project file editor with revision-safe knowledge refresh`
+- previous `.5` commit `08fc700`.
+
+`.6` candidate:
+**`F:/codex/xingyao/dist/xingyao-0.1.0-dev.6`**
+- product SHA `2274955bcaa403938de035c2b1b486c8e3de1f35d8b96c9e58f603f178aa37f2`
+- release.json SHA **`83f4881c50014297be10909b9f897a4b8473d13a5f1a5d2826f1c747b0158696`**
+- source hash `9a506214843e7ec598420c311ddc940c05856e066e51b69005005b5194dc1e28`
+- engine **`0.0.0-product-dev-20260918-engine.6-source`**
+- engine SHA **`f02b6bbba598d4f2e9e1c1f75794104b9581129ae199d3130b4bc2e552ee748b`**
+- final gate **304 pass, 0 fail, 0 skip, 9257 assertions, 29 files, 79.14s**
+- log `reports/2026-09-17T17-45-05-685Z-tests.txt`
+- actual Edge **153.0.4234.32** browser passed; 0 page/CSP/external errors.
+- `reports/graph-browser-0.1.0-dev.6.json`
+- `reports/release-validation-0.1.0-dev.6.json`
+- `docs/verification-workspace.md`
+- Candidate not installed because engine5→6 migration wasn’t yet implemented.
+- Source currently still version `.6`; **bump `.7` before next build/install**; build refuses overwriting an existing candidate.
+
+Source replay:
+- public upstream commit **`e03db9bc6908f75c9334d8aa997deeaac81c0298`**
+- upstream tree `ff780efb02c97af08045ebc7857684bc39e06d5d`
+- patched tree **`1a4d9ee6b75e5f7de5938c5e3483f970fbab55fe`**
+- old “baseline” `d0a9...` was a **local product commit**.
+- four patches 000–003, manifest format2.
+- manifest SHA **`857f19cbd326c1232889ef5d55bbb134c20db2636febfd4ce27b909b2b93a486`**
+- `script/engine-source.ts prepare <new-absolute-dir> [--reference localrepo]`
+- `verify` hashes **all 6646 tracked files / 60 links**, refuses assume-unchanged, skip-worktree, fsmonitor, redirected paths. Seven tests.
+- fixed model catalog in `build-inputs/models.dev.json`, 4,691,171 bytes, SHA **`4a0e55bf8ef5bb91f50e80c267f8c630af1428db2e9fcd3e4b60c839463dfd61`**
+- `script/build-engine.ts` verified clean builds with frozen deps, independent snapshot copy, env whitelist, toolchain capture.
+- build toolchain actual Node26.8.1, Python3.12.14, VS17.14.37628.2 / MSVC14.44.35207.
+- Python local path:
+  `C:/Users/LT/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe`
+- final clean source:
+  **`C:/Users/LT/AppData/Local/Temp/xy-e6-0918c`**
+- final engine outputs:
+  **`dist/engines/0.0.0-product-dev-20260918-engine.6-source/`**
+- another source `.../xy-e6-0918b`, initial binary moved to `...engine.6-source-initial/`.
+- Interrupted dependency install left SDK incomplete; fresh checkout fixed. Build script requires no preexisting node_modules/dist. Preserve failures; don’t reuse original workspace deps.
+- No byte-identical rebuild claim. Two clean builds produced different hashes.
+
+GitHub workflow committed locally:
+`.github/workflows/windows-candidate.yml`
+- Windows2022, fixed Bun/Node/Python/action SHAs, read-only contents, no release/push.
+- prepare public source → compile engine → compile product with matching provenance → verify-release → artifacts.
+- Browser path portable via msedge channel or `XINGYAO_BROWSER_EXECUTABLE`.
+- **No hosted runner execution yet**.
+- Remote currently only `conversation-archive`, public, unprotected, no license, no product releases/actions.
+
+## Archive state (last pushed)
+
+- remote `https://github.com/LUTAO581314/xingyao-shuanji.git`
+- verified remote archive commit:
+  **`ec214552d88eb59d57000e88914dcdec2fac1d9c`**
+- cutoff **2026-09-17T17:50:09.521Z** = Sep18 01:50 China.
+- 6 task identities, 10 fragments, **2995 visible records**.
+- exporter `F:/codex/conversation-archive/tools/export-conversations.ts`
+- excludes hidden reasoning/system/developer/internal contexts.
+- added redaction of opaque `gAAAAA...` encrypted runtime strings (no word boundary; escaped newlines defeated boundary).
+- hashes/JSON/roles validated before push.
+- Current migration continuation not yet archived.
+- push:
+  ```powershell
+  $env:GIT_TERMINAL_PROMPT='0'
+  git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin conversation-archive
+  ```
+
+## Current continuation: uncommitted changes
+
+Authoritative last git status:
+```
+ M src/adapter.ts
+ M src/main.ts
+ M test/adapter.test.ts
+?? src/engine-migration.ts
+?? test/engine-upgrade.test.ts
+```
+No commits this continuation. Typecheck most recently passed.
+
+### Agent upstream_compat (completed, can reuse)
+
+Agent owns/finished:
+- `src/adapter.ts`
+- `test/adapter.test.ts`
+- new `test/engine-upgrade.test.ts`
+
+New API:
+```ts
+type MigrationDigest = {sessionID:string; messageCount:number; sha256:string}
+adapter.migrationDigest(sessionID): Promise<MigrationDigest>
+```
+- GET session metadata → GET complete messages without limit → GET metadata again.
+- Checks metadata/session existence/id/timestamps, message/part identity, roles, duplicates, stable metadata.
+- SHA contains **all raw public JSON fields**, including attachments and unknown extension fields omitted by UI normalizer.
+- Recursively sorts object keys, preserves arrays.
+- Only returns id/count/hash, no plaintext.
+- Requires stopped writers; metadata bracketing isn’t a transaction.
+- Root initially called `sessionArchiveDigest`, already fixed to `migrationDigest`.
+
+Agent actual validation:
+**26 pass, 0 fail, 0 skip, 271 assertions, ~11.3s**
+`bun test test/adapter.test.ts test/engine-upgrade.test.ts`
+plus typecheck.
+
+`test/engine-upgrade.test.ts`:
+- hard binds old engine5 SHA 528277... and new engine6 SHA f02b...
+- env:
+  `XINGYAO_UPGRADE_FROM_ENGINE`
+  `XINGYAO_UPGRADE_TO_ENGINE`
+- defaults old `.5/dist` and final `dist/engines/engine.6-source`.
+- Creates 2 real old sessions, text, successful read, shell exit7, rejected read using local deterministic HTTP model.
+- Stops, backs up old engine.
+- Exact restore mismatch remains rejected.
+- Restores old snapshot using old version into isolated host, then starts new engine on copy.
+- Digests and normalized histories identical before continuation.
+- New reads ask permission, test once/reject.
+- Backups new engine, restores to new host, continues.
+- Restores **original old checkpoint** with old engine to separate host; excludes new messages, still continues.
+- Original checkpoint and binaries unchanged.
+- Does **not yet test root’s new migration module or actual product migration/adoption**.
+- Agent observed SQLite schema_version38→39; not proof of particular business migration.
+- Full private DB access prohibited; tests only public HTTP and backup API.
+
+Important public API finding:
+- GET `/session` defaults limit100, updated DESC, includes children unless roots=true.
+- `start` is updated>=lower-bound, **not backwards pagination**.
+- no cursor/before/Link on legacy session list; cannot enumerate all by one list call.
+- GET `/session/{id}/children` available.
+- Messages no limit → complete; positive limit → before/cursor pagination.
+- Migration scope chosen **all product task session bindings**, not claiming all unrelated/unbound sessions.
+
+**CI problem to solve:** engine-upgrade test currently skips if old/new exe absent; verify-release correctly fails on skip. Hosted runner has no old engine5 artifact published. Also **new target SHA hardcoded f02b will fail a new clean CI build because binary hash is not deterministic**. Need bind test to actual candidate’s verified build record/expected SHA at gate time while keeping old baseline SHA fixed; each run reports its exact pair. Cannot claim CI works until baseline acquisition configured. Do not silently bypass/skip migration tests.
+
+### Root new `src/engine-migration.ts`
+
+Exports:
+```ts
+type MigrationEngine = {executable:string; version:string; sha256:string}
+type EngineMigrationBoundary =
+ "source-restored"|"baseline-verified"|"candidate-started"|
+ "history-verified"|"checkpoint-created"
+
+type EngineMigrationOptions = {
+ hostDir:string; vaultDir:string; generation:string; projectDir:string;
+ from:MigrationEngine; to:MigrationEngine;
+ afterBoundary?:(boundary,stageDir)=>void // tests only
+}
+
+migrateEngineCheckpoint(input): Promise<{
+ checkpoint:CheckpointInfo; stageDir:string;
+ evidence:EngineMigrationEvidence
+}>
+```
+
+Current behavior (implemented but **untested**, inspect before relying):
+1. Validates absolute ordinary host/vault directory paths (all ancestors), project existence/generation.
+2. Acquires real host writer lock (must stop product first).
+3. Requires requested source be unique latest verified checkpoint.
+4. `assertCleanHost`:
+   - if host soul.db exists, readonly checks identity/revision/checkpoint_generation exactly match source.
+   - if absent but known engine DB exists, rejects unpaired data.
+5. Validates from/to binary SHA and actual `--version` (10s probe timeout), rejects redirected file and same hash.
+6. Verifies source engine checkpoint version equals from.version.
+7. Creates `.engine-migration-*` stage under host (NTFS), restores domain and old engine snapshots using exact old version.
+8. Opens SoulStore only in stage; checks identity/meta engine version/hash if present.
+9. Rejects `running` or `waiting` tasks (unknown execution needs reconciliation).
+10. Collects deduplicated sorted nonempty task.sessionId.
+11. Starts old engine on staged copy with **no provider config**; public migrationDigest each task session; permissions must be empty; stops.
+12. Starts target on same staged copy (upstream owns own migration), digest equality and empty permissions; stops.
+13. Rechecks both binary hash/version.
+14. Updates staged domain meta engine_version, engine_sha256, engine_migration, increments revision in transaction.
+15. `createCheckpoint` publishes descendant of original checkpoint. Its existing writer lock + parent recheck prevent concurrent fork.
+16. checkpoint extensions include new engine backup and `upgrade/engine-migration.json` with hashes only.
+17. Returns new checkpoint/stage/evidence. Original host and source snapshot remain unchanged. Failures retain stage.
+18. finally stops child/closes store/unlocks.
+
+Evidence:
+```
+format1, sourceGeneration, sourceCheckpointSha256, identityId,
+source/targetEngineVersion, source/targetEngineSha256,
+contract:"legacy-public-session-archive-v1",
+scope:"all-product-task-session-bindings",
+sessions:[id,count,hash], verifiedAt, outcome:"passed"
+```
+
+Things not yet handled / review:
+- No CLI or UI entry yet.
+- No automatic startup migration. This is explicit offline operation.
+- A crash after new checkpoint publication but before return: next invocation currently rejects source no longer head (safe, not idempotent). Could recognize completed migration evidence later.
+- Migration only proves bound sessions; unrelated/child session coverage not yet recursive.
+- Target engine tested live public read-only integrity; no model call during user migration (right).
+- `assertCleanHost` only metadata checks, not full host snapshot equivalence (same existing design assumption).
+- Stage failures retained by design; no cleanup.
+- Could improve failure error to identify stage directory without leaking contents.
+- host/vault cross-path overlap handling, source hash validation, compatibility manifest target qualification need independent review.
+- Does not yet make release activation/startup seamless.
+
+### Root changes `src/main.ts`
+
+Discovered existing-host bypass: checkpoint restore demanded exact version but a same-host DB could be opened by different engine directly.
+
+Current changes (untested beyond typecheck):
+- Version probe now timeout10s, requires successful valid exact version for existing binary in online mode.
+- Calculates executable SHA256.
+- After any paired restore and **before SoulStore initialization/migration**, rereads `readHostState`.
+- HostState now includes engineVersion and engineSha256 from metadata.
+- In online mode with valid executable:
+  - rejects host version mismatch,
+  - rejects host engine hash mismatch if recorded,
+  - rejects known engine DB with no version binding.
+- Before startEngine, records attempted executable version/hash in domain metadata. This lets a fresh same-binary restart retry if startup created engine DB then failed, without claiming healthy.
+- After engine starts, service-reported version must equal --version; otherwise stops/rejects.
+- Uses adapter only after match.
+- Existing configureModel still sets engine_version on success; hash same selected executable; consider consistency.
+- Offline startup does not enforce engine version (no engine runs).
+- Missing binary still degrades to offline-like workbench as before.
+- Branch decisions/restoration remain before binding checks.
+- No new tests yet for same-host mismatch, unknown binding, hash mismatch, startup failure retry, offline behavior.
+
+## Suggested immediate next steps
+
+1. **Reuse upstream agent for independent review of migration module/main guards** (completed/free). Could assign canvas agent tests for main binding while root integrates migration; current canvas remains completed from old work, soul_dynamics errored503. No active new delegation besides completed upstream.
+2. Extend **real upgrade test** to exercise `migrateEngineCheckpoint` end-to-end, not only manual engine copy. Agent’s test is now free to edit:
+   - Create SoulStore in oldHost with two completed tasks bound to its two real sessions, engine metadata.
+   - create paired product checkpoint via createCheckpoint+backupEngine, set host generation/revision, close.
+   - assert old host bytes/source checkpoint unchanged on injected failures and mismatch/unsynced rejections.
+   - call migration module.
+   - restore resulting paired checkpoint with new exact engine using restoreProduct into new host.
+   - same identity/task bindings/history, fresh permission/tool continuation.
+   - original old checkpoint restored separately remains old branch.
+   - fault injection around candidate-started/history-verified/checkpoint-created and no new complete head on pre-publication failure.
+3. Add startup binding tests against real candidate engine, temporary identities; no production fixtures.
+4. Add explicit CLI command (likely `script/migrate-engine.ts`) using candidate/release manifests/hashes and passing exact old/new engine descriptors. Check passed target release validation rather than arbitrary engine silently blessed.
+5. Decide adoption flow: new checkpoint source parent -> new main automatically restores clean older host to latest exact target; require stop/backup first. Do not just relax restoreEngine exact-version guard.
+6. Fix CI baseline input + target hash issue, document unexecuted hosted CI truthfully.
+7. Bump product `.7`, build with same final engine6 and provenance record, run full gate (now additional tests), then only consider production migration/install when concrete migration and rollback evidence complete.
+8. Update docs, commit; preserve goal active and remaining entire V2 scope.
+9. Archive current visible continuation after meaningful completion, using existing authorized exporter/push.
+
+## Prior file workspace status (unchanged this continuation)
+
+`.6` editor:
+- selected roots process-local; UTF8 ≤2MiB; BOM/CRLF; identity/hash conflict checks.
+- Cross-process per-file lock, recovery backups, caught-error rollback.
+- Backend in `src/workspace-files.ts`, API/server, frontend.
+- 24 actual filesystem tests +3 API tests.
+- Save updates exact verified bytes into knowledge preserving scope/privacy.
+- Added concurrency fix: old async knowledge refresh cannot overwrite new editor snapshot/privacy/scope.
+- **Crash/power-loss edit recovery still manual** via `.xingyao-edit-*`; original may be temporarily missing/partial. No persistent drafts/root permissions.
+- Native textarea input25,000 short lines hit30s timeout; ~300KB/1000lines passed. Documented honestly.
+- Stash `stash@{0}` original workspace draft retained, do not drop.
+- No file recovery work started this continuation.
+
+## Last commentary sent
+
+> 已验证指定的旧引擎与新引擎能够保留会话历史，并在恢复原检查点后继续使用旧引擎。现在正把这条路径接成产品迁移功能：核对两个程序的哈希、拒绝未同步宿主和待核实任务，在隔离副本中对照历史，再发布新检查点。会话列表接口默认只返回一部分记录，因此校验将逐一覆盖星杳已有任务绑定的会话。
+
+Most recent tool read adapter canonicalJSON/migration metadata; no live command/session.
+
+## 2026-09-17T18:09:22.243Z · 助理
+
+我会把 GitHub 用作星杳的源码、测试和版本发布中心，并把聊天归档与产品代码分开管理。我先核对现有仓库和本地进度，接着完成正在做的 OpenCode 升级迁移验证，确认哪些内容已经适合放进仓库、哪些还只是候选版本。
+
+## 2026-09-17T18:11:13.278Z · 助理
+
+仓库现状已经核实：远端只有聊天归档分支，产品代码和 Windows 构建流程仍在本地。要让它真正支持后续更新，关键是把“代码、引擎补丁、测试证据、可下载版本”连起来。目前发现两处需要先补齐：GitHub 测试机还拿不到旧引擎基准，现有宿主也需要防止直接打开不匹配的新引擎。
+
+## 2026-09-17T18:13:48.394Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T18:15:05.122Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T18:15:27.483Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T18:16:45.953Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T18:17:02.678Z · 助理
+
+升级检查已经挡住了一个实际绕过：离线打开旧身份后，原先还能通过“保存模型设置”启动另一个引擎，现在这条路径已关闭，相关回归通过。迁移测试还发现 SQLite 即使以只读方式打开，也可能在原宿主创建辅助文件；我正在改成只检查隔离副本，让失败演练确实保留原始数据。
+
+## 2026-09-17T18:19:47.280Z · /root/canvas_research → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+已完成新增 [engine-binding.test.ts](F:/codex/xingyao/test/engine-binding.test.ts)，仅修改该测试文件，未构建、覆盖或安装 `.6` 制品，现已停止修改。
+
+测试使用已有 `dist/engines/0.0.0-product-dev-20260918-engine.6-source/opencode.exe`，所有宿主身份、项目、数据库和配置均为临时夹具。覆盖：
+
+- 同宿主版本不匹配：启动在领域迁移、配置创建和引擎数据库写入前被拒绝，领域库及引擎库文件哈希保持不变。
+- 相同版本、SHA-256 不匹配：拒绝启动，保留原绑定。
+- `opencode.db`、`opencode-product-dev.db` 已存在但无版本绑定：均拒绝自动接管。
+- 离线启动：允许管理旧身份，保留原版本和哈希，不启动引擎、不修改引擎数据库。
+- 真实源码构建引擎：新身份绑定版本与哈希，同宿主正常停止后重新启动，以及合法模型重配置均通过真实健康握手。
+- CLI 与服务版本不同：通过真实 Bun 子进程运行合成 HTTP 引擎，验证错误服务进程被停止、不会成为产品适配器；模型重配置和失败恢复也不能重新接纳它。
+
+测试额外复现了模型设置入口的两个绕过问题：离线宿主可借设置接口启动另一版本；初次启动拒绝的服务也可借设置接口重新接入。已报给 root，由 root 在 `main.ts` 统一了启动与模型重配置检查；回归现已通过。
+
+最终验证：`bun test test/engine-binding.test.ts` **8 项通过，60 个断言通过**；`bun run typecheck`、`git diff --check` 均通过。
+
+## 2026-09-17T18:19:47.285Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T18:22:23.607Z · 助理
+
+迁移主流程的真实测试已通过：旧会话和工具结果保持一致，新旧配套副本都能继续原任务，四个发布前故障点没有改写原数据。GitHub 流程也已补上旧引擎下载与固定哈希核对；缺少基准时会明确失败。接下来构建 `.7` 候选，跑完整测试和实际浏览器验收，再把结果整理成仓库里的升级说明。
+
+## 2026-09-17T18:25:02.490Z · 助理
+
+GitHub 端也查过了：目前没有 Release、Actions 运行记录或 CI 变量，所以不能把本地通过说成“云端构建已经可用”。`.7` 候选已编译完成，完整验收正在运行；我还补查了只存在于 WAL 中的未保存变化，以及普通启动能否从干净旧宿主接续迁移后的新检查点。
+
+## 2026-09-17T18:25:06.428Z · /root/upstream_compat → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+已完成，最后只修改了 [test/engine-upgrade.test.ts](F:/codex/xingyao/test/engine-upgrade.test.ts)，没有改动你负责的迁移模块、启动入口或发行脚本。
+
+新增的真实验证覆盖：
+
+- 创建临时 SoulStore 配套检查点，保留 **4 个产品任务、2 个不同的 OpenCode 会话、重复会话绑定、尚未绑定会话的任务，以及带来源的记忆**。
+- 真正调用 `migrateEngineCheckpoint`。在 `source-restored`、`baseline-verified`、`candidate-started`、`history-verified` 四个发布前阶段分别注入失败，确认没有新增完整检查点，原宿主文件和原检查点逐字节不变。
+- 迁移成功后，核对身份、父检查点、领域修订、旧新引擎版本与 SHA-256、完整公共历史摘要，以及写入检查点的迁移凭据。
+- 分别恢复新配套检查点和原旧配套检查点，通过产品 `/api/tasks/:id/chat` 接口继续同一任务；实际触发文件读取权限，授权后核对执行证据，并确认旧 `exit 7` 结果仍是失败。
+- **已提交但未合并的 WAL**：在独立副本创建仅存在于 WAL 的领域修订，证明主数据库字节没有改变；迁移准确拒绝“未同步变化”，且 WAL、SHM、领域数据库、引擎文件与便携库全部保持原字节。
+- **正常启动采纳**：复制旧宿主和包含新迁移检查点的 vault，调用真实 `main()`。`0.1.0-dev.7` 正常启动后采纳新检查点，身份、任务和记忆保持一致，实际运行目标引擎；正常退出又生成以迁移检查点为父的新配套检查点，原测试源不变。
+
+目标 SHA 使用 `XINGYAO_UPGRADE_TO_SHA256` 覆盖，显式值必须是 **64 位小写十六进制**。目标版本按你最后的指示保持 `0.0.0-product-dev-20260918-engine.6-source` 固定；旧 engine.5 SHA 仍固定。
+
+验证结果：
+
+| 验证 | 结果 |
+|---|---|
+| 最新 `.7` 代码：`bun test test/engine-upgrade.test.ts` | **1 pass，0 fail，0 skip，186 assertions**，约 34 秒 |
+| 最新代码：`bun run typecheck` | **通过** |
+| 补充最后两项之前的适配器＋迁移测试 | **26 pass，0 fail，0 skip，347 assertions** |
+| 按要求完成的上一轮全量测试 | **320 pass，0 fail，0 skip，9552 assertions**，约 122 秒 |
+
+没有再次运行全量，留给你编译 `.7` 后执行完整 release gate。本测试明确限定于该准确引擎对、公共 legacy HTTP 接口、稳定项目路径及本地确定性模型；后续上游版本仍需重新通过同一迁移验收。
+
+## 2026-09-17T18:28:12.228Z · 助理
+
+`.7` 完整验收通过：320 项测试，0 失败、0 跳过，实际浏览器检查也通过。我已把 GitHub 的分支安排、开源组件分工、首批验收任务和引擎升级流程写进文档，并准备好问题与 PR 模板。当前安装仍是 `.5`；这次完成的是经过验证的候选及仓库接入准备。
