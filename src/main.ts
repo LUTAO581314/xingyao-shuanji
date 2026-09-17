@@ -93,7 +93,7 @@ export async function main(args = process.argv.slice(2)) {
       unlock()
       if (existsSync(join(host, "running.json"))) writeFileSync(join(host, "running.json"), JSON.stringify({ stopped: true, at: Date.now() }))
     }
-    app = startServer({ store, adapter, vaultDir: vault, token, port: values.port ? Number(values.port) : 0, configPath, onShutdown: close, stopExecution: async () => { await engine?.stop() },
+    app = startServer({ store, adapter, vaultDir: vault, token, port: values.port ? Number(values.port) : 0, configPath, workspaceDirectory: project, workspaceProtectedDirectories: [host, vault, join(portable, "system")], onShutdown: close, stopExecution: async () => { await engine?.stop() },
       checkpointExtensions: async directory => {
         const version = engine?.version ?? store!.meta("engine_version")
         if (!version) return {}

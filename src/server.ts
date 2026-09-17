@@ -5,6 +5,8 @@ import { createCheckpoint, listCheckpoints } from "./checkpoint"
 import { KnowledgeStore } from "./knowledge"
 import { GraphStore } from "./knowledge-graph"
 import { FileOrganizer } from "./files"
+import { WorkspaceFiles, WorkspaceFileError, MAX_WORKSPACE_FILE_BYTES, type WorkspaceFile } from "./workspace-files"
+import { dirname, resolve } from "node:path"
 import { LearningStore } from "./learning"
 import { PRODUCT_VERSION, PROTOCOL_VERSION } from "./contracts"
 import type { MemoryKind } from "./contracts"
@@ -28,6 +30,8 @@ export type ServerOptions = {
   configureModel?: (config: { baseURL: string; model: string; apiKey: string }) => Promise<OpenCodeAdapter>
   checkpointExtensions?: (directory: string) => Promise<Record<string, string>>
   stopExecution?: () => Promise<void>
+  workspaceDirectory?: string
+  workspaceProtectedDirectories?: string[]
 }
 
 export class ModelConfigurationError extends Error {
@@ -39,6 +43,12 @@ export function startServer(options: ServerOptions) {
   const knowledge = new KnowledgeStore(store.db)
   const graph = new GraphStore(store.db)
   const files = new FileOrganizer(store.db)
+  const workspace = new WorkspaceFiles({ protectedDirectories: [dirname(store.db.filename), options.vaultDir, ...(options.configPath ? [dirname(options.configPath)] : []), ...options.workspaceProtectedDirectories ?? []] })
+  let defaultRootId: string | null = null, workspaceError: string | null = null
+  if (options.workspaceDirectory) {
+    try { defaultRootId = workspace.open(options.workspaceDirectory).id }
+    catch (error) { workspaceError = error instanceof Error ? error.message : "默认项目目录不可用，请选择其他目录" }
+  }
   const learning = new LearningStore(store.db)
   const jobs = new Map<string, Promise<void>>()
   const cancelled = new Set<string>()
@@ -57,6 +67,7 @@ export function startServer(options: ServerOptions) {
     try { await options.onShutdown?.() } finally { await server.stop(true) }
   }
   const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } })
+  const fileBytes = (file: WorkspaceFile) => Buffer.concat([file.bom ? Buffer.from([0xef, 0xbb, 0xbf]) : Buffer.alloc(0), Buffer.from(file.text, "utf8")])
 
   const createSnapshot = async (ownRequest: boolean) => {
     if (checkpointing) throw new ConflictError("正在同步，请等待完成")
@@ -155,7 +166,7 @@ export function startServer(options: ServerOptions) {
   }
 
   const server = Bun.serve({
-    hostname: "127.0.0.1", port: options.port ?? 0, idleTimeout: 30, maxRequestBodySize: 256000,
+    hostname: "127.0.0.1", port: options.port ?? 0, idleTimeout: 30, maxRequestBodySize: MAX_WORKSPACE_FILE_BYTES * 6 + 32768,
     async fetch(request) {
       const url = new URL(request.url)
       const expectedHost = `127.0.0.1:${server.port}`
@@ -180,9 +191,10 @@ export function startServer(options: ServerOptions) {
         const path = url.pathname
         const body = async () => {
           if (!(request.headers.get("content-type") ?? "").startsWith("application/json")) throw new Error("请求需要 JSON")
-          if (Number(request.headers.get("content-length")) > 200000) throw new Error("请求过大")
+          const limit = path === "/api/workspace/file" ? MAX_WORKSPACE_FILE_BYTES * 6 + 32768 : 200000
+          if (Number(request.headers.get("content-length")) > limit) throw new Error("请求过大")
           const raw = await request.text()
-          if (raw.length > 200000) throw new Error("请求过大")
+          if (raw.length > limit || Buffer.byteLength(raw) > limit) throw new Error("请求过大")
           const value: unknown = JSON.parse(raw)
           if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("请求格式无效")
           return value as Record<string, unknown>
@@ -233,6 +245,29 @@ export function startServer(options: ServerOptions) {
         if (method === "POST" && path === "/api/sleep") { if (jobs.size) throw new ConflictError("前台正在工作，整理暂缓"); return json(store.sleep()) }
         if (method === "POST" && path === "/api/checkpoint") return json(await checkpoint(true))
         if (method === "GET" && path === "/api/checkpoints") return json(await listCheckpoints(options.vaultDir))
+        if (method === "GET" && path === "/api/workspace/roots") return json({ roots: workspace.roots(), defaultRootId, error: workspaceError })
+        if (method === "POST" && path === "/api/workspace/roots") { const input = await body(); return json(workspace.open(text(input.directory, 4096)), 201) }
+        if (method === "GET" && path === "/api/workspace/list") return json(workspace.list(text(url.searchParams.get("rootId"), 100), url.searchParams.get("path") ?? ""))
+        if (method === "GET" && path === "/api/workspace/file") return json(workspace.read(text(url.searchParams.get("rootId"), 100), text(url.searchParams.get("path"), 2048)))
+        if (method === "PUT" && path === "/api/workspace/file") {
+          const input = await body()
+          if (typeof input.text !== "string") throw new Error("文件正文必须是文本，可以为空")
+          const saved = workspace.save(text(input.rootId, 100), text(input.path, 2048), { expectedSha256: text(input.expectedSha256, 64), text: input.text })
+          const warnings: string[] = []
+          let refreshed = 0
+          const samePath = (value: string) => process.platform === "win32" ? resolve(value).toLowerCase() : resolve(value)
+          for (const document of knowledge.documents().filter(doc => samePath(doc.path) === samePath(saved.absolutePath))) {
+            try { knowledge.importSnapshot(saved.absolutePath, fileBytes(saved), document.scope, { private: document.private }); refreshed++ }
+            catch (error) { warnings.push(error instanceof Error ? error.message : "资料索引未刷新，请在知识库重试") }
+          }
+          return json({ ...saved, knowledge: { refreshed, warnings } })
+        }
+        if (method === "POST" && path === "/api/workspace/import") {
+          const input = await body()
+          if (typeof input.private !== "boolean") throw new Error("请选择资料是否私密")
+          const file = workspace.read(text(input.rootId, 100), text(input.path, 2048))
+          return json(knowledge.importSnapshot(file.absolutePath, fileBytes(file), text(input.scope, 256), { private: input.private }), 201)
+        }
         if (method === "GET" && ["/api/graph", "/api/graph/source"].includes(path)) {
           const includePrivate = url.searchParams.get("private")
           if (includePrivate !== null && !["true", "false"].includes(includePrivate)) throw new Error("图谱私密选项需要 true 或 false")
@@ -330,6 +365,7 @@ export function startServer(options: ServerOptions) {
         }
         return json({ error: "接口不存在" }, 404)
       } catch (error) {
+        if (error instanceof WorkspaceFileError) return json({ error: error.message, kind: error.kind, recoveryDirectory: error.recoveryDirectory, backupPath: error.backupPath }, error.kind === "denied" ? 403 : error.kind === "invalid" ? 400 : 409)
         return json({ error: error instanceof Error ? error.message : "操作失败" }, error instanceof ConflictError || error instanceof SealedError ? 409 : 400)
       } finally { if (mutation) mutations-- }
     },

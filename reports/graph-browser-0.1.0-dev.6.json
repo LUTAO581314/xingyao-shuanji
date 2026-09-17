@@ -1,0 +1,31 @@
+{
+  "version": "0.1.0-dev.6",
+  "executableSha256": "2274955bcaa403938de035c2b1b486c8e3de1f35d8b96c9e58f603f178aa37f2",
+  "browser": "Microsoft Edge",
+  "browserVersion": "153.0.4234.32",
+  "result": "passed",
+  "checked": [
+    "workspace file tree and credential exclusion",
+    "workspace dirty navigation",
+    "workspace BOM/CRLF save and backup",
+    "workspace scoped private index refresh",
+    "workspace large text",
+    "workspace external conflict",
+    "workspace mobile layout",
+    "local rendering",
+    "scope/privacy",
+    "source evidence",
+    "untrusted text rendering",
+    "pagination",
+    "local neighbors",
+    "search/type filters",
+    "unresolved links",
+    "correction refresh",
+    "stale revision detection",
+    "mobile layout"
+  ],
+  "pageErrors": 0,
+  "cspErrors": 0,
+  "externalRequests": 0,
+  "createdAt": "2026-09-17T17:46:30.366Z"
+}

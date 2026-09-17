@@ -1,0 +1,47 @@
+{
+  "manifestHash": "83f4881c50014297be10909b9f897a4b8473d13a5f1a5d2826f1c747b0158696",
+  "outcome": "passed",
+  "tests": {
+    "backendContract": {
+      "passed": true,
+      "execution": "real",
+      "startedAt": 1789667105685,
+      "finishedAt": 1789667198681,
+      "evidence": [
+        "F:\\codex\\xingyao\\reports\\2026-09-17T17-45-05-685Z-tests.txt",
+        "test/adapter.test.ts",
+        "test/engine.test.ts",
+        "test/real-engine.test.ts"
+      ]
+    },
+    "restore": {
+      "passed": true,
+      "execution": "real",
+      "startedAt": 1789667105685,
+      "finishedAt": 1789667198681,
+      "evidence": [
+        "F:\\codex\\xingyao\\reports\\2026-09-17T17-45-05-685Z-tests.txt",
+        "test/checkpoint.test.ts",
+        "test/engine-backup.test.ts",
+        "test/recovery.test.ts",
+        "test/startup-migration.test.ts",
+        "test/compiled.test.ts"
+      ]
+    },
+    "soulIntegration": {
+      "passed": true,
+      "execution": "real",
+      "startedAt": 1789667105685,
+      "finishedAt": 1789667198681,
+      "evidence": [
+        "F:\\codex\\xingyao\\reports\\2026-09-17T17-45-05-685Z-tests.txt",
+        "test/product-integration.test.ts",
+        "test/tool-evidence-api.test.ts",
+        "test/source-revisions.test.ts",
+        "test/compiled.test.ts",
+        "F:\\codex\\xingyao\\reports\\graph-browser-0.1.0-dev.6.json",
+        "F:\\codex\\xingyao\\reports\\2026-09-17T17-45-05-685Z-browser.txt"
+      ]
+    }
+  }
+}

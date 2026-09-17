@@ -1,0 +1,39 @@
+{
+  "format": 1,
+  "version": "0.0.0-product-dev-20260918-engine.6-source",
+  "channel": "product-dev",
+  "platform": "windows-x64",
+  "bun": "1.4.2",
+  "toolchain": {
+    "bun": "1.4.2",
+    "node": "v26.8.1",
+    "python": "Python 3.12.14",
+    "visualStudio": "17.14.37628.2",
+    "msvc": "14.44.35207"
+  },
+  "upstreamCommit": "e03db9bc6908f75c9334d8aa997deeaac81c0298",
+  "sourceTree": "1a4d9ee6b75e5f7de5938c5e3483f970fbab55fe",
+  "sourceManifestSha256": "857f19cbd326c1232889ef5d55bbb134c20db2636febfd4ce27b909b2b93a486",
+  "lockfileSha256": "1f34d506fd6dc250b74cfeb59af43647dee0b31cd0dc7cf58339f4a2caa2e9fe",
+  "modelCatalog": {
+    "format": 1,
+    "source": "https://models.dev/api.json",
+    "capturedAt": "2026-09-17T16:56:56.835Z",
+    "bytes": 4691171,
+    "sha256": "4a0e55bf8ef5bb91f50e80c267f8c630af1428db2e9fcd3e4b60c839463dfd61",
+    "providerCount": 221
+  },
+  "executableSha256": "f02b6bbba598d4f2e9e1c1f75794104b9581129ae199d3130b4bc2e552ee748b",
+  "licenseSha256": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b",
+  "createdAt": "2026-09-17T17:37:22.207Z",
+  "sourceCheckout": "C:\\Users\\LT\\AppData\\Local\\Temp\\xy-e6-0918c",
+  "logs": [
+    "F:\\codex\\xingyao\\reports\\2026-09-17T17-35-41-525Z-engine-dependencies.txt",
+    "F:\\codex\\xingyao\\reports\\2026-09-17T17-35-41-525Z-engine-core-types.txt",
+    "F:\\codex\\xingyao\\reports\\2026-09-17T17-35-41-525Z-engine-engine-types.txt",
+    "F:\\codex\\xingyao\\reports\\2026-09-17T17-35-41-525Z-engine-core-tests.txt",
+    "F:\\codex\\xingyao\\reports\\2026-09-17T17-35-41-525Z-engine-build.txt"
+  ],
+  "validation": "source-build-only; product execution and migration gates are still required",
+  "byteIdenticalRebuildClaimed": false
+}

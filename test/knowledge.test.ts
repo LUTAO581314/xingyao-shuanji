@@ -32,6 +32,17 @@ function revision(): number {
 }
 
 describe("knowledge import and retrieval", () => {
+  test("a pending refresh cannot overwrite a newer workspace snapshot or restore its old privacy and scope", async () => {
+    const path = await fixture("共享编辑.md", "原来的公开资料")
+    const first = await store.importFile(path, "old-project", { private: false })
+    const pending = store.refresh(first.id)
+    const next = store.importSnapshot(path, Buffer.from("编辑器保存的新资料"), "private-project", { private: true })
+    await expect(pending).rejects.toThrow("资料在导入期间已被更新")
+    expect(store.documents()).toEqual([next])
+    expect(store.search("新资料", "old-project")).toEqual([])
+    expect(store.documents()[0]?.private).toBe(true)
+  })
+
   test("retrieves unsegmented Chinese and provides verified source line ranges", async () => {
     const lines = Array.from({ length: 130 }, (_, index) => `普通资料第 ${index + 1} 行。`)
     lines[84] = "星杳需要睡眠整理能力，维护中文知识库与长期记忆。"

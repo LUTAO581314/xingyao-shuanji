@@ -7,6 +7,7 @@
     <div class="nav-caption">与你一起，把事情做好</div>
     <nav aria-label="主导航">
       <button class="nav active" data-view="chat"><span>◌</span> 对话与任务</button>
+      <button class="nav" data-view="workspace"><span>▥</span> 项目文件</button>
       <button class="nav" data-view="memory"><span>◇</span> 记忆</button>
       <button class="nav" data-view="knowledge"><span>▤</span> 知识库</button>
       <button class="nav" data-view="graph"><span>⌘</span> 知识图谱</button>
@@ -29,6 +30,16 @@
           <form id="chat-form" class="composer"><label class="sr-only" for="prompt">告诉星杳</label><textarea id="prompt" rows="3" placeholder="告诉我，你想做什么……" required></textarea><div class="composer-bottom"><label>模型 <select id="model"><option value="">使用引擎默认模型</option></select></label><button type="submit" id="send">发送 <span>↗</span></button></div></form>
           <div class="footnote">工具结果会保留依据；任务结束后，你可以检查成果并确认完成。</div>
         </div>
+      </div>
+    </section>
+    <section id="view-workspace" class="view hidden">
+      <div class="intro"><h2>把资料放在手边，把修改留在文件里。</h2><p>浏览明确选择的项目目录，阅读和编辑文本文件。需要星杳使用的资料，再显式导入知识库。</p></div>
+      <form id="workspace-root-form" class="panel workspace-root-form"><label>添加项目目录<input id="workspace-directory" placeholder="例如 F:\项目\我的工作" autocomplete="off" required></label><button id="workspace-add-root">添加并打开</button></form>
+      <div id="workspace-status" class="workspace-status" role="status" aria-live="polite">打开后读取项目目录。</div>
+      <div class="workspace-layout">
+        <aside class="workspace-explorer panel" aria-label="项目目录与文件"><h3>项目目录</h3><label class="sr-only" for="workspace-root">选择项目目录</label><select id="workspace-root"><option value="">尚未加载目录</option></select><div class="workspace-explorer-actions"><button id="workspace-up" type="button" class="secondary" disabled>上一级</button><button id="workspace-refresh-tree" type="button" class="secondary" disabled>刷新目录</button></div><div id="workspace-breadcrumbs" class="workspace-breadcrumbs" aria-label="当前目录路径"></div><p id="workspace-tree-status" class="workspace-hint"></p><div id="workspace-tree"></div></aside>
+        <div class="workspace-editor panel"><div class="workspace-editor-header"><div><h3 id="workspace-file-name">选择一个文本文件</h3><p id="workspace-file-path" class="workspace-hint">打开 Markdown、代码或其他受支持的文本文件。</p></div><span id="workspace-dirty" class="badge">未打开文件</span></div><div class="workspace-editor-actions"><button id="workspace-save" type="button" disabled>保存文件</button><button id="workspace-reload" type="button" class="secondary" disabled>重新读取磁盘</button><span class="workspace-hint">Ctrl / ⌘ + S 保存</span></div><div id="workspace-conflict" class="workspace-conflict hidden" role="alert"></div><label class="sr-only" for="workspace-text">文件正文</label><textarea id="workspace-text" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" placeholder="左侧选择文件后，在这里阅读和编辑。" readonly></textarea><div id="workspace-file-info" class="workspace-file-info"></div></div>
+        <aside class="workspace-details panel" aria-label="资料导入与保存记录"><h3>交给知识库</h3><p class="workspace-hint">导入的是磁盘中已保存的内容。未保存的编辑不会进入知识库。</p><form id="workspace-import-form"><label>资料范围<input id="workspace-import-scope" value="global" maxlength="256" required></label><label class="check"><input id="workspace-import-private" type="checkbox" checked>私密资料</label><p class="workspace-hint">私密资料默认保留在资料管理中。取消勾选后，可在所选范围参与对话检索。</p><button id="workspace-import" disabled>导入知识库</button></form><div id="workspace-import-result" class="workspace-hint" role="status"></div><div class="workspace-save-record"><h3>保存记录</h3><div id="workspace-backup" class="workspace-hint">修改已有文件时，保存结果会显示备份位置。</div></div></aside>
       </div>
     </section>
     <section id="view-memory" class="view hidden"><div class="intro"><h2>记住你，也允许重新认识。</h2><p>每条记忆保留来源。你可以纠正、封存或删除；私密记忆不会自动用于对话。</p></div><div class="two-columns"><form id="memory-form" class="panel form-panel"><h3>留下一条记忆</h3><label>内容<textarea name="text" required placeholder="例如：我喜欢先看到结论，再看详细解释。"></textarea></label><div class="form-row"><label>类型<select name="kind"><option value="preference">偏好</option><option value="fact">已知事实</option><option value="commitment">待办承诺</option><option value="inference">待验证认识</option></select></label><label>范围<input name="scope" value="global" required></label></div><label class="check"><input type="checkbox" name="pinned"> 固定保留</label><label class="check"><input type="checkbox" name="private"> 私密，仅在记忆管理中查看</label><button>记住这件事</button></form><div><div class="toolbar"><input id="memory-search" placeholder="搜索记忆"><label class="check"><input id="private-memories" type="checkbox">显示私密</label></div><div id="memory-list"></div></div></div></section>

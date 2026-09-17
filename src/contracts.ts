@@ -2,7 +2,7 @@ export const PROTOCOL_VERSION = 1
 export const SCHEMA_VERSION = 2
 /** Versions with an explicit, tested forward migration into this runtime. */
 export function isSupportedSchema(version: unknown): version is number { return version === 1 || version === SCHEMA_VERSION }
-export const PRODUCT_VERSION = "0.1.0-dev.5"
+export const PRODUCT_VERSION = "0.1.0-dev.6"
 
 export type Ownership = "experienced" | "told" | "observed"
 export type ExperienceKind = "user_message" | "assistant_message" | "tool_success" | "tool_failure" | "tool_unknown" | "preference" | "correction" | "observation"

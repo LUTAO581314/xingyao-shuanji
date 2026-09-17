@@ -190,17 +190,38 @@ export class KnowledgeStore {
     this.db.query("DELETE FROM knowledge_chunks WHERE document_id=?").run(id)
   }
 
-  async importFile(path: string, scope: string, options: { private?: boolean } = {}): Promise<DocumentSummary> {
+  async importFile(path: string, scope: string, options: { private?: boolean } = {}, expected?: { id: string; revision: number }): Promise<DocumentSummary> {
     if (typeof scope !== "string" || !scope.trim() || scope.length > 256) throw new Error("资料范围不能为空，且不能超过 256 字符")
     if (typeof path !== "string") throw new Error("请选择单个文件路径")
     if (options.private !== undefined && typeof options.private !== "boolean") throw new Error("私密标记必须是布尔值")
     checkPath(path)
     const canonical = normalize(await realpath(resolve(path)))
     checkPath(canonical)
+    const before = this.db.query<DocumentRow, [string]>("SELECT body FROM knowledge_documents WHERE path=? COLLATE NOCASE").get(canonical)
+    const document = before ? JSON.parse(before.body) as DocumentSummary : null
+    if (expected && (document?.id !== expected.id || document.revision !== expected.revision)) throw new Error("资料在导入期间已被更新，请刷新后重试")
+    const expectedRevision = document?.revision ?? null
+    const { bytes } = await readText(canonical)
+    return this.importSnapshot(canonical, bytes, scope, options, expectedRevision)
+  }
+
+  /** Import the exact bytes already verified by the workspace editor. This is a
+   * source snapshot, so a subsequent filesystem change requires another refresh. */
+  importSnapshot(path: string, bytes: Uint8Array, scope: string, options: { private?: boolean } = {}, expectedRevision?: number | null): DocumentSummary {
+    if (typeof scope !== "string" || !scope.trim() || scope.length > 256) throw new Error("资料范围不能为空，且不能超过 256 字符")
+    if (options.private !== undefined && typeof options.private !== "boolean") throw new Error("私密标记必须是布尔值")
+    checkPath(path)
+    const canonical = normalize(resolve(path))
+    if (bytes.byteLength > MAX_DOCUMENT_BYTES) throw new Error("文件超过 2 MiB 导入上限")
+    let text: string
+    try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes) }
+    catch { throw new Error("文件不是有效的 UTF-8 文本") }
+    if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u.test(text)) throw new Error("文件包含二进制控制字符，不能作为文本导入")
+    if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(text)) throw new Error("检测到私钥内容，不能导入知识库")
     const known = this.db.query<DocumentRow, [string]>("SELECT body FROM knowledge_documents WHERE path=? COLLATE NOCASE").get(canonical)
     const id = known ? (JSON.parse(known.body) as DocumentSummary).id : hash(process.platform === "win32" ? canonical.toLowerCase() : canonical)
     const baseline = this.document(id)
-    const { bytes, text } = await readText(canonical)
+    if (expectedRevision !== undefined && (baseline?.revision ?? null) !== expectedRevision) throw new Error("资料在导入期间已被更新，请刷新后重试")
     const contentHash = hash(bytes)
     const { chunks, lineCount } = splitChunks(text)
     const chunkTerms = chunks.map(chunk => [...keywords(chunk.text)])
@@ -233,7 +254,7 @@ export class KnowledgeStore {
   async refresh(id: string): Promise<DocumentSummary> {
     const doc = this.document(id)
     if (!doc) throw new Error("资料不存在")
-    return this.importFile(doc.path, doc.scope, { private: doc.private })
+    return this.importFile(doc.path, doc.scope, { private: doc.private }, { id: doc.id, revision: doc.revision })
   }
 
   /** Apply only a verified file-manager move; content and stable document ID stay linked. */
