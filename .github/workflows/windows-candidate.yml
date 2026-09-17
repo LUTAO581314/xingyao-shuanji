@@ -36,6 +36,22 @@ jobs:
           python-version: 3.12.14
       - name: Install product dependencies
         run: bun install --frozen-lockfile
+      - name: Acquire exact historical engine for upgrade regression
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASELINE_TAG: ${{ vars.XINGYAO_UPGRADE_BASELINE_TAG }}
+          BASELINE_REPO: ${{ github.repository }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:BASELINE_TAG)) {
+            throw 'Set XINGYAO_UPGRADE_BASELINE_TAG to a release containing the verified historical engine.5 opencode.exe asset. Migration tests cannot be skipped.'
+          }
+          $baselineDirectory = Join-Path $env:RUNNER_TEMP 'xingyao-engine5-baseline'
+          gh release download $env:BASELINE_TAG --repo $env:BASELINE_REPO --pattern opencode.exe --dir $baselineDirectory
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $baselineEngine = Join-Path $baselineDirectory 'opencode.exe'
+          bun run script/upgrade-baseline.ts $baselineEngine
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "XINGYAO_UPGRADE_FROM_ENGINE=$baselineEngine" >> $env:GITHUB_ENV
       - name: Prepare fixed public engine source
         run: |
           $engineSource = Join-Path $env:RUNNER_TEMP 'xingyao-engine-source'

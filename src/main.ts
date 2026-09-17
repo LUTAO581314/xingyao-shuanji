@@ -40,7 +40,10 @@ export async function main(args = process.argv.slice(2)) {
   let mount: ReturnType<typeof mountPortable> | undefined
   try {
     const executable = resolve(values.engine ?? join(portable, "system", "engine", "opencode.exe"))
-    const executableVersion = existsSync(executable) ? Bun.spawnSync([executable, "--version"], { stdout: "pipe", stderr: "ignore", windowsHide: true }).stdout.toString().trim() : ""
+    const probe = existsSync(executable) ? Bun.spawnSync([executable, "--version"], { stdout: "pipe", stderr: "ignore", windowsHide: true, timeout: 10_000 }) : null
+    const executableVersion = probe?.exitCode === 0 ? probe.stdout.toString().trim() : ""
+    if (!values.offline && probe && !/^[A-Za-z0-9][A-Za-z0-9.+_-]{0,127}$/.test(executableVersion)) throw new Error("无法核实所选引擎版本，尚未打开身份或引擎数据库")
+    const executableHash = existsSync(executable) ? new Bun.CryptoHasher("sha256").update(await Bun.file(executable).arrayBuffer()).digest("hex") : ""
     const recoveryOptions = { hostDir: host, vaultDir: vault, engineVersion: executableVersion }
     const resumed = await resumeProductRestore(recoveryOptions)
     const snapshots = await listCheckpoints(vault)
@@ -67,6 +70,10 @@ export async function main(args = process.argv.slice(2)) {
       if (!clean) throw new Error(`检测到宿主未同步分支。活动库保留在 ${dbPath}；U 盘检查点未覆盖。请通过恢复流程选择分支。`)
       await restoreProduct({ ...recoveryOptions, generation: latest.generation })
     }
+    // Re-read after a paired restore, before opening/migrating the domain store.
+    // An existing host must not bypass the version checks used for checkpoints.
+    const prepared = readHostState(dbPath)
+    if (!values.offline && executableVersion) assertEngineBinding(host, prepared?.engineVersion ?? "", prepared?.engineSha256 ?? "", executableVersion, executableHash)
     store = new SoulStore(dbPath)
     const savedBase = snapshots.find(snapshot => snapshot.generation === store!.meta("checkpoint_generation"))
     if (savedBase && savedBase.identityId === store.identityId && store.revision >= savedBase.revision) store.setMeta("checkpoint_revision", String(savedBase.revision))
@@ -76,9 +83,26 @@ export async function main(args = process.argv.slice(2)) {
     mkdirSync(project, { recursive: true })
     const configPath = join(host, "engine-config.json")
     if (!existsSync(configPath)) writeFileSync(configPath, JSON.stringify({ "$schema": "https://opencode.ai/config.json" }, null, 2), { flag: "wx" })
+    // Every entry point, including model reconfiguration and its recovery,
+    // checks the same selected binary. Offline inspection never launches one.
+    const launchSelected = async (selectedConfig: string) => {
+      if (values.offline || !executableVersion) throw new Error("当前启动方式没有可核实的执行引擎")
+      assertEngineBinding(host, store!.meta("engine_version"), store!.meta("engine_sha256"), executableVersion, executableHash)
+      const currentHash = new Bun.CryptoHasher("sha256").update(await Bun.file(executable).arrayBuffer()).digest("hex")
+      if (currentHash !== executableHash) throw new Error("启动后引擎程序发生变化，请退出并核实发行")
+      const selected = await startEngine({ executable, hostDir: host, projectDir: project, configPath: selectedConfig })
+      if (selected.version !== executableVersion) { await selected.stop(); throw new Error("引擎服务版本与启动前版本探测不符") }
+      return selected
+    }
     let adapter = new OpenCodeAdapter({ baseURL: "http://127.0.0.1:1", timeoutMs: 300 })
     if (!values.offline) {
-      try { engine = await startEngine({ executable, hostDir: host, projectDir: project, configPath }); adapter = engine.adapter; store.setMeta("engine_version", engine.version) }
+      // Preserve the attempted binary's provenance even when startup creates a
+      // database and then fails. This is not a health/success acknowledgement.
+      if (executableVersion) { store.setMeta("engine_version", executableVersion); store.setMeta("engine_sha256", executableHash) }
+      try {
+        engine = await launchSelected(configPath)
+        adapter = engine.adapter
+      }
       catch (error) { console.error(`执行引擎不可用，记忆与资料管理仍可使用：${error instanceof Error ? error.message : "启动失败"}`) }
     }
     const token = crypto.randomUUID() + crypto.randomUUID()
@@ -103,7 +127,7 @@ export async function main(args = process.argv.slice(2)) {
         hashes["engine/complete.json"] = new Bun.CryptoHasher("sha256").update(await Bun.file(join(directory, "engine", "complete.json")).arrayBuffer()).digest("hex")
         return hashes
       },
-      configureModel: async config => {
+      configureModel: values.offline ? undefined : async config => {
         const previous = readFileSync(configPath, "utf8")
         const next = { model: `xingyao/${config.model}`, provider: { xingyao: { npm: "@ai-sdk/openai-compatible", name: "我的模型", options: { baseURL: config.baseURL, apiKey: config.apiKey }, models: { [config.model]: { name: config.model, limit: { context: 128000, output: 8192 } } } } } }
         const temporary = join(host, `engine-config-${crypto.randomUUID()}.json`)
@@ -111,7 +135,7 @@ export async function main(args = process.argv.slice(2)) {
         let candidate: Awaited<ReturnType<typeof startEngine>> | undefined
         try {
           await engine?.stop()
-          candidate = await startEngine({ executable, hostDir: host, projectDir: project, configPath: temporary })
+          candidate = await launchSelected(temporary)
           renameSync(temporary, configPath)
           engine = candidate
           store!.setMeta("engine_version", engine.version)
@@ -119,7 +143,7 @@ export async function main(args = process.argv.slice(2)) {
         } catch (error) {
           await candidate?.stop()
           writeFileSync(configPath, previous, { mode: 0o600 })
-          engine = await startEngine({ executable, hostDir: host, projectDir: project, configPath }).catch(() => undefined)
+          engine = await launchSelected(configPath).catch(() => undefined)
           throw new ModelConfigurationError(error instanceof Error ? error.message : "模型配置未完成，已恢复原设置", engine?.adapter ?? new OpenCodeAdapter({ baseURL: "http://127.0.0.1:1", timeoutMs: 300 }))
         } finally { if (existsSync(temporary)) unlinkSync(temporary) }
       },
@@ -148,7 +172,12 @@ export async function main(args = process.argv.slice(2)) {
 
 /** Caller owns the host lock. This read does not initialize, migrate or mutate
  * domain records; paired restore owns preservation of any SQLite sidecars. */
-type HostState = { identityId: string; revision: number; generation: string | null; schemaVersion: number }
+type HostState = { identityId: string; revision: number; generation: string | null; schemaVersion: number; engineVersion: string; engineSha256: string }
+function assertEngineBinding(host: string, boundVersion: string, boundSha256: string, version: string, sha256: string) {
+  if (boundVersion && boundVersion !== version) throw new Error("宿主引擎版本与所选程序不同，请先执行配套检查点迁移；尚未启动或修改引擎数据库")
+  if (boundSha256 && boundSha256 !== sha256) throw new Error("宿主绑定的引擎 SHA-256 与所选程序不同，请先执行经过验证的迁移")
+  if (!boundVersion && ["opencode.db", "opencode-product-dev.db"].some(name => existsSync(join(host, "opencode/data/opencode", name)))) throw new Error("宿主引擎数据库缺少版本绑定，停止自动打开，需核实其来源")
+}
 function readHostState(path: string): HostState | null {
   if (!existsSync(path)) return null
   const stat = lstatSync(path)
@@ -161,7 +190,7 @@ function readHostState(path: string): HostState | null {
     const meta = (key: string) => db.query<{ value: string }, [string]>("SELECT value FROM meta WHERE key=?").get(key)?.value
     const identityId = meta("identity_id"), revision = meta("revision"), generation = meta("checkpoint_generation")
     if (!identityId || revision === undefined || !/^\d+$/.test(revision) || !Number.isSafeInteger(Number(revision)) || generation === undefined) throw new Error("宿主数据库身份或版本信息不完整，停止启动")
-    return { identityId, revision: Number(revision), generation: generation || null, schemaVersion }
+    return { identityId, revision: Number(revision), generation: generation || null, schemaVersion, engineVersion: meta("engine_version") ?? "", engineSha256: meta("engine_sha256") ?? "" }
   } finally { db.close(true) }
 }
 

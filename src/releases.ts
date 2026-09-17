@@ -15,6 +15,7 @@ export type ReleaseTestEvidence = { passed: boolean; execution: "real" | "mock";
 export type ReleaseValidationReport = {
   manifestHash: string; outcome: "passed" | "failed"
   tests: { backendContract: ReleaseTestEvidence; restore: ReleaseTestEvidence; soulIntegration: ReleaseTestEvidence }
+  engineUpgrade?: ReleaseTestEvidence & { fromVersion: string; fromSha256: string; toVersion: string; toSha256: string }
 }
 export type ReleaseRecovery = { generation: string; identityId: string; revision: number; schemaVersion: number; checkpointSha256: string; hostDatabase: string }
 export type ReleaseSelection = {
@@ -155,13 +156,20 @@ export async function stageRelease(candidateDir: string, systemDir: string): Pro
   } finally { unlock() }
 }
 
-function validateReport(report: ReleaseValidationReport, manifestHash: string) {
+export function validateReport(report: ReleaseValidationReport, manifestHash: string) {
   if (!report || report.manifestHash !== manifestHash || report.outcome !== "passed") throw new Error("验收报告未通过或未绑定当前发行清单哈希")
   for (const name of ["backendContract", "restore", "soulIntegration"] as const) {
     const test = report.tests?.[name]
     if (!test || test.passed !== true || test.execution !== "real" || !Array.isArray(test.evidence) || !test.evidence.length || test.evidence.some(value => typeof value !== "string" || !value.trim()) ||
       !Number.isSafeInteger(test.startedAt) || !Number.isSafeInteger(test.finishedAt) || test.startedAt < 0 || test.finishedAt < test.startedAt || test.finishedAt > Date.now() + 60_000)
       throw new Error(`缺少通过的真实集成验收及证据：${name}`)
+  }
+  if (report.engineUpgrade) {
+    const upgrade = report.engineUpgrade
+    if (upgrade.passed !== true || upgrade.execution !== "real" || !Array.isArray(upgrade.evidence) || !upgrade.evidence.length || upgrade.evidence.some(value => typeof value !== "string" || !value.trim()) ||
+        !Number.isSafeInteger(upgrade.startedAt) || !Number.isSafeInteger(upgrade.finishedAt) || upgrade.startedAt < 0 || upgrade.finishedAt < upgrade.startedAt || upgrade.finishedAt > Date.now() + 60_000 ||
+        ![upgrade.fromVersion, upgrade.toVersion].every(value => typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9.+_-]{0,127}$/.test(value)) ||
+        ![upgrade.fromSha256, upgrade.toSha256].every(value => typeof value === "string" && HEX.test(value)) || upgrade.fromSha256 === upgrade.toSha256) throw new Error("引擎升级报告缺少完整真实证据或精确制品绑定")
   }
   if (JSON.stringify(report).length > 128_000) throw new Error("验收报告过大")
 }

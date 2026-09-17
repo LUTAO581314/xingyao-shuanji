@@ -59,7 +59,13 @@ feature/*、fix/*              有范围的修改，通过 PR 进入主线
 
 本地已写入 `.github/workflows/windows-candidate.yml`：对 main/product-v2 的推送与 PR 执行准备源码、引擎编译、产品编译和 `verify-release.ts`；只有通过完整门禁才保存候选。Action 按提交 SHA 固定，contents 权限为只读，无上传 Release、推送代码或切换用户引擎步骤。聊天分支不触发引擎构建。**尚未在 GitHub hosted runner 执行，不能把本地结果当成远端绿灯。**
 
-下一步先将可审阅源码作为产品分支发布，完成首次 hosted runner 验证，再考虑把 main 设为默认入口、开启必需状态检查。当前新引擎的同版本恢复已测试；engine.5→engine.6 的历史检查点迁移尚未实现，不能把新候选直接作为已安装身份的更新。
+下一步将可审阅源码作为产品分支发布，完成首次 hosted runner 验证，再考虑把 main 设为默认入口、开启必需状态检查。engine.5→engine.6 的配套迁移入口和专门回归已加入本地源码，具体通过范围见 [升级迁移](engine-upgrade.md)。本地合格与远端合格分别记录。
+
+**首次 CI 还有一个明确的输入条件：历史 engine.5 制品尚未作为 Release asset 发布。** workflow 在引擎编译前读取仓库变量 `XINGYAO_UPGRADE_BASELINE_TAG`，从本仓库指定 Release 下载 `opencode.exe`，并以源码中固定的 SHA-256 `528277b2ea4178093a192da0fe33ef4768e7ae5514a7b21de006d07212c6df83` 核对。没有变量、资产或准确字节都会直接失败，不能用重编译的近似版本替代，也不能跳过升级回归。历史基准 Release 应标清“测试基准，不是推荐下载版本”，附上许可证和来源限制；代码仓库不存这个大二进制。这里仅配置消费路径，没有创建 Release 或仓库变量。
+
+每次候选构建的目标引擎哈希可能不同。因此发行门禁将当前候选 manifest 的准确哈希传给迁移测试，并在 `release-validation.json.engineUpgrade` 记录实际受测的源/目标版本与哈希。它不复用另一台构建机的通过结论。旧基准始终固定。
+
+本地同时准备了问题模板、能力验收模板与 PR 描述模板。模板让每项任务包含触发条件、验证方式和恢复影响；不会自动创建公开 Issue 或向他人发送消息。
 
 建议第一批 Issues/Milestones 以验收条件拆分：
 

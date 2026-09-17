@@ -56,6 +56,7 @@ export type PromptResult = Pick<NormalizedMessage, "text" | "parts" | "status" |
 export type ProviderSummary = { id: string; name: string; models: Array<{ id: string; name: string }> }
 export type ProviderStatus = { all: ProviderSummary[]; connected: string[]; default: Record<string, string> }
 export type PermissionRequest = { id: string; sessionID: string; permission: string; patterns: string[] }
+export type MigrationDigest = { sessionID: string; messageCount: number; sha256: string }
 
 export class OpenCodeAdapterError extends Error {
   constructor(readonly kind: "http" | "timeout" | "network" | "protocol" | "unsupported", message: string, readonly status?: number) {
@@ -157,6 +158,29 @@ export class OpenCodeAdapter {
     return results
   }
 
+  /** Compare quiescent legacy sessions across isolated engine copies. Includes
+   * every public JSON field, even attachments omitted by the UI normalizer.
+   * Metadata bracketing detects concurrent updates; it is not a transaction or
+   * permission to migrate an active session. The caller must stop its writers.
+   */
+  async migrationDigest(sessionID: string): Promise<MigrationDigest> {
+    const endpoint = `/session/${segment(sessionID)}`
+    const before = migrationSession(await this.#request("GET", endpoint), sessionID)
+    const value = await this.#request("GET", `${endpoint}/message`)
+    if (!Array.isArray(value)) throw protocol("Expected complete legacy session message history")
+    const ids = new Set<string>()
+    for (const raw of value) {
+      const message = normalizeMessage(raw, sessionID)
+      if (ids.has(message.messageID)) throw protocol("Duplicate message identity in migration history")
+      ids.add(message.messageID)
+    }
+    const after = migrationSession(await this.#request("GET", endpoint), sessionID)
+    if (canonicalJSON(before) !== canonicalJSON(after)) throw protocol("Session metadata changed during migration snapshot")
+    const bytes = new TextEncoder().encode(canonicalJSON({ session: before, messages: value }))
+    const digest = await crypto.subtle.digest("SHA-256", bytes)
+    return { sessionID, messageCount: value.length, sha256: Buffer.from(digest).toString("hex") }
+  }
+
   async abort(sessionID: string): Promise<boolean> {
     const result = await this.#request("POST", `/session/${segment(sessionID)}/abort`)
     if (typeof result !== "boolean") throw protocol("Invalid abort acknowledgement")
@@ -254,6 +278,22 @@ function normalizeMessage(value: unknown, sessionID: string): NormalizedMessage 
     time: { created: time.created, ...(finite(time.completed) ? { completed: time.completed } : {}) },
     ...(error ? { error } : {}),
   }
+}
+
+function migrationSession(value: unknown, sessionID: string): Record<string, unknown> {
+  const session = record(value, "migration session")
+  if (session.id !== sessionID) throw protocol("Migration session identity mismatch")
+  const time = record(session.time, "migration session time")
+  if (!timestamp(time.created) || !timestamp(time.updated)) throw protocol("Invalid migration session timestamps")
+  return session
+}
+
+function canonicalJSON(value: unknown): string {
+  if (value === null || typeof value === "boolean" || typeof value === "string") return JSON.stringify(value)
+  if (typeof value === "number" && Number.isFinite(value)) return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(canonicalJSON).join(",")}]`
+  if (isRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJSON(value[key])}`).join(",")}}`
+  throw protocol("Unsupported JSON value in migration snapshot")
 }
 
 function normalizePart(value: unknown, sessionID: string, messageID: string): NormalizedPart {

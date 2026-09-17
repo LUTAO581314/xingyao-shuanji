@@ -239,6 +239,92 @@ describe("OpenCode public legacy HTTP boundary", () => {
     expect(await new OpenCodeAdapter({ baseURL }).providers()).toEqual({ all: [{ id: "local", name: "Local", models: [{ id: "small", name: "Small" }] }], connected: ["local"], default: { local: "small" } })
   })
 
+  test("migration digest brackets complete public history, canonicalizes object keys and exposes only its digest", async () => {
+    const session = { id: "ses_1", title: "private-session-title", time: { created: 1, updated: 3 }, metadata: { z: 1, a: "private-metadata" } }
+    const attachment = { id: "file_1", sessionID: "ses_1", messageID: "msg_1", type: "file", mime: "text/plain", url: "data:text/plain,private-attachment", filename: "private-file" }
+    const history = [message([attachment], { providerMetadata: { authorization: "private-public-field" } })]
+    const requests: string[] = []
+    let reverse = false
+    const reordered = (value: unknown): unknown => Array.isArray(value) ? value.map(reordered) : value && typeof value === "object"
+      ? Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reordered(item)])) : value
+    const baseURL = serve((request) => {
+      expect(request.method).toBe("GET")
+      expect(request.headers.get("authorization")).toBe(`Basic ${Buffer.from("opencode:private-auth").toString("base64")}`)
+      const url = new URL(request.url)
+      expect(url.searchParams.get("limit")).toBeNull()
+      expect(url.searchParams.get("before")).toBeNull()
+      expect(url.searchParams.get("directory")).toBe("C:/isolated-project")
+      requests.push(url.pathname)
+      const body = url.pathname.endsWith("/message") ? history : session
+      return Response.json(reverse ? reordered(body) : body)
+    })
+    const adapter = new OpenCodeAdapter({ baseURL, directory: "C:/isolated-project", password: "private-auth" })
+    const first = await adapter.migrationDigest("ses_1")
+    expect(first).toEqual({ sessionID: "ses_1", messageCount: 1, sha256: expect.stringMatching(/^[0-9a-f]{64}$/) })
+    reverse = true
+    expect(await adapter.migrationDigest("ses_1")).toEqual(first)
+    expect(requests).toEqual(Array.from({ length: 2 }, () => ["/session/ses_1", "/session/ses_1/message", "/session/ses_1"]).flat())
+    expect(JSON.stringify(first)).not.toContain("private-")
+  })
+
+  test("migration digest includes ignored attachment, tool metadata and session fields", async () => {
+    const session = { id: "ses_1", time: { created: 1, updated: 3 }, metadata: { note: "before" } }
+    const attachment = { id: "file_1", sessionID: "ses_1", messageID: "msg_1", type: "file", mime: "image/png", url: "data:image/png;base64,before" }
+    const persisted = tool("read_1", "completed", { output: "unchanged", metadata: { futureField: "before" } })
+    const baseURL = serve((request) => Response.json(new URL(request.url).pathname.endsWith("/message") ? [message([attachment, persisted])] : session))
+    const adapter = new OpenCodeAdapter({ baseURL })
+    const before = await adapter.migrationDigest("ses_1")
+    const normalized = await adapter.messages("ses_1")
+    attachment.url = "data:image/png;base64,after"
+    const changedAttachment = await adapter.migrationDigest("ses_1")
+    expect(changedAttachment.sha256).not.toBe(before.sha256)
+    expect(await adapter.messages("ses_1")).toEqual(normalized)
+    Object.assign(persisted.state, { metadata: { futureField: "after" } })
+    const changedMetadata = await adapter.migrationDigest("ses_1")
+    expect(changedMetadata.sha256).not.toBe(changedAttachment.sha256)
+    session.metadata.note = "after"
+    expect((await adapter.migrationDigest("ses_1")).sha256).not.toBe(changedMetadata.sha256)
+  })
+
+  test("migration digest rejects changes between bracketing session metadata reads", async () => {
+    let metadataReads = 0
+    const baseURL = serve((request) => Response.json(new URL(request.url).pathname.endsWith("/message") ? [] : {
+      id: "ses_1", time: { created: 1, updated: 3 }, metadata: { changed: ++metadataReads },
+    }))
+    await expect(new OpenCodeAdapter({ baseURL }).migrationDigest("ses_1")).rejects.toThrow("Session metadata changed")
+    expect(metadataReads).toBe(2)
+  })
+
+  test("migration digest requires an existing matching session even when its history is empty", async () => {
+    const missing = serve(() => new Response("private-error-body", { status: 404 }))
+    await expect(new OpenCodeAdapter({ baseURL: missing }).migrationDigest("ses_1")).rejects.toThrow("OpenCode HTTP 404")
+    for (const session of [{ id: "another", time: { created: 1, updated: 3 } }, { id: "ses_1" }, { id: "ses_1", time: { created: 1, updated: "3" } }]) {
+      const invalid = serve(() => Response.json(session))
+      await expect(new OpenCodeAdapter({ baseURL: invalid }).migrationDigest("ses_1")).rejects.toBeInstanceOf(OpenCodeAdapterError)
+    }
+    const empty = serve((request) => Response.json(new URL(request.url).pathname.endsWith("/message") ? [] : { id: "ses_1", time: { created: 1, updated: 1 } }))
+    expect((await new OpenCodeAdapter({ baseURL: empty }).migrationDigest("ses_1")).messageCount).toBe(0)
+  })
+
+  test("migration digest rejects unknown history shapes, duplicates and cross-session message or part identities", async () => {
+    for (const history of [
+      { items: [] }, [message(), message()], [message([], { role: "future-role" })], [message([], { sessionID: "another" })],
+      [message([{ id: "file_1", type: "file", sessionID: "another", messageID: "msg_1" }])],
+      [message([{ id: "file_1", type: "file", sessionID: "ses_1", messageID: "another" }])],
+      [message([tool("duplicate", "completed", { output: "x" }), tool("duplicate", "completed", { output: "x" })])],
+    ]) {
+      const baseURL = serve((request) => Response.json(new URL(request.url).pathname.endsWith("/message") ? history : { id: "ses_1", time: { created: 1, updated: 3 } }))
+      await expect(new OpenCodeAdapter({ baseURL }).migrationDigest("ses_1")).rejects.toBeInstanceOf(OpenCodeAdapterError)
+    }
+  })
+
+  test("migration digest rejects nonfinite unknown JSON fields instead of silently hashing them as null", async () => {
+    const baseURL = serve((request) => new Response(new URL(request.url).pathname.endsWith("/message")
+      ? JSON.stringify([message([], { extension: "__nonfinite__" })]).replace('"__nonfinite__"', "1e400")
+      : JSON.stringify({ id: "ses_1", time: { created: 1, updated: 3 } }), { headers: { "content-type": "application/json" } }))
+    await expect(new OpenCodeAdapter({ baseURL }).migrationDigest("ses_1")).rejects.toThrow("Unsupported JSON value")
+  })
+
   test("supports public permission responses and cancellation without automatic decisions", async () => {
     const requests: Array<{ path: string; body: unknown }> = []
     const baseURL = serve(async (request) => {
@@ -328,6 +414,31 @@ integration("real bundled OpenCode: isolated health, providers and persisted ses
     const session = await adapter.createSession("xingyao isolated adapter verification")
     expect(session.id.startsWith("ses_")).toBe(true)
     expect(await adapter.messages(session.id)).toEqual([])
+    expect((await adapter.migrationDigest(session.id)).messageCount).toBe(0)
+    const publicRequest = (path: string, body?: unknown) => {
+      const url = new URL(path, `http://127.0.0.1:${port}`)
+      url.searchParams.set("directory", work)
+      return fetch(url, { method: body === undefined ? "GET" : "POST",
+        headers: { authorization: `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}`, "content-type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(5000) })
+    }
+    const childResponse = await publicRequest("/session", { parentID: session.id, title: "isolated child session" })
+    expect(childResponse.status).toBe(200)
+    const child = await childResponse.json() as { id: string; parentID: string }
+    expect(child.parentID).toBe(session.id)
+    const listedResponse = await publicRequest("/session")
+    expect(listedResponse.status).toBe(200)
+    const listed = await listedResponse.json() as Array<{ id: string }>
+    expect(listed.map((item) => item.id).sort()).toEqual([session.id, child.id].sort())
+    const roots = await (await publicRequest("/session?roots=true")).json() as Array<{ id: string }>
+    expect(roots.map((item) => item.id)).toEqual([session.id])
+    const children = await (await publicRequest(`/session/${session.id}/children`)).json() as Array<{ id: string }>
+    expect(children.map((item) => item.id)).toEqual([child.id])
+    const limited = await publicRequest("/session?limit=1")
+    expect((await limited.json() as unknown[]).length).toBe(1)
+    expect(limited.headers.get("x-next-cursor")).toBeNull()
+    expect(limited.headers.get("link")).toBeNull()
+    expect(await (await publicRequest(`/session?start=${Date.now() + 60000}`)).json()).toEqual([])
     expect(await adapter.abort(session.id)).toBe(true)
     const providers = await adapter.providers()
     expect(Array.isArray(providers.all)).toBe(true)
@@ -335,7 +446,7 @@ integration("real bundled OpenCode: isolated health, providers and persisted ses
     expect(providers.connected.every((id) => id === "opencode")).toBe(true)
     expect(await adapter.permissions()).toEqual([])
     expect((await readdir(join(root, "data", "opencode"))).length).toBeGreaterThan(0)
-    console.info(`Verified isolated OpenCode ${health.version}: health, create/read session, providers, permissions, abort; no model prompt submitted.`)
+    console.info(`Verified isolated OpenCode ${health.version}: health, create/read session, providers, permissions, abort; session listing includes children, roots=true filters them, limit caps without a next cursor, start is a lower update-time filter; no model prompt submitted.`)
   } finally {
     processUnderTest.kill()
     await processUnderTest.exited

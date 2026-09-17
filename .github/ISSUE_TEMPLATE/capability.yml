@@ -1,0 +1,22 @@
+name: 能力与验收
+description: 把体系设计拆成有边界、可验证的工作
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 用户场景
+      description: 写一个具体任务或连续使用案例。
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: 范围与依赖
+      description: 涉及的模块、资料来源、权限、上游组件及数据归属。
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收条件
+      description: 可重复输入、期待结果、失败/中断/恢复场景。
+    validations:
+      required: true

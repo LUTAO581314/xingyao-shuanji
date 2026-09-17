@@ -1,0 +1,20 @@
+name: 故障与回归
+description: 记录能复现的问题和数据影响
+body:
+  - type: textarea
+    id: trigger
+    attributes:
+      label: 如何触发
+      description: 使用的版本、具体操作、期待结果、实际结果。日志中请去除密钥和私人正文。
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 证据与影响
+      description: 报错、报告文件、会话/文件是否完整、最后一个成功检查点。不要上传活动数据库或完整私人记忆。
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 怎样证明修复
+      description: 原复现步骤现在应得到什么结果，以及需要保全的旧数据。
