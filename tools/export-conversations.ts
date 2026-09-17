@@ -40,6 +40,7 @@ const count = (table: Record<string, number>, key: string) => { table[key] = (ta
 const sensitiveKey = /^(?:api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|password|passwd|authorization|proxy-authorization|cookie|set-cookie|client[_-]?secret|secret|token)$/i
 function redactText(value: string): string {
   const rules: [string, RegExp, string][] = [
+    ["encrypted_runtime", /gAAAAA[A-Za-z0-9_-]{80,}={0,2}/g, "[OMITTED_ENCRYPTED_RUNTIME]"],
     ["private_key", /-----BEGIN (?:[A-Z ]+)?PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z ]+)?PRIVATE KEY-----/g, "[REDACTED_PRIVATE_KEY]"],
     ["provider_key", /\b(?:sk-|gh[pousr]_|github_pat_)[A-Za-z0-9_-]{16,}/g, "[REDACTED_CREDENTIAL]"],
     ["jwt", /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, "[REDACTED_JWT]"],

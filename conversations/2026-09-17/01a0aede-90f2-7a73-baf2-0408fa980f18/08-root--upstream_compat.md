@@ -1,6 +1,6 @@
 # /root/upstream_compat
 
-导出时间：2026-09-17T16:23:22.146Z
+导出时间：2026-09-17T17:50:09.521Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T19-09-35-01a0af0e-c4fc-7720-9f82-68bf4038f0f8.jsonl`
 
@@ -2622,3 +2622,207 @@ flowchart LR
 推荐执行顺序是：**完成本地 dev.5 修复验证 → 补齐引擎源码与补丁来源 → 整理产品主线 → 配置 Windows Actions → 发布经过验证的预发行包 → 增加上游版本兼容检查。** 构建脚本中的本机许可证路径也需要改为 CI 显式提供的上游检出路径。
 
 以上是核查结果和实施建议；本次没有修改本地文件，也没有推送代码、创建工作流、议题或发行。
+
+## 2026-09-17T16:26:39.947Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:26:49.822Z · 助理
+
+我开始补齐当前 OpenCode 引擎的完整源码来源：先核对上游基线和实际改动，再生成能在独立目录重放的补丁与脚本，并验证它们不会依赖旧工作区里的隐含文件。
+
+
+## 2026-09-17T16:38:50.752Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:40:29.437Z · 助理
+
+已经找到关键缺口：原记录的 `d0a9…` 是本地产品提交，公开上游无法取得；可取得的真实上游基线是 `e03db9…`。我会从这个公开基线补齐产品改装，再保留已有两份修复补丁。另一个需要明确记录的限制是旧构建临时下载了模型目录，原始快照没有归档，不能声称旧二进制可以逐字节重建。
+
+
+## 2026-09-17T16:44:35.667Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:49:08.579Z · 助理
+
+完整的四步补丁队列已经在全新目录成功重放，包含旧产品改装、现有两份修复，以及遗漏的运行时与升级保护改动。接下来把这次结果固定为源码树哈希和逐文件清单，并提供 `prepare` / `verify` 脚本，让本机和 GitHub 使用同一套来源校验。
+
+
+## 2026-09-17T17:01:38.872Z · 助理
+
+现在源码准备链路已实际跑通：从固定公开提交获取源码、应用四份补丁、核对完整源码树，独立校验也通过。已有目录、旧改装工作区、相对路径和重放后被改写的源码都会被拒绝。接下来可以在 NTFS 的新目录安装锁定依赖，配合固定模型快照编译新候选，再走真实引擎验收。
+
+
+## 2026-09-17T17:03:41.958Z · 助理
+
+完整引擎来源已补齐，并完成真实隔离重放。**后续 GitHub 构建现在可以从公开上游固定提交出发，不再依赖旧 `trae` 工作区的本地提交和未提交源码。**
+
+本轮新增或修改：
+
+- [manifest.json](/F:/codex/xingyao/patches/opencode/manifest.json)：升级到格式 2，固定公开基线、完整补丁队列、最终源码树、55 个变更路径的内容哈希或删除状态，以及锁文件哈希。
+- [000-legacy-product-source.patch](/F:/codex/xingyao/patches/opencode/000-legacy-product-source.patch)：补齐两个历史产品提交中编译需要的 `bun.lock`、旧 Soul、提示词与 TUI 代码。
+- [003-legacy-runtime-and-upgrade-guards.patch](/F:/codex/xingyao/patches/opencode/003-legacy-runtime-and-upgrade-guards.patch)：补齐未提交的运行时修复、升级保护、主页变更和遗漏测试。
+- [engine-source.ts](/F:/codex/xingyao/script/engine-source.ts)：提供 `prepare <全新绝对目录> [--reference <本地对象库>]` 和 `verify <目录>`。
+- [源码说明](/F:/codex/xingyao/docs/engine-source.md)与[补丁 README](/F:/codex/xingyao/patches/opencode/README.md)：记录来源、排除项、实际验证范围、构建命令及历史构建限制。
+
+关键来源：
+
+| 项目 | 固定值 |
+|---|---|
+| 公开上游提交 | `e03db9bc6908f75c9334d8aa997deeaac81c0298` |
+| 上游 tree | `ff780efb02c97af08045ebc7857684bc39e06d5d` |
+| 四份补丁后的 tree | `1a4d9ee6b75e5f7de5938c5e3483f970fbab55fe` |
+| 当前 manifest SHA-256 | `857f19cbd326c1232889ef5d55bbb134c20db2636febfd4ce27b909b2b93a486` |
+| `bun.lock` SHA-256 | `1f34d506fd6dc250b74cfeb59af43647dee0b31cd0dc7cf58339f4a2caa2e9fe` |
+| 新候选版本 | `0.0.0-product-dev-20260918-engine.6-source` |
+
+`d0a9…` 已确认是本地产品提交。公开上游和产品仓库的 commit API 均无法取得它；真正的公开基线已经通过 GitHub API 和实际网络 fetch 双重确认。
+
+验证结果：
+
+- 全新独立 Git 目录中，四份补丁逐一 `--check --index` 并应用成功。
+- 55 个最终变更路径与原工作区内容按 Git LF 文本规范逐一比较一致，其中 5 个为删除文件。
+- 原 `001`、`002` 补丁内容与 SHA-256 完全保留。
+- 正式 `prepare` 已实际执行公开网络获取并成功；独立 `verify` 成功。
+- 已有目录、相对路径、直接验证旧改装工作区、重放后篡改源码，四类负向检查均拒绝；恢复测试改动后验证再次通过。
+- `bun run typecheck` 通过。
+- 原 `C:/Users/LT/Documents/trae` 工作区未修改，没有提交、推送、安装依赖或重新编译。
+
+Root 可以现在在 NTFS 新目录继续：
+
+```powershell
+# 在 F:/codex/xingyao 执行，父目录应预先存在。
+bun run script/engine-source.ts prepare C:/xingyao-build/engine-source --reference C:/Users/LT/Documents/trae
+bun run script/engine-source.ts verify C:/xingyao-build/engine-source
+```
+
+随后在隔离源码根目录执行 `bun install --frozen-lockfile`，再次 `verify`，再使用固定模型快照构建。准备脚本不会清理或复用既有目录，Git 操作不继承用户 Git 配置或凭据助手，失败时保留现场。
+
+**历史 engine.5 的源码集合已补齐，但原 models.dev 快照及当时安装依赖没有归档，因此没有宣称旧二进制可逐字节重建。** 新候选必须绑定固定模型快照，重新通过真实引擎与发行门禁；当前 manifest 仍保留 engine.5 为历史已验证引擎，没有擅自把尚未编译的 engine.6-source 标为合格。
+
+## 2026-09-17T17:23:56.200Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T17:24:10.894Z · 助理
+
+我先核对构建来源脚本和现有验收门槛，再写一份本地 Windows Actions 草稿。工作流会明确区分源码重放、引擎编译和产品实际验收，编译问题解决前不会把 CI 描述为已通过。
+
+
+## 2026-09-17T17:26:13.694Z · /root → /root/upstream_compat
+
+Message Type: MESSAGE
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T17:26:43.987Z · 助理
+
+审阅发现一个可复现的来源校验缺口：Git 的 `assume-unchanged` 标记可以让被改写的原始上游构建脚本通过当前 `verify`。我已在隔离目录复现并恢复现场，正在把这个问题和模型快照绑定、干净 Windows runner 的实际阻塞项交给主任务修复。
+
+
+## 2026-09-17T17:28:36.792Z · 助理
+
+独立审阅完成；没有编辑构建脚本、workflow 或文档。发现两项具体来源校验问题，其中第一项已在隔离检出目录复现并恢复。
+
+1. **P1：`verify` 可以漏掉被 Git 标记忽略检查的上游文件修改。**  
+   [engine-source.ts:84](/F:/codex/xingyao/script/engine-source.ts:84) 用 `write-tree` 验证暂存树，随后依赖 `git diff --quiet` 检查工作区；逐文件 SHA-256 只覆盖 manifest 中的 55 个变更路径。对其余上游文件设置 `assume-unchanged` 后，实际内容可以变化而校验仍通过。实测：
+   ```text
+   git update-index --assume-unchanged packages/opencode/script/build.ts
+   向这个构建脚本追加测试注释
+   bun run script/engine-source.ts verify <隔离目录>
+   → exit 0，sourceVerified: true
+   ```
+   测试文件和 index 标记已恢复。至少应拒绝 `assume-unchanged`、`skip-worktree` 等索引状态；更完整的来源校验应直接比较全部受跟踪文件的实际 Git blob 哈希与预期树，避免完全依赖 Git 的变更缓存。
+
+2. **P2：模型快照在验收、编译读取、归档三个时间点没有绑定同一份字节。**  
+   [build-engine.ts:15](/F:/codex/xingyao/script/build-engine.ts:15) 先读取并验证 `snapshotBytes`，但随后 `MODELS_DEV_API_JSON` 仍指向产品工作区里的原文件；安装和编译完成后，[build-engine.ts:74](/F:/codex/xingyao/script/build-engine.ts:74) 又从该路径复制快照。中途编辑文件可能使编译使用的数据或最终归档数据与 `engine-build.json` 中的原哈希不一致。建议将已验证的内存字节写入本次构建专用的新输入文件，编译只读该文件，归档同一份字节，并在完成时再核对输入与归档哈希。
+
+3. **P2：构建环境仍继承全部父进程变量，固定输入还不完整。**  
+   [build-engine.ts:18](/F:/codex/xingyao/script/build-engine.ts:18) 直接展开 `process.env`。虽然已覆盖 OpenCode 的关键四个参数，但安装及 native 构建仍可受 `NODE_OPTIONS`、Bun/npm 配置、Git 覆盖、用户配置路径等影响。干净 hosted runner 能降低这种差异，本地构建与 CI 仍不保证相同环境。建议保留必要系统和编译工具变量，明确设置包缓存与配置边界；已经新增的 Node、Python、MSVC 版本记录是有用补充。
+
+另外，源码构建记录目前还需要被产品发行包明确绑定。[build.ts:18](/F:/codex/xingyao/script/build.ts:18) 的维护文件列表仍只包含 `001`、`002`，没有完整补丁队列、新源码文档或 `engine-build.json`；构建时也尚未核实传入的 `opencode.exe` 与该记录的 SHA-256 一致。否则候选能通过功能测试，但下载制品中的来源材料不完整。Root 正在改这一脚本，可以一起补齐。
+
+Windows CI 的正确门槛顺序已经核对：
+
+- Windows x64、NTFS 临时目录；固定 Bun `1.4.2`、Node `26.8.1`、Python `3.12`。`build-engine.ts` 现在还要求 Visual Studio C++ tools，runner 必须满足 `vswhere` 检查。
+- 产品 `bun install --frozen-lockfile`；全新上游目录执行 `engine-source.ts prepare`，不复用 `node_modules`。
+- 执行 `build-engine.ts`，它已包含安装前后来源校验、core/opencode 类型检查、三个 core 回归文件、实际编译和版本检查。
+- 显式传入新引擎及许可证路径，构建产品。
+- 执行 `script/verify-release.ts`，让它运行完整产品测试和编译后浏览器验收。不能用前置的普通 `bun test` 代替这个门槛：该脚本会拒绝 skip、todo、fail，并检查真实引擎、shell 结果、迁移、恢复、编译产品等必要证据。
+- 只在完整验证成功后保存候选制品及来源材料；失败时保留诊断报告，不执行 Release 或仓库写入。
+
+当前浏览器门槛有一个明确的 runner 假设：[graph-browser-check.mjs:44](/F:/codex/xingyao/script/graph-browser-check.mjs:44) 写死了 `C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe`。工作流应先验证该文件和版本，或由脚本接收固定 Playwright Chromium 路径。不能安装 Chromium 后仍让测试悄悄使用另一个 Edge。
+
+我看到了最新本地日志 `2026-09-17T17-25-41-323Z`：引擎编译及 `--version` smoke test 已成功，编译后来源校验也通过。因此先前的 `openai/resources` 缺失不能继续表述为当前未解决的编译阻塞。**这些是本地结果，没有运行 GitHub hosted CI。**
+
+## 2026-09-17T17:31:14.494Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T17:31:39.734Z · 助理
+
+我来修复源码校验漏检：让验证直接读取完整预期源码树，逐个比较磁盘文件内容，并拒绝 Git 的忽略检查标记。随后会在已准备好的隔离源码目录验证正常情况、篡改情况和 Windows 符号链接表现。
+
+
+## 2026-09-17T17:36:44.386Z · 助理
+
+修复后的验证已检查整个源码树的 6,646 个文件，包含 60 个上游符号链接条目。独立回归测试 7 项全部通过；在真实隔离源码中，`assume-unchanged`、`skip-worktree` 和普通源码篡改现在都会被拒绝，测试改动已恢复。
+
+
+## 2026-09-17T17:37:43.520Z · 助理
+
+P1 已修复，只修改了 [engine-source.ts](/F:/codex/xingyao/script/engine-source.ts:76)，并新增 [engine-source.test.ts](/F:/codex/xingyao/test/engine-source.test.ts)。没有修改 manifest、补丁或 `build-engine.ts`。
+
+新的 `verifyTrackedSource` 从固定的预期 Git tree 枚举**全部受跟踪文件**，直接读取磁盘字节并计算 Git blob SHA-1，与预期 tree 中的 blob 比较，不依赖 Git 的 stat cache 判断内容是否变化。同时拒绝 `assume-unchanged`、`skip-worktree`、`fsmonitor-valid` 和其他不支持的 index 状态。
+
+符号链接处理已覆盖 Windows 实际检出方式：原生链接校验链接目标本身，不跟随目标；`core.symlinks=false` 时，上游 `120000` 条目允许以普通文件保存链接目标，但其字节必须准确匹配。普通源码文件被替换成链接、源码父目录被 junction 重定向、文件缺失或类型变化都会拒绝。
+
+在指定的隔离目录 `C:/Users/LT/AppData/Local/Temp/xy-e6-0918b` 实际验证：
+
+| 场景 | 结果 |
+|---|---|
+| 原始完整源码 | 通过，校验 **6,646 个文件、60 个链接条目** |
+| 修改上游 `packages/opencode/script/build.ts` 并设置 `assume-unchanged` | 退出码 1，拒绝 index 标记 |
+| 同一修改设置 `skip-worktree` | 退出码 1，拒绝 index 标记 |
+| 清除标记、保留实际源码修改 | 退出码 1，`Source blob mismatch` |
+| 恢复源码和标记后再次完整验证 | 退出码 0，源码 tree 与 manifest 哈希保持原值 |
+
+独立回归 `bun test test/engine-source.test.ts` 为 **7 pass、0 fail、16 个断言**，另覆盖二进制字节变化、保留原时间戳的文本变化、暂存树变化、文件缺失、目录重定向、原生链接与 Windows 链接文件。`bun run typecheck` 通过。
+
+真实隔离源码中的测试改动和 index 标记均已恢复，原 `trae` 工作区没有修改。

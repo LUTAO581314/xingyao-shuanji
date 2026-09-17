@@ -2,7 +2,7 @@
   "format": 1,
   "rootThread": "01a0aede-90f2-7a73-baf2-0408fa980f18",
   "title": "检测 F 盘健康状态",
-  "exportedAt": "2026-09-17T16:23:22.146Z",
+  "exportedAt": "2026-09-17T17:50:09.521Z",
   "repository": "LUTAO581314/xingyao-shuanji",
   "visibility": "public",
   "scope": "当前根任务的全部本地历史片段，以及按 parent_thread_id 递归找到的全部子智能体；不包含其他无关任务。",
@@ -110,25 +110,25 @@
       "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "parentThreadId": null,
       "source": "sessions/2026/09/17/rollout-2026-09-17T18-59-26-01a0aede-90f2-7a73-baf2-0408fa980f18_01a0af05-78db-74a0-81af-9379588e9314.jsonl",
-      "originalBytes": 18275333,
-      "sourceRecords": 3758,
-      "exportedRecords": 1097,
-      "messages": 268,
-      "toolCalls": 415,
-      "toolResults": 414,
+      "originalBytes": 22751497,
+      "sourceRecords": 4641,
+      "exportedRecords": 1363,
+      "messages": 294,
+      "toolCalls": 535,
+      "toolResults": 534,
       "markdown": "05-root.md",
       "jsonl": "05-root.jsonl",
       "excluded": {
         "session_meta": 1,
-        "event_msg": 1608,
+        "event_msg": 1990,
         "internal_developer": 3,
-        "world_state": 17,
-        "turn_context": 13,
-        "reasoning": 399,
-        "token_usage_record": 424,
-        "inter_agent_communication_metadata": 182,
-        "compacted": 5,
-        "runtime_context": 9
+        "world_state": 18,
+        "turn_context": 16,
+        "reasoning": 492,
+        "token_usage_record": 547,
+        "inter_agent_communication_metadata": 194,
+        "compacted": 6,
+        "runtime_context": 11
       }
     },
     {
@@ -137,23 +137,23 @@
       "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "parentThreadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "source": "sessions/2026/09/17/rollout-2026-09-17T19-00-04-01a0af06-0b6a-7f43-81fd-5f9fb661b4a2.jsonl",
-      "originalBytes": 6229646,
-      "sourceRecords": 1249,
-      "exportedRecords": 318,
-      "messages": 58,
-      "toolCalls": 130,
-      "toolResults": 130,
+      "originalBytes": 6979510,
+      "sourceRecords": 1276,
+      "exportedRecords": 327,
+      "messages": 59,
+      "toolCalls": 134,
+      "toolResults": 134,
       "markdown": "06-root--soul_dynamics.md",
       "jsonl": "06-root--soul_dynamics.jsonl",
       "excluded": {
         "session_meta": 2,
-        "event_msg": 568,
+        "event_msg": 580,
         "internal_developer": 3,
         "runtime_context": 3,
         "world_state": 6,
-        "turn_context": 19,
-        "inter_agent_communication_metadata": 28,
-        "token_usage_record": 142,
+        "turn_context": 20,
+        "inter_agent_communication_metadata": 29,
+        "token_usage_record": 146,
         "reasoning": 159,
         "compacted": 1
       }
@@ -191,24 +191,24 @@
       "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "parentThreadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "source": "sessions/2026/09/17/rollout-2026-09-17T19-09-35-01a0af0e-c4fc-7720-9f82-68bf4038f0f8.jsonl",
-      "originalBytes": 11436517,
-      "sourceRecords": 2019,
-      "exportedRecords": 552,
-      "messages": 100,
-      "toolCalls": 226,
-      "toolResults": 226,
+      "originalBytes": 13050124,
+      "sourceRecords": 2415,
+      "exportedRecords": 661,
+      "messages": 117,
+      "toolCalls": 272,
+      "toolResults": 272,
       "markdown": "08-root--upstream_compat.md",
       "jsonl": "08-root--upstream_compat.jsonl",
       "excluded": {
         "session_meta": 2,
-        "event_msg": 929,
+        "event_msg": 1110,
         "internal_developer": 4,
         "runtime_context": 3,
         "world_state": 11,
-        "turn_context": 20,
-        "inter_agent_communication_metadata": 43,
-        "token_usage_record": 240,
-        "reasoning": 212,
+        "turn_context": 24,
+        "inter_agent_communication_metadata": 49,
+        "token_usage_record": 289,
+        "reasoning": 259,
         "compacted": 3
       }
     },
@@ -244,46 +244,47 @@
       "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "parentThreadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "source": "sessions/2026/09/17/rollout-2026-09-17T22-03-54-01a0afae-59d0-7cb2-b50a-8bf96bfdf4ff.jsonl",
-      "originalBytes": 5695600,
-      "sourceRecords": 788,
-      "exportedRecords": 234,
-      "messages": 36,
-      "toolCalls": 99,
-      "toolResults": 99,
+      "originalBytes": 6179862,
+      "sourceRecords": 921,
+      "exportedRecords": 272,
+      "messages": 40,
+      "toolCalls": 116,
+      "toolResults": 116,
       "markdown": "10-root--canvas_research.md",
       "jsonl": "10-root--canvas_research.jsonl",
       "excluded": {
         "session_meta": 2,
         "compacted": 2,
         "world_state": 10,
-        "turn_context": 12,
-        "event_msg": 326,
+        "turn_context": 14,
+        "event_msg": 384,
         "runtime_context": 5,
         "internal_developer": 3,
-        "inter_agent_communication_metadata": 24,
-        "token_usage_record": 107,
-        "reasoning": 63
+        "inter_agent_communication_metadata": 27,
+        "token_usage_record": 125,
+        "reasoning": 77
       }
     }
   ],
   "redactions": {
-    "credential_assignment": 123,
-    "url_token": 14,
-    "auth_header": 33,
+    "credential_assignment": 137,
+    "encrypted_runtime": 393,
+    "url_token": 15,
+    "auth_header": 37,
     "escaped_credential": 3,
     "private_key": 2
   },
   "excluded": {
     "session_meta": 15,
-    "event_msg": 4075,
+    "event_msg": 4708,
     "internal_developer": 30,
-    "runtime_context": 22,
-    "world_state": 55,
-    "turn_context": 87,
-    "token_usage_record": 1070,
-    "reasoning": 995,
-    "inter_agent_communication_metadata": 292,
-    "compacted": 13
+    "runtime_context": 24,
+    "world_state": 56,
+    "turn_context": 97,
+    "token_usage_record": 1264,
+    "reasoning": 1149,
+    "inter_agent_communication_metadata": 314,
+    "compacted": 14
   },
   "files": [
     {
@@ -293,7 +294,7 @@
     },
     {
       "path": "01-root.md",
-      "sha256": "46275bf71a665051997d5d798e1e29c5570ce7716069d67dce4f094413205478",
+      "sha256": "19d917f67f2fe10efec3f98607a540a55013dd5082e7bca2d3453a4f6cdc10e4",
       "bytes": 47572
     },
     {
@@ -303,7 +304,7 @@
     },
     {
       "path": "02-root.md",
-      "sha256": "45708d1eac5c9491e3fdd7a5932cee4e56f09d92f5102f966312122c59a69d74",
+      "sha256": "26cd70049663746b24d8e42b4abdc57d969cbc8b7cc2be696ad1fdadd8d1128d",
       "bytes": 568
     },
     {
@@ -313,7 +314,7 @@
     },
     {
       "path": "03-root.md",
-      "sha256": "8c7b379b3860ef4a5e83725e9398ea79d5ec2d1a3a2568f6a435e4da1b565644",
+      "sha256": "6c638777681ca27cbe41bb35b4948a36a7eea1cd1d36b6e82064baff52e338a1",
       "bytes": 568
     },
     {
@@ -323,68 +324,68 @@
     },
     {
       "path": "04-root.md",
-      "sha256": "7d39e6354a299a2a2cb9df3600abbcfd150cec2298b959fecb1b39a8df8e0b66",
+      "sha256": "7acc4aa11b1fa7153c285476f40d9441bee28a35eebffaac40fd85fcaf97bd92",
       "bytes": 939
     },
     {
       "path": "05-root.jsonl",
-      "sha256": "955bc0db0d26013d32b15201bca617cae66fee352e4bb47782f1e3627cb413d8",
-      "bytes": 4703229
+      "sha256": "2d98baa55b5ddc0c11eefa7d432b0ebbc04606474ef355c05871395ea575cc8a",
+      "bytes": 5468487
     },
     {
       "path": "05-root.md",
-      "sha256": "fa71522c6c63d346355c96e399239d1016143e56221ca1517a9df7657c5f7e81",
-      "bytes": 303111
+      "sha256": "8fc6b3716e4e3902233c8a8ad6f007f01ac0ba74985a2960692af3842c8f7cc6",
+      "bytes": 349596
     },
     {
       "path": "06-root--soul_dynamics.jsonl",
-      "sha256": "dc2dfcf9f7c6eeb46ec1c5faaa60a1ef62e1823cfa9d7877696b5416afe895a3",
-      "bytes": 1326685
+      "sha256": "bd0eec25dd53371d6cbec85cb38d8d53e75e87faa6d7c05ba2c8d8cf4581e257",
+      "bytes": 1419336
     },
     {
       "path": "06-root--soul_dynamics.md",
-      "sha256": "3d61d51e91cc2c90fefa8aee219a491f440f0e15a2cc640629bc193ee5731fc0",
-      "bytes": 99100
+      "sha256": "6c02d428765e62cd7dd301f5c13d6687dcd594eb1bffb798fe4933f1812b442a",
+      "bytes": 99271
     },
     {
       "path": "07-root--soul_stability.jsonl",
-      "sha256": "a9d64de64fdd43cdc04e411301d37939d674505fcd0ef8dcd620057ad83234d4",
-      "bytes": 790520
+      "sha256": "224b31c50e76e24c39d995d16a27ea67206b663afa27883a27333ec8c2b20f31",
+      "bytes": 768099
     },
     {
       "path": "07-root--soul_stability.md",
-      "sha256": "af242f62efadfd3c4570a888551a3bcb8ceae6120da3b86c1cd72bcffb253102",
+      "sha256": "0558dbaeff02cf369cfc922358454c8bb0612649cf13d42ed42093d432670915",
       "bytes": 80702
     },
     {
       "path": "08-root--upstream_compat.jsonl",
-      "sha256": "3b7fab07b512ad1bf45bd416579d77a9ee85a9eba3b618fcc11cb626db9a1a7d",
-      "bytes": 2290731
+      "sha256": "42509ef5473d95b9953ac5b104843e2243f90581d139951d5e0fca72048c77d4",
+      "bytes": 2632556
     },
     {
       "path": "08-root--upstream_compat.md",
-      "sha256": "a786d524280131914d458472d65dba18050bfdff2fe19686f4188306c8504462",
-      "bytes": 142796
+      "sha256": "095731a4b93a2ba293f8dc79867efa335c4b640536fc7110388697b6e9b5585c",
+      "bytes": 156608
     },
     {
       "path": "09-root--upstream_compat--launcher_entry_review.jsonl",
-      "sha256": "ed5a1be61d1960f4d892e763f68324339b23432135d45c0571d8e3d831d75e7c",
-      "bytes": 81785
+      "sha256": "2eb4d9f3035d42e8672f693ed6bb503041e3a38dddc782d3bffe2fea712f0549",
+      "bytes": 77653
     },
     {
       "path": "09-root--upstream_compat--launcher_entry_review.md",
-      "sha256": "04c027d8e918f4b86fe64df2ed43ff67331e99fd1155894da35f81ab5a908d64",
+      "sha256": "ebb4fdaf7f76f93efc2b58278e2a23b4f50b1df7ce7a7d5d07eeacd5505fb228",
       "bytes": 7976
     },
     {
       "path": "10-root--canvas_research.jsonl",
-      "sha256": "e93e83aaffba939a5e49b2d2cb9c0f6b7973d0e6b51da1f463206f9a10300918",
-      "bytes": 1186426
+      "sha256": "a6f5b652157b18902c2cf7aaf2c9a038a3cc48f0d7c474bd800d4a896bba65de",
+      "bytes": 1283623
     },
     {
       "path": "10-root--canvas_research.md",
-      "sha256": "29e91e8e5ce5a3f2db11d903577b32d91d5488723ad1a5e90d388d25abee5fbd",
-      "bytes": 40556
+      "sha256": "d6028fde697c4e81642cd042043ae8a03aecc36d2e7bc21209ee94df266424bb",
+      "bytes": 43501
     }
   ]
 }

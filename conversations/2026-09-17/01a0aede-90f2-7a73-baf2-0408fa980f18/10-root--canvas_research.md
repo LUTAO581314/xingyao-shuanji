@@ -1,6 +1,6 @@
 # /root/canvas_research
 
-导出时间：2026-09-17T16:23:22.146Z
+导出时间：2026-09-17T17:50:09.521Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T22-03-54-01a0afae-59d0-7cb2-b50a-8bf96bfdf4ff.jsonl`
 
@@ -733,3 +733,65 @@ Payload:
    使用真实 `dist/xingyao-0.1.0-dev.4/xingyao.exe` 和临时资料复现：资料库已有 `g1(schema 1) → g2(schema 2)`，将旧程序启动在恢复的 `g1` 上，旧版 `/api/checkpoint` 返回 **200** 并生成 schema 1 检查点；新版读取发现 **两个头，schema 分别为 1、2**。原因是旧程序会忽略它不支持的 schema 2 检查点，新版 `createCheckpoint` 的保护无法约束已经发布的旧二进制。需要由启动器拒绝这类同库回滚，或使用独立恢复资料库。
 
 本次仅修改 `src/main.ts` 和 `test/startup-migration.test.ts`；已同步补齐旧版测试夹具的四个迁移标记清理。最终定向验证 **5 项通过、89 个断言通过**，`bun run typecheck` 和 `git diff --check` 均通过。所有复现使用临时身份与临时目录，已清理。
+
+## 2026-09-17T16:26:53.869Z · /root → /root/canvas_research
+
+Message Type: NEW_TASK
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T17:23:06.690Z · /root → /root/canvas_research
+
+Message Type: NEW_TASK
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T17:23:43.528Z · /root → /root/canvas_research
+
+Message Type: NEW_TASK
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T17:30:56.043Z · 助理
+
+文件工作区后台已完成并停止修改，仅改动 [workspace-files.ts](F:/codex/xingyao/src/workspace-files.ts) 和新增 [workspace-files.test.ts](F:/codex/xingyao/test/workspace-files.test.ts)。未提交、安装或发布。
+
+模块接口保持不变，root 现有集成可以继续使用：
+
+```ts
+const files = new WorkspaceFiles({ protectedDirectories })
+files.open(absoluteDirectory)
+files.roots()
+files.list(rootId, relativePath?)
+files.read(rootId, relativePath)
+files.save(rootId, relativePath, { expectedSha256, text })
+```
+
+保存逻辑现在包含：
+
+- SHA-256 和原文件身份校验；内容被修改、同内容文件被替换、父目录被替换都会拒绝旧基线保存。
+- 每个目标文件的跨进程写锁，独立实例和重叠授权根也使用同一把锁；仅回收能确认进程已结束的遗留锁。
+- UTF-8 内容和字节限额，保留 BOM、LF/CRLF；目录浏览最多返回 500 个条目、扫描最多 5,000 个。
+- 写入前保存原字节副本和拟写副本，归档实际原文件，再以排他创建方式发布目标；保留可核对的分阶段记录。
+- 可捕获错误发生后，仅在目标仍是本次写入、未被外部改动时自动恢复原件。发现外部修改时保留外部内容及恢复副本，不强行覆盖。
+- 真实链接、硬链接、运行目录和内部恢复目录限制；保存期间再次核对父目录与恢复目录身份。
+
+测试覆盖实际 NTFS 文件、junction、硬链接、父目录及恢复目录交换、8 个故障边界、5 个外部修改边界、多个实例、另一个真实 Bun 进程争用，以及进程异常退出后的原件保全与遗留锁回收。定向验证结果：
+
+- `bun test test/workspace-files.test.ts test/workspace-api.test.ts`：**27 项通过，210 个断言通过**。
+- `bun run typecheck`：通过。
+- `git diff --check`：通过。
+
+尚未支持**进程崩溃或断电后的自动日志重放恢复**：若在“原件归档、目标尚未完成”之间退出，目标可能缺失或不完整，原件与拟写内容保留在 `.xingyao-edit-*` 中，需要显式恢复。此边界有真实子进程退出测试。自动回滚发布使用硬链接；不支持硬链接的文件系统会保留恢复副本并报告待核实。当前路径检查与协作锁也不构成对恶意本地进程竞速系统调用的操作系统沙盒。
