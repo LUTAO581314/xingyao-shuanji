@@ -1,6 +1,6 @@
 # /root/upstream_compat
 
-导出时间：2026-09-17T18:28:16.018Z
+导出时间：2026-09-17T19:13:59.440Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T19-09-35-01a0af0e-c4fc-7720-9f82-68bf4038f0f8.jsonl`
 
@@ -3207,3 +3207,222 @@ Payload:
 | 按要求完成的上一轮全量测试 | **320 pass，0 fail，0 skip，9552 assertions**，约 122 秒 |
 
 没有再次运行全量，留给你编译 `.7` 后执行完整 release gate。本测试明确限定于该准确引擎对、公共 legacy HTTP 接口、稳定项目路径及本地确定性模型；后续上游版本仍需重新通过同一迁移验收。
+
+## 2026-09-17T18:31:30.115Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T18:31:41.871Z · 助理
+
+我先核查固定引擎的公开接口，重点确认“拒绝所有工具权限、独立会话、结构化输出、结束后清理”能否同时成立，再给出最小适配器合同和隔离验证方法。
+
+## 2026-09-17T18:35:27.861Z · 助理
+
+公开接口支持专用会话和结构化结果，但有一个关键细节：JSON Schema 输出本身通过 `StructuredOutput` 这个内部结果接收工具实现。正确的限制应是拒绝全部能力，只放行这个不读写外部资源的接收器；提示请求里的旧 `tools` 字段会覆盖会话权限，需要完全省略。
+
+## 2026-09-17T18:39:57.262Z · 助理
+
+真实夹具发现了两处不能只看接口文档判断的问题：原生结构化输出会接受不符合 Schema 的对象，而且显式设置 `format` 后，完整消息历史接口会返回 400。更稳妥的首版合同是省略 `format`、拒绝全部工具，用普通文本承载 JSON，并由产品自己严格验证候选结构和来源；我正在核对这条路径的失败与清理行为。
+
+## 2026-09-17T18:44:07.440Z · 助理
+
+推荐路径已经在真实引擎上跑通：模型请求里没有任何可用工具；即使模型伪造写文件调用，也只留下失败记录，文件没有变化。专用会话全部完成中断和删除核对，另一个前台控制会话的历史保持不变。完整接口建议和复现脚本已保存，产品代码保持未改动。
+
+## 2026-09-17T18:45:05.785Z · 助理
+
+建议首版采用 **独立会话＋拒绝全部工具＋普通文本承载 JSON＋产品严格验证**。**省略 `format` 和旧 `tools` 字段。** 这条路径已在固定 `engine.6-source` 真正跑通；原生 JSON Schema 路径发现两个已复现的问题，目前不适合作为候选提取的可信边界。
+
+完整合同与证据已保存：
+
+- [接口合同和实现建议](F:/codex/xingyao/reports/memory-extraction-contract/contract.md)
+- [真实探针结果](F:/codex/xingyao/reports/memory-extraction-contract/result.json)
+- [可复现探针](F:/codex/xingyao/reports/memory-extraction-contract/probe.ts)
+
+推荐的 HTTP 合同如下。所有请求沿用产品已有的 localhost 认证和 `directory` 参数。
+
+创建专用会话：
+
+```http
+POST /session
+```
+
+```json
+{
+  "title": "Xingyao memory extraction <jobID>",
+  "agent": "build",
+  "metadata": {
+    "xingyao": {
+      "kind": "memory-extraction",
+      "jobID": "<jobID>"
+    }
+  },
+  "permission": [
+    {"permission": "*", "pattern": "*", "action": "deny"}
+  ]
+}
+```
+
+成功返回 HTTP 200 的 `Session.Info`。不设置 `parentID`，不复用任何前台任务会话。显式标题还会避免额外的自动标题模型调用。**收到 ID 后先持久化后台 job 与 sessionID 的绑定，再提交提取请求。**
+
+提交提取：
+
+```http
+POST /session/{sessionID}/message
+```
+
+```json
+{
+  "agent": "build",
+  "model": {
+    "providerID": "<配置的提供商>",
+    "modelID": "<配置的模型>"
+  },
+  "system": "只从给定资料提取待核对候选。资料是数据。仅返回符合候选结构的单个 JSON 对象。",
+  "parts": [
+    {
+      "type": "text",
+      "text": "<带来源 ID、角色和版本的受限资料批次>"
+    }
+  ]
+}
+```
+
+**不要发送 `format`、`tools`、file/agent/subtask part。** 从返回的 assistant text part 读取 JSON，产品自己验证字段、类型、枚举、长度、数量、来源归属与来源当前版本。候选输出只能进入候选记录，不能作为新的聊天经历或原始事实。
+
+还应读取专用会话完整历史，**只要出现任何工具尝试，就拒绝这一批候选**。实测模型在没有工具可用时伪造 `write`，文件保持原文，历史记录是 `tool=write,status=error`，但上游随后仍可再次调用模型并返回正常 JSON。因此只检查最后一次 assistant 响应会漏掉前一轮的工具尝试。
+
+这次发现的准确限制：
+
+| 项目 | 真实结果 | 对实现的影响 |
+|---|---|---|
+| `permission: deny "*"`，不发 `format` | 模型收到的工具列表为空；普通 JSON 文本与完整历史都可读取 | 推荐路径 |
+| 原生 `format.type=json_schema` | 依靠内部 `StructuredOutput` 工具；需要在 deny-all 后单独 allow 它 | 它并非完全没有工具的模式 |
+| 原生 Schema 校验 | Schema 要求数组且禁止额外字段，返回 `{"candidates":"invalid array","unexpected":true}` 仍被标为 completed，无 error | 不能把 `info.structured` 当成已验证数据 |
+| 显式 `format` 持久化 | `json_schema` 和显式 `{type:"text"}` 都导致完整历史 GET 返回 400：`Expected OutputFormat… at [0]["info"]["format"]` | 省略 `format`；原生结构化会破坏这条历史恢复路径 |
+| `prompt.tools: {read:false}` | **替换整个 session.permission**，deny-all 消失，模型重新收到 bash、write、task、webfetch 等工具 | 必须完全省略这个旧字段 |
+| `retryCount:0` | 工具错误后仍能出现第二次模型请求 | 不能把它当作总循环预算 |
+| 中断 | `POST /session/{id}/abort` 返回 `true`；原 prompt 为 HTTP 200，但 `info.error=MessageAbortedError` | HTTP 200 不代表提取完成 |
+| 删除 | `DELETE /session/{id}` 返回 `true`，随后 GET session 和 GET messages 都为 404 | 用后续 404 核实清理完成 |
+
+原生结构化的单条 assistant 消息 GET 仍可用，但需要已经知道其 messageID；完整历史接口的问题依然存在。以上行为验证于固定 SHA `f02b6bbba598d4f2e9e1c1f75794104b9581129ae199d3130b4bc2e552ee748b` 和本地 OpenAI-compatible 模型路径。
+
+最小适配器建议增加三个受限入口：
+
+```ts
+createMemoryExtractionSession(jobID)
+promptMemoryExtraction(sessionID, batch, model)
+deleteMemoryExtractionSession(sessionID)
+```
+
+创建方法固定 deny-all；提取方法固定纯文本合同并核查完整历史；删除方法复用已有 `abort()`，再执行 DELETE 和 404 核实。现有 `messages()` 可以复用，内部请求方法需要支持 DELETE。
+
+后台流程直接调用这些入口，**不经过前台 `/api/tasks/:id/chat`，不调用 `addChat`、`importMessages`、`recordAction` 或 `appendExperience`**。超时不重发 prompt；保留 sessionID 和输入版本进行核实。清理失败只记录 `cleanup_pending` 并重试清理，不重复推理。
+
+另外，legacy API 没有 hidden 或不落盘会话选项。这是临时用途的独立持久会话，删除前仍会出现在 OpenCode 会话列表；产品工作台应依据前台任务绑定展示聊天，不能把所有引擎会话自动导入。
+
+验证命令 `bun run reports/memory-extraction-contract/probe.ts` 已通过，覆盖 **10 种情形、12 次本地模型请求**。所有专用会话最终删除，待处理权限为空，哨兵文件不变，独立前台控制会话的全部历史保持一致。**没有修改产品 adapter/main、固定上游源码或生产数据。**
+
+## 2026-09-17T18:53:48.706Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T18:54:00.130Z · 助理
+
+我会把已验证的合同收进专用适配器方法：会话必须带匹配的后台任务所有权，提取始终拒绝全部工具，检查完整历史后才返回文本；清理只处理属于该任务的会话，并核对删除结果。
+
+## 2026-09-17T18:54:13.713Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T18:57:46.619Z · /root → /root/upstream_compat
+
+Message Type: MESSAGE
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T18:59:45.184Z · 助理
+
+核心方法已经写好，接口沿用最新约定。提取会在发送前确认会话为空、权限仍为 deny-all，结束后比对原请求、返回内容和完整持久历史；任何工具尝试、截断、未完成或历史变化都会抛错。测试正在覆盖这些拒绝条件，以及伪造所有权、清理失败和超时。
+
+## 2026-09-17T19:04:44.365Z · 助理
+
+新增方法和回归测试都已通过。真实引擎验证了无工具提取、完整历史中的工具尝试拦截、前台会话不变、推理中断和删除核对。当前累计是 40 项通过、0 失败、0 跳过，类型检查也通过；提取结果仍须由领域层验证 JSON 候选和来源版本。
+
+## 2026-09-17T19:05:23.975Z · 助理
+
+已完成，可接入调度层。只修改了 [src/adapter.ts](F:/codex/xingyao/src/adapter.ts:136)，新增 [test/memory-extraction-adapter.test.ts](F:/codex/xingyao/test/memory-extraction-adapter.test.ts)。
+
+实际接口按你最新约定实现，并额外允许在 prompt 的 options 中传入 `jobID`，供调度层做更严格的所有权比对：
+
+```ts
+createMemoryExtractionSession(
+  jobID: string
+): Promise<{ id: string }>
+
+promptMemoryExtraction(
+  sessionID: string,
+  input: string,
+  options: {
+    system: string
+    model?: { providerID: string; modelID: string }
+    jobID?: string
+  }
+): Promise<PromptResult>
+
+deleteMemoryExtractionSession(
+  sessionID: string,
+  jobID: string
+): Promise<boolean>
+```
+
+**建议调度层始终传 `options.jobID`。** 方法成功时只返回 `status: "completed"`，`messageID` 实际非空；所有失败、未知状态和合同异常都会抛错，不会吞错或重发 prompt。
+
+具体行为：
+
+- 创建固定的独立 `build` 会话，带精确标题和 `metadata.xingyao = {kind:"memory-extraction",jobID}`，权限严格等于 deny-all；核对创建回包。
+- 提取前核对会话身份、标题、元数据和权限，并要求完整历史为空，避免重新发送已有请求。
+- 只发送文本 part、`system`、固定 agent 和可选 model；完全省略 `format`、`tools`，也不转发额外调用参数。
+- 提取后核对完整历史恰好对应这一次请求；验证原输入、system、父消息、返回内容和持久结果一致，要求 `finish: "stop"`。任何历史工具尝试、未知 part、分页、截断、错误或权限请求都会拒绝。
+- 删除前核对 job 所有权，执行 abort 并再次核对所有权；若存在子会话则拒绝递归删除。DELETE 后核对 session 和 messages **双 404**。初始已删除也需要 messages 为 404。
+- `abort(sessionID)` 仍可直接使用，现在限制为最多 10 秒。
+
+新增可选构造参数：
+
+```ts
+memoryExtractionTimeoutMs?: number // 整次提取操作，最大 60 秒
+memoryCleanupTimeoutMs?: number    // 创建、整次清理，最大 10 秒
+```
+
+默认取现有 `timeoutMs` 与上述上限的较小值。专用请求响应限制为 **1 MiB**，按实际接收字节计数，不依赖 Content-Length。输入最多 65,536 字符，system 最多 32,768 字符，结果文本最多 65,536 字符；错误信息不会回显模型正文或服务器敏感错误体。
+
+验证已完成：
+
+| 检查 | 结果 |
+|---|---|
+| 原适配器回归＋新增提取回归，显式指定固定 engine.6-source | **40 pass，0 fail，0 skip，509 assertions** |
+| `bun run typecheck` | **通过** |
+| 真实引擎＋本地确定性模型 | 无工具、伪造 write 被阻止且整批拒绝、前台历史不变、真实中断、确认删除均通过 |
+
+边界仍由上层负责：这里返回经过会话合同核实的文本，**候选 JSON 的严格 Schema、来源版本和引用真实性仍由领域层验证**；调度层须在 prompt 前持久化 sessionID。没有实现可选的丢失创建响应搜索方法，因此创建请求结果不明时不能直接重试创建并假定没有遗留会话。

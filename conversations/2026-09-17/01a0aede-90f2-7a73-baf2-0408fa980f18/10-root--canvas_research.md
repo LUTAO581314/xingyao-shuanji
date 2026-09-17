@@ -1,6 +1,6 @@
 # /root/canvas_research
 
-导出时间：2026-09-17T18:28:16.018Z
+导出时间：2026-09-17T19:13:59.440Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T22-03-54-01a0afae-59d0-7cb2-b50a-8bf96bfdf4ff.jsonl`
 
@@ -822,3 +822,350 @@ Payload:
 测试额外复现了模型设置入口的两个绕过问题：离线宿主可借设置接口启动另一版本；初次启动拒绝的服务也可借设置接口重新接入。已报给 root，由 root 在 `main.ts` 统一了启动与模型重配置检查；回归现已通过。
 
 最终验证：`bun test test/engine-binding.test.ts` **8 项通过，60 个断言通过**；`bun run typecheck`、`git diff --check` 均通过。
+
+## 2026-09-17T18:40:47.116Z · /root → /root/canvas_research
+
+Message Type: NEW_TASK
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T18:50:38.569Z · 助理
+
+## Identity and current task
+
+You are subagent **`/root/canvas_research`**, working for `/root` in shared Windows repo **`F:/codex/xingyao`**.
+
+Current authorized task: implement the **conversation memory review UI** only. Allowed files:
+
+- `src/web/index.html`
+- `src/web/app.js`
+- `src/web/style.css`
+- Optionally new `script/memory-review-browser-check.mjs`
+
+**Do not edit backend, contracts, existing browser scripts, builds, installed copies, or production identities.** Root is integrating backend routes and will build `.8`; screenshots should wait for that build. All testing must use temporary identities.
+
+Parent request:
+
+> Add independent “对话记忆提取与审阅” section to sleep page. Task selection from `state.tasks`; real POST extraction / GET status / accept / reject. Display source IDs/quotes, subject, attribution, kind, time hint. Explicit validity choice (long term or date range); never parse model `timeNote` into dates. Add coexist or replace same-scope memory with revision. Submit `reviewRevision` from GET. HTTP 409 preserves drafts and asks explicit refresh/review. Escape all text/XSS. Memory page shows claim attribution/subject/validity and expired/future states. Sealed disables extraction and acceptance. No auto-extraction toggle. Poll without destroying edited forms.
+
+## Tools / environment
+
+- PowerShell, Bun, Node available.
+- Use `functions.exec` with `tools.exec_command` / `tools.apply_patch`.
+- Collaboration tools direct (`functions.send_message` etc.) not within exec.
+- Full filesystem access, no approval.
+- `AGENTS.md`: keep upstream coupling in adapter; Bun/strict TS; temporary tests only; don't access credentials or existing OpenCode state.
+- Root has other agents working concurrently; only edit owned files.
+- Current package version **`0.1.0-dev.8`**.
+- No relevant skill has been applied for current task.
+
+## Backend contract already read
+
+`src/memory-review-contracts.ts`:
+
+```ts
+type MemoryProposal = {
+  text: string
+  subject: string
+  kind: MemoryKind // preference fact inference episode commitment
+  attribution: "user_statement" | "reported" | "inference"
+  timeNote: string
+  evidence: Array<{ sourceId: number; quote: string }>
+  relatedMemoryIds: string[]
+}
+type MemoryCandidate = MemoryProposal & {
+  id: string; batchId: string; taskId: string; scope: string; revision: number
+  status: "pending" | "accepted" | "rejected" | "invalidated" | "erased"
+  memoryId: string | null; createdAt: number
+}
+type MemoryReviewBatch = {
+  id; taskId; scope
+  status: "running" | "completed" | "failed" | "interrupted" | "redacted"
+  sourceIds: number[]
+  sourceHashes: Record<string,string>
+  inputHash: string
+  related: Array<{id:string;revision:number}>
+  sessionId: string|null; messageId:string|null
+  model:{providerID:string;modelID:string}|null
+  createdAt:number; finishedAt:number|null; error:string|null
+  policy:"conversation-memory-v1"
+}
+type MemoryReviewView = {
+  revision: number
+  batches: MemoryReviewBatch[]
+  candidates: MemoryCandidate[]
+  memories: Memory[]
+}
+type AcceptMemoryCandidate = {
+  revision:number; reviewRevision:number
+  text:string; subject:string; kind:MemoryKind; attribution:...
+  validFrom:number|null; validUntil:number|null
+  private:boolean; pinned:boolean
+  resolution:{type:"add"} | {type:"replace";memoryId:string;revision:number}
+}
+```
+
+Routes root will integrate:
+
+- `POST /api/memory-review {taskId,key,model?}` -> **202 `{batchId}`**
+- `GET /api/memory-review?taskId=...` -> view above
+- `POST /api/memory-review/:candidateId/accept` -> Memory
+- `POST /api/memory-review/:candidateId/reject {revision}`
+
+`src/contracts.ts` Memory has optional `claim`:
+
+```ts
+{ subject, attribution, validFrom, validUntil, reviewedAt, extractionId }
+```
+
+`MemoryReviewStore` behavior:
+
+- `begin` rejects sealed, task running/waiting, another running review globally, no eligible new user messages.
+- Extraction candidates remain pending; no automatic memory.
+- `accept` requires exact candidate revision and **global store revision** equal `input.reviewRevision`.
+- Inference attribution must have `kind:"inference"`.
+- Dates explicitly nullable, integer >=0; store checks `validFrom < validUntil`.
+- `view(taskId)` returns up to 100 batches/800 candidates, memories from `store.memories({scope})` (active management view, excludes private by default); UI further filters same exact scope for replacement.
+- `reject` allowed while sealed.
+- `eligible` uses real `chats`-backed experiences, ignores retracted/private/unlearnable, keeps source utterances whole.
+- Erased candidate text should not remain in UI.
+- At last `rg`, **backend routes were not yet in `server.ts`** (root working).
+
+## Current UI edits already made (do not redo)
+
+### `index.html`
+
+Replaced one-line sleep section with:
+
+- Existing tool archive hero, clarified separate deterministic archiving.
+- New `<section id="memory-review" ...>`:
+  - `#memory-review-title`
+  - `#memory-review-count`
+  - `#memory-review-start-form`
+  - task `<select id="memory-review-task">` starts blank
+  - model `<select id="memory-review-model">` defaults engine model
+  - `#memory-review-start`
+  - `#memory-review-refresh`
+  - usage/fees/draft/time hint help
+  - live `#memory-review-status`
+  - `#memory-review-batches`
+  - `#memory-review-candidates`
+- Existing `#sleep-reports` under “工具归档记录”.
+
+### `app.js`
+
+Existing `api()` already preserves `error.status`, so no changes needed there.
+
+Changed sleep polling:
+
+```js
+// In refresh() and refreshView()
+if (view === 'sleep') { renderSleep(); await refreshMemoryReview() }
+```
+
+`renderSleep()` now disables `#run-sleep` while sealed or foreground busy and calls `renderMemoryReviewHeader()`.
+
+Memory list inserts `memoryClaimMarkup(memory)` after text, and escapes source IDs.
+
+Added ~260 lines immediately after sleep handlers / before `refreshFiles()`:
+
+```js
+const attributionNames = {
+  user_statement:'用户陈述',
+  reported:'转述他人或资料',
+  inference:'待验证推断'
+}
+const reviewBatchNames = {...}
+const reviewCandidateNames = {...}
+const memoryReviewUI = {
+  taskId:'', data:null, drafts:new Map(), request:0,
+  loading:false, starting:false, operation:null,
+  tasksSignature:'', batchSignature:'', message:'', requestKey:null
+}
+```
+
+Core implementation choices:
+
+- **Draft forms are stable DOM nodes** held in `Map`; polling never reconstructs edited inputs.
+- Each draft:
+  `{card,candidate,reviewRevision,memories,needsRefresh,error,dirty,busy}`.
+- On normal GET if global revision or candidate revision changed, mark `needsRefresh=true`, disable accept, preserve all text/date/select/focus.
+- Explicit refresh (`#memory-review-refresh` or per-card rebase) updates evidence / candidate / global revision / replacement options, **preserves form edits**, clears the required final confirmation checkbox. If replacement disappeared, selection empties with message.
+- Task switching detaches visible cards but keeps draft Map; revisiting reuses them. Beforeunload warns on dirty drafts or mutation in progress.
+- Accepted/rejected/invalidated candidates replace draft with readonly result; erased displays status only and deletes draft (no retained text).
+- All candidate text, quote, timeNote, subject, memory text, IDs escape via existing `escape()` or `.value`/`.textContent`.
+- Source quotes rendered in scrollable blockquotes with IDs.
+- New forms:
+  - editable `text`, `subject`, `kind`, `attribution`
+  - validity select starts blank, choices `long` / `range`
+  - range uses `<input type=date name=validFrom/validUntil min=1970-01-01>`
+  - both dates inclusive in UI; parse local midnight and add one local day to final date for exclusive backend `validUntil`
+  - **timeNote is display only; never auto-dates**
+  - resolution select starts blank, `add` / `replace`
+  - replacement select only **active exact-scope memories**, labels revisions + related markers, readonly full preview
+  - private/pinned unchecked by default
+  - mandatory `confirmed` checkbox “我已核对原话、主体归属、有效期及与已有记忆的关系”
+  - accept / reject / explicit rebase buttons.
+- Changing attribution to inference sets kind inference; acceptance also validates pair.
+- Changing any input clears final confirmation (except clicking checkbox itself).
+- Accept sends exact contract incl snapshot global revision, current chosen memory revision, explicit period.
+- On 409: keeps draft, sets `needsRefresh`, unchecks confirmation, inline warning asks refresh/review.
+- No success display until actual POST returns OK and GET confirms status.
+- Extraction has stable UUID retry key per `(taskId,model)` until acknowledged; accepted result must contain batchId.
+- Header disables extract on sealed, foreground busy, selected task running/waiting, existing running extraction, loading/mutation.
+- Sealed disables acceptance but allows viewing/rejecting.
+- `memoryClaimMarkup()` shows subject, attribution, validity range/long term, **已到期/尚未生效 · 不参与当前对话**, or 当前有效.
+- Existing manual memory edit/delete still manages expired/future memories.
+- `loadEngine()` clones model option DOM from existing chat model selector into separate review model selector, preserving prior review selection.
+
+Potential follow-up quality issues to inspect:
+1. `ui.message` “提取请求已提交…” persists after a batch completes because header prioritizes sticky message over dynamic status. Batch panel still shows proper state, but could clear/update message on transition.
+2. Draft source refresh marks needsRefresh on *any global revision* (required backend contract). Explicit refresh then confirmation is intended.
+3. Header extract disabled can be temporarily toggled every poll; check browser responsiveness.
+4. No automatic model/extraction toggles.
+5. `reviewPeriod()` uses `new Date(value+"T00:00:00")`; native date input validity guards invalid dates, but could improve explicit roundtrip if desired.
+6. `refreshMemoryReview()` catches fetch errors internally and keeps draft; it doesn’t throw to global `action`, intentionally inline.
+7. Normal poll rebuilds readonly result cards and batch panel when signature changes, but pending form inputs stay intact.
+8. Candidate `relatedMemoryIds` trusted backend array; UI assumes contract.
+9. If task selection is cleared, candidate host becomes empty instead of introductory empty message; harmless but can polish.
+10. Some UI functions use global `state` guards; all actual refresh runs occur at bottom after const initialization, so no TDZ issue.
+
+### `style.css`
+
+Appended new styles for:
+
+- `.memory-review`, headings/start form/status
+- batches/cards/source quotations
+- draft fields/date/replacement previews/confirmation/inline conflict/actions
+- readonly results, memory claim validity badges, sleep report heading
+- desktop 2-column candidates >=1550px
+- form layout <=1150 and mobile <=720px
+
+Keeps existing visual palette and CSP (no inline styles introduced).
+
+## Verification so far
+
+Ran:
+
+```powershell
+node --check src/web/app.js
+git diff --check -- src/web/index.html src/web/app.js src/web/style.css
+```
+
+Both passed after changes.
+
+**No browser check yet. No screenshot. No new script yet.** Backend routes absent on last read; root must integrate/build `.8`.
+
+Need proactively send root a progress update via collaboration (last user-facing progress was only `functions.exec text`, not actual parent message; do send proper parent status).
+
+## Next steps
+
+1. Re-read own new UI block for bugs; fix only owned web files.
+2. Notify root that UI implementation is ready for backend integration, give exact IDs/selectors and polling/draft strategy; request available `.8` test binary or check files without asking user.
+3. Add **`script/memory-review-browser-check.mjs`** with actual product temporary runtime + actual API flows, not fake success. Can use controlled local model/provider fixture to generate candidates (root likely has integration pattern); wait/read backend integration to determine protocol.
+4. Screenshot and browser validation once root compiles `.8`; include:
+   - extract/complete/wait state
+   - quoted XSS literals displayed, no execution
+   - draft survives 2.5s poll
+   - explicit validity required
+   - long term and date range acceptance
+   - same-scope replacement with revision
+   - force 409 with concurrent real memory change, preserve draft, explicit rebase resets checkbox and enables reviewed submit
+   - reject
+   - sealed extraction/accept disabled
+   - expired/future claim labels in memory page
+   - desktop/mobile no horizontal overflow, no browser/CSP errors/external network.
+5. Run syntax/typecheck as appropriate; root owns global tests.
+6. Report exact files/results and stop editing.
+
+## Existing browser-script patterns / references
+
+Read `script/graph-browser-check.mjs` and `script/browser-check.mjs`.
+
+Graph script good reusable structure (do **not edit it**):
+
+- imports `chromium, expect` from `@playwright/test`
+- temporary root via `mkdtemp(tmpdir(),'xingyao-...-browser-')`
+- compiled executable default from package version, argument override supported
+- spawns `[exe,'--portable-root',portable,'--host-root',host,'--offline','--no-open']`
+- reads **only temporary** host `running.json`, obtains URL/token
+- authenticated API helper
+- `chromium.launch({ channel:'msedge', headless:true })`, or env `XINGYAO_BROWSER_EXECUTABLE`
+- catches pageerror and CSP errors
+- route only local runtime origin; external request fails
+- screenshots into repo `reports/`
+- report includes exe SHA256, browser version, check list, date
+- finally close browser, `/shutdown`, bounded wait/kill child; validate temp root before cleanup.
+
+For new memory extraction tests **offline runtime cannot call real model**. Options:
+- product real engine + loopback synthetic OpenAI-compatible provider (existing `test/product-integration.test.ts` has pattern), configure via `/settings/model`.
+- Root may create model fixture / API tests; read those for current extraction flow.
+- Never seed fake candidates directly in production DB to claim actual extraction success. Synthetic model reply through real engine/API is acceptable and clearly labeled.
+
+## Prior completed tasks (do not redo)
+
+This agent previously:
+- Built graph UI and workspace editor.
+- Added `test/tool-evidence-api.test.ts`.
+- Added/fixed startup migration tests and `main.ts` paired restore ancestor logic.
+- Completed `src/workspace-files.ts` and `test/workspace-files.test.ts`:
+  - cross-process locks, identity/parent checking, backup/failure rollback
+  - 27 filesystem+API tests passed; crash auto journal replay remains unsupported.
+- Added `test/engine-binding.test.ts`:
+  - 8 tests / 60 assertions passed using real engine `.6-source`
+  - discovered model settings bypasses; root fixed shared `launchSelected`, offline config disabled.
+No edits to those for current task.
+
+## 2026-09-17T18:50:48.694Z · 助理
+
+我先核对目前已经做到的画布、知识图谱和 OpenCode 接入，再确认你说的“无限画布”适合怎样接进来；能复用的现有工作我会保留。
+
+
+## 2026-09-17T18:53:25.667Z · 助理
+
+对话记忆的审阅界面已经接上了真实接口：会显示原话、主体归属和时间提示，并要求明确选择有效期。接下来我在隔离身份里验证并发冲突、封存状态和编辑稿保留，确保后台刷新不会覆盖正在修改的内容。
+
+
+## 2026-09-17T18:59:02.693Z · 助理
+
+对话记忆审阅 UI 已完成，可供 `.8` 后端集成。修改范围严格限制在：
+
+- [index.html](F:/codex/xingyao/src/web/index.html)：睡眠页新增独立的“对话记忆提取与审阅”区。
+- [app.js](F:/codex/xingyao/src/web/app.js)：接入提取、状态、采纳、拒绝接口，以及候选审阅和记忆有效期展示。
+- [style.css](F:/codex/xingyao/src/web/style.css)：桌面及手机布局。
+- [memory-review-browser-check.mjs](F:/codex/xingyao/script/memory-review-browser-check.mjs)：新增真实产品浏览器验收脚本。
+
+已实现的关键行为：
+
+- 从 `state.tasks` 选取对话，单独选择提取模型。提取请求带稳定重试 `key`，收到真实 `batchId` 才显示提交成功。
+- 显示来源编号、逐字原话、主体、归属、类型和模型时间提示。所有文本均转义，或通过 `.value`、`.textContent` 写入。
+- 有效期必须明确选择长期或日期范围；**不会从 `timeNote` 推断日期**。日期范围按本机时区包含首尾当天，发送后端时结束日期转为次日零时。
+- 明确选择“新增并存”或“替代同一范围的记忆”。替代携带目标记忆修订；采纳携带 GET 返回的 `reviewRevision`。
+- 后台轮询保留表单 DOM、编辑内容、选择与焦点。发现修订变化时停用采纳按钮，要求显式刷新依据；刷新保留编辑稿，并取消最终确认勾选。
+- HTTP 409 保留编辑稿，要求刷新并重新审阅；不会自动套用新的修订再次提交。
+- 封存时禁用提取和采纳，仍可查看、拒绝。
+- 记忆页显示审阅后的主体、归属、有效期，以及“已到期 / 尚未生效 · 不参与当前对话”。
+- 已保存候选标为“原候选”，避免把未经编辑的原文误称为实际保存内容。
+- 没有自动提取开关，没有修改后端、生产身份或安装副本。
+
+当前验证通过：
+
+```text
+node --check src/web/app.js
+node --check script/memory-review-browser-check.mjs
+git diff --check -- src/web/index.html src/web/app.js src/web/style.css script/memory-review-browser-check.mjs
+```
+
+**浏览器验收尚未运行。** 当前没有 `.8` 编译包，最后检查时 `server.ts` 也还没有对应路由。新脚本将使用临时身份、真实编译产品、真实 OpenCode 引擎和仅监听 localhost 的确定性模型夹具；候选经真实聊天与提取链路产生，不直接写数据库。覆盖并发 409、编辑稿保留、封存、拒绝、长期及日期范围采纳、同范围替代、XSS、移动端布局，并生成截图和带二进制 SHA256 的报告。
+
+构建完成后可调用：
+
+```powershell
+bun run script/memory-review-browser-check.mjs
+```
+
+也可传入产品 EXE 与引擎 EXE 路径。
