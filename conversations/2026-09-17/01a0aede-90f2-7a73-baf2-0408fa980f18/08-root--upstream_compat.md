@@ -1,6 +1,6 @@
 # /root/upstream_compat
 
-导出时间：2026-09-17T15:04:43.508Z
+导出时间：2026-09-17T16:23:22.146Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T19-09-35-01a0af0e-c4fc-7720-9f82-68bf4038f0f8.jsonl`
 
@@ -1798,3 +1798,827 @@ graph.source({
 - `bun run typecheck` 通过。
 
 修改仅在 [knowledge-graph.ts](/F:/codex/xingyao/src/knowledge-graph.ts) 与对应测试文件中。
+
+## 2026-09-17T15:08:15.065Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:08:56.757Z · 助理
+
+我先确定文件保存协议：目录授权只在当前进程有效，写入前核对版本并保存可恢复的原件，写入后校验实际内容；一旦检测到外部修改或中断，就明确报告冲突或待恢复状态。
+
+
+## 2026-09-17T15:13:36.266Z · /root → /root/upstream_compat
+
+Message Type: MESSAGE
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:16:28.933Z · 助理
+
+## Identity and active task
+
+You are subagent `/root/upstream_compat`, parent `/root`. Continue implementation; do not just advise. Parent owns server/API/main/UI integration and the broader architecture review.
+
+Current authorized work: create **only**
+- `F:/codex/xingyao/src/workspace-files.ts`
+- `F:/codex/xingyao/test/workspace-files.test.ts`
+
+Implement explicit project directory authorization, file tree, UTF-8 reading, conflict-safe editing with preserved originals/recovery journal. **Do not modify server/web/main. Do not install or run formal `F:/Xuanji`.** Parent says this remains a development draft; user additionally requested architecture self-reflection and 3-month risks. After implementation, give parent a brief evidence-based review of storage/checkpoint/recovery risks (growth, lost F: drive, unplugging, new/old OpenCode version relation). Distinguish untested hypotheses from reproduced bugs.
+
+## Workspace/environment
+
+- CWD `F:/codex`
+- Product `F:/codex/xingyao`, Bun 1.4.2, Windows PowerShell, strict TS.
+- Latest product `0.1.0-dev.2`.
+- Read `F:/codex/xingyao/AGENTS.md`: Bun, TS, isolated temp tests, never read/print credentials, no existing OpenCode data mutation.
+- Shared workspace; parent/other agent edits may appear. Only own the two files above now.
+- Skills not needed.
+- Keep commentary updates about every minute.
+- Parent requests targeted tests/typecheck, no broad rebuild/install.
+
+## Current work status
+
+`src/workspace-files.ts` exists as a **large initial draft (~300 lines)**. **No test file yet.**
+Last `bun run typecheck` failed:
+
+```
+src/workspace-files.ts(110,58): 'baseline' is possibly undefined
+src/workspace-files.ts(111,31): 'baseline' is possibly undefined
+src/workspace-files.ts(195,25/36): 'root' is possibly undefined
+src/workspace-files.ts(196,5): AuthorizedRoot | undefined not assignable
+```
+
+Likely because `const conflict = (...) : never => ...` / `const denied = (...) : never => ...` expression functions are not narrowing as intended. Convert to function declarations or direct throw / return.
+
+Last message to parent: implementing safer atomic publication instead of writing into publicly visible destination; proposed **Windows `.NET [IO.File]::Move`** via fixed PowerShell script with paths passed only as env vars. No response yet.
+
+## Exact parent requested API
+
+`WorkspaceFiles` is process-local authorization, no domain DB mutation:
+
+```ts
+open(directory: absolute): { id, path, label }
+roots(): Array<{ id, path, label }>
+list(rootId, relativePath = ""):
+  {rootId,path,entries:[{name,path,kind:"directory"|"file",size?,editable:boolean}],truncated}
+read(rootId,relativePath):
+  {rootId,path,absolutePath,text,sha256,bytes,bom,lineEnding:"lf"|"crlf"|"mixed"|"none"}
+save(rootId,relativePath,{expectedSha256,text}):
+  readResult & { backupPath, changed:boolean }
+```
+
+Only edit existing files this round, no user file creation/deletion API. Backup/recovery files are allowed and necessary. Existing-file replacement during save is understood. Roots expire on restart; parent explicitly opens default project root.
+
+Constraints:
+- Only explicitly opened local absolute directories.
+- Reject junction/symlink roots/components, traversal, ADS, device names, UNC.
+- UTF-8 text <=2 MiB.
+- Filter credentials (.env/auth/engine-config etc), protected runtime dirs (.git/.codex/.ssh etc), generated/dependency dirs.
+- Save checks identities + hash before/after.
+- Preserve original, flush+verify, durable recovery phase log.
+- Failure/interruption must not silently lose external edits or claim success.
+- Tests only temp files, no real credentials.
+- Need tests external edit conflict, BOM/EOL, path/link/size/sensitive blocks, write failure recoverability.
+
+## Protocol already reported and accepted
+
+Originally proposed:
+1. Require prior read in same `WorkspaceFiles` instance (baseline identity+hash).
+2. Check current identity + expected raw-byte SHA.
+3. Normalize new text to original uniform LF/CRLF; keep BOM; mixed EOL retains submitted text.
+4. Create unique root `.xingyao-edit-<uuid>` recovery directory.
+5. Write `before` snapshot and `proposed` bytes, fsync+verify.
+6. Immutable numbered JSON phase records.
+7. Final identity/hash check.
+8. Rename actual current user file to `original` in recovery dir, preserving a race’s actual bytes.
+9. Verify archived original identity/hash.
+10. Install proposal without overwriting concurrently created destination.
+11. Verify final path identity/hash and journal committed.
+12. Failure throws `WorkspaceFileError` with recovery locations, no automatic destructive rollback.
+
+Parent explicitly accepted with warning: **do not treat early `before` copy as preserving edits that race after it; actual renamed `original` must be retained.** Recognize temporarily missing/partial destination after interrupted save.
+
+### Newly identified issue and intended next change
+
+Initial code currently step 10 does `openSync(dest,O_RDWR|O_CREAT|O_EXCL)` then writes proposed bytes. This avoids overwriting a concurrently created path, but exposes partial destination and could overwrite an external write to the newly created inode.
+
+Plan just sent parent:
+- Write+fsync a separate `publish` file in controlled recovery dir before archive.
+- Retain `proposed` for recovery.
+- On **Windows**, publish via fixed PowerShell command:
+  `[IO.File]::Move($env:XINGYAO_EDIT_SOURCE, $env:XINGYAO_EDIT_DESTINATION)`
+  (two-argument .NET File.Move fails if dest exists; same-volume atomic rename).
+- Paths only in env values; never interpolated shell code. Suppress raw output; fixed sanitized failure.
+- This preserves non-overwrite publication on NTFS/exFAT without requiring hardlinks.
+- Non-Windows alternative: atomic exclusive `linkSync(publish,dest)` then unlink publish, but regularFile currently rejects `nlink!==1`, so unlink publish before final read; preserve proposed separately.
+- Need verify actual .NET behavior in temp test, including existing destination preserved and special/Unicode path.
+- Overhead of one local PowerShell per save is acceptable if parent agrees; no hypothetical claims.
+
+## Current draft details to retain/improve
+
+Exports:
+```ts
+MAX_WORKSPACE_FILE_BYTES = 2*1024*1024
+WorkspaceRoot, WorkspaceEntry, WorkspaceListing, WorkspaceFile
+WorkspaceSave = WorkspaceFile & {backupPath:string|null;changed:boolean}
+WorkspaceSaveBoundary =
+ "recovery-created" | "backup-verified" | "proposed-verified" |
+ "before-archive" | "source-archived" | "destination-created" |
+ "destination-written" | "destination-verified"
+
+WorkspaceFilesOptions {
+ protectedDirectories?:string[]
+ afterBoundary?: (boundary, {
+   absolutePath,recoveryDirectory,backupPath,proposedPath
+ })=>void
+}
+WorkspaceFileError extends Error {
+ kind:"invalid"|"denied"|"conflict"|"recovery"
+ recoveryDirectory?:string
+ backupPath?:string
+}
+```
+
+- Sync methods, parent can await them.
+- Map authorized roots; random UUID capabilities; duplicates return same ID if identity intact.
+- Root canonicalized via `realpathSync.native` after rejecting symlink chain.
+- Baseline map key rootId + normalized relative path.
+- Same-content save returns `changed:false, backupPath:null`, creates no backups.
+- Save errors after recovery dir created return generic safe message + structured locations.
+- Test fault injection after specific real filesystem boundaries, similar existing `files.ts`.
+- List at most 500 entries, scans at most 5000 directory entries, no recursion.
+- `.path` in list/read is `/`-separated relative path; `.absolutePath` file actual local path.
+- Text decoder fatal UTF-8; BOM stripped in text but raw SHA covers BOM; line ending detected.
+- Text validator rejects control chars, unpaired surrogate conversion, private key headers.
+- Reject hardlinks (`nlink!==1`) to avoid writing shared external inode.
+- Supported extensions mirror knowledge importer plus SVG; special plain files README/LICENSE/Dockerfile/Makefile/.gitignore/.gitattributes/.editorconfig.
+- Protected directories include `.git .codex .agents .ssh .aws .gnupg .opencode .config .cache .local node_modules ... dist build target coverage Windows Program Files ...` and `.xingyao-*`, `.product-restore-*`, `.release-writer`.
+- Protected files auth.json, engine-config.json and variants, opencode.json/jsonc, running.json, drive.json, .npmrc/.pypirc/.netrc, private-key names/extensions, credential/secret/token name patterns, sqlite/db.
+- Additional `protectedDirectories` supplied by parent helps block exact host/system/vault roots.
+- Directory metadata detection blocks components containing `soul.db` or `(release.json && xingyao.exe)`; does not read their contents.
+- `readSnapshot` reads fd up to 2MiB+1 and verifies file identity, size, mtime/ctime before/after, named identity; returns raw bytes and SHA.
+
+### Other draft issues identified but not yet fixed
+
+1. **Catch recovery logging path race:** `catch` writes failure JSON to recoveryDirectory without validating it is still owned and not replaced by a junction. Move `recoveryIdentity` into outer scope and revalidate root + full directory chain + expected identity before trying failure log. If unsafe, skip log; previous immutable phase logs still evidence.
+2. **Nested parent identity:** root identity tracked but nested directory identity not pinned across save. Capture original parent directory identity and validate expected parent before archive/publication/final success and around hooks. Prevent saving into a concurrently replaced ordinary parent directory.
+3. **List directory identity:** list validates safety before/after but not same identity; capture and check at end.
+4. **readSnapshot named metadata:** after fd read, compare final named size/mtime/ctime against `fstat` as well, not only identity.
+5. **Publication hook semantics:** change/remove `"destination-created"`/`"destination-written"` or interpret them around atomic installation. Tell parent final public test boundary types if changed.
+6. **Post-error recovery backupPath:** points `original` before actual archive; `before` exists in earlier phases. Error should not misleadingly imply missing `original` is usable; perhaps backupPath chooses actual `original` if verified present otherwise `before` (keep recoveryDirectory). Parent expects recovery details.
+7. No test file written yet.
+8. Root `protectedDirectories` option must validate absolute? currently `resolve` silently accepts relative options; internal trusted config but prudent validate at construction.
+9. Destination path existence validation after `.NET` publication and final hash remains necessary; external modification at final test hook should fail while leaving user’s altered destination intact.
+
+## Existing reference implementation
+
+`F:/codex/xingyao/src/files.ts`:
+- `FileOrganizer` preserves original by rename into `.xingyao-recovery-uuid`.
+- Identity `{dev,ino,birthtimeMs}`.
+- `fileHash` validates before/after.
+- Journals in domain DB, tests inject `afterBoundary`.
+- Do not edit.
+`test/files.test.ts` shows isolated fixture and junction tests; currently uses `rmSync` cleanup with temp dirs.
+
+## Other recently completed work (do not redo)
+
+### Graph backend + source
+
+Files owned previously but parent now integrating:
+- `src/knowledge-graph.ts`
+- `test/knowledge-graph.test.ts`
+
+`GraphStore(db).build({scope,includePrivate?,maxNodes?,maxEdges?})`:
+- SQL visibility prefilter, document/memory/experience nodes.
+- wiki/markdown/memory_source edges with evidence.
+- ambiguous/hidden/missing external reports, caps.
+- no actual files opened.
+- initial 14 tests /95 assertions.
+
+`GraphStore.source({scope,includePrivate?,id,startLine?,lineLimit?})`:
+- document imported cache, 1-based lines, default80/max200, <=256Ki UTF16 body; long-line120-codepoint overlap verified.
+- returns doc flat fields, memory `{kind,id,label,scope,private,memory,truncated}`, experience same with `experience` (no arbitrary evidence).
+- sourceIds filtered via memory_sources + visible nonretracted experiences; supersedes hidden/inactive -> null.
+- metadata revision and live file independence.
+- 22 graph tests /173 assertions + parent graph API 4/50 pass; typecheck passed.
+Parent owns server and UI now.
+
+### Earlier engine compatibility
+
+Final qualified engine:
+`C:/Users/LT/Documents/trae/packages/opencode/dist/opencode-windows-x64/bin/opencode.exe`
+`0.0.0-product-dev-20260917-engine.5`
+SHA256 `528277b2ea4178093a192da0fe33ef4768e7ae5514a7b21de006d07212c6df83`
+136180736 bytes.
+
+Two patches:
+1. core filesystem search import cycle.
+2. explicit OPENCODE_PORTABLE_ROOT path mapping + Git root mapping.
+Queue `F:/codex/xingyao/patches/opencode/`.
+Docs `docs/opencode-patches.md`.
+Adapter/engine/real-engine/engine-backup 28 pass /166.
+Same-session SUBST A→B + new host DB plain+Git real loopback model verified.
+Checkpoint restore **exact engine version only**. Legacy `/session`, not API V2.
+Arbitrary changed physical stored project paths fail; stable SUBST + patch solves new sessions.
+No public models or real credentials used.
+Potential architectural risk review parent asks should refer engine backup exact-version and checkpoint consistency limitations.
+
+### Launcher fix
+
+`src/launcher.ts`, `src/launcher-cli.ts`, tests completed previously.
+Windows Bun child.unref caused product die before init; loader now await child.exited, propagates safe failure code.
+Parent fixed Unicode SUBST decoding in portable.ts (native realpath instead of decoding localized stdout).
+Product .2 built and installed by parent; do not change formal install.
+An auxiliary agent’s diagnostic temp dir cleanup got auto-review refusal and left directory intentionally:
+`C:/Users/LT/AppData/Local/Temp/xingyao-launcher-meta-57fe23bb443243fbbc72b97c261a9af3`.
+Parent knows; do not retry deletion.
+
+## Next steps
+
+1. Re-read `workspace-files.ts` current draft if needed.
+2. Fix TS narrowing and safe path identity issues above.
+3. Implement exclusive atomic publication with temp tested Windows `.NET File.Move` or a demonstrably safe equivalent; preserve proposed and real archived original.
+4. Create `test/workspace-files.test.ts`:
+   - explicit capability, duplicate root, fresh instance rejects old IDs
+   - list filtering + bounds/no recursion
+   - read UTF8 BOM EOL, LF/CRLF preservation/mixed/noop
+   - sensitive names, unsupported/binary/oversize/invalid Unicode/privatekey
+   - traversal/ADS/device/UNC, root/component junction, hardlink
+   - external hash and same-byte identity replacement conflict
+   - conflict at before-archive leaves external changes untouched
+   - race archived external writes preservation
+   - concurrently-created destination not overwritten
+   - failure after archive has recoverable original+proposal+phase logs
+   - failure/final external edits no false success
+   - nested dir/root replacement
+5. Run only `bun test test/workspace-files.test.ts` and `bun run typecheck`; appropriate new tests only.
+6. Send stable API/result/error semantics to parent and report exact validation.
+7. Briefly read exact checkpoint/recovery/engine-backup paths and line numbers for parent’s 3-month architecture risk summary; no claims of failures not reproduced.
+
+
+## 2026-09-17T15:16:42.292Z · 助理
+
+我继续把开发草稿里的文件编辑与恢复机制补齐，重点验证外部修改冲突、断电中断后的原件保留，以及 OpenCode 更新时的数据兼容边界。完成后会把已验证的结果和三个月后最可能出现的问题汇总进整体方案。
+
+
+## 2026-09-17T15:16:56.618Z · /root → /root/upstream_compat
+
+Message Type: MESSAGE
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:18:42.711Z · 助理
+
+目前最明确的结论是：系统已经有检查点、校验和恢复保护，但未来版本兼容、长期存储增长、以及便携盘丢失后的独立恢复仍是三个主要缺口。我已把这些区分为代码现状与风险推演；当前文件编辑模块只保留为可通过类型检查的草稿，先不接入产品。
+
+
+## 2026-09-17T15:19:36.356Z · 助理
+
+已按最新范围停止文件编辑功能扩展，完成类型检查和存储架构反省。**没有集成或安装新版本。**
+
+[workspace-files.ts](/F:/codex/xingyao/src/workspace-files.ts:38) 的 TypeScript 收窄错误已修复，`bun run typecheck` 通过。该模块目前没有被其他源码或测试引用，也尚未建立专属测试。保存协议仍有并发发布和恢复路径校验问题待解决，因此继续作为开发草稿保留。
+
+三个最高风险如下：
+
+| 风险 | 代码事实 | 三个月后的可能问题 | 建议设计 |
+|---|---|---|---|
+| **OpenCode 更新与历史恢复不兼容** | [engine-backup.ts](/F:/codex/xingyao/src/engine-backup.ts:94) 仅接受完全相同的引擎版本；[数据库识别](/F:/codex/xingyao/src/engine-backup.ts:145) 仅支持两个既定库名；[checkpoint.ts](/F:/codex/xingyao/src/checkpoint.ts:115) 只接受当前领域 schema。适配器只实现 legacy HTTP，未实现 `/api` V2。 | 直接更新后，新宿主恢复旧检查点可能被拒绝；旧引擎也未必能打开新版迁移后的库。这是目前的兼容边界，不能表述为支持任意上游更新。 | 产品代码、引擎二进制 SHA-256、适配器版本、领域 schema、数据兼容范围作为一个发行单元。跨版迁移在复制出的新数据分支上进行，验证恢复、原会话续接与工具执行后再选定新版，保留旧发行和旧分支。 |
+| **全量检查点导致容量和等待时间持续增长** | [checkpoint.ts](/F:/codex/xingyao/src/checkpoint.ts:159) 扫描并复验全部历史代次；[创建检查点](/F:/codex/xingyao/src/checkpoint.ts:197) 每次先重扫，再全量 `VACUUM INTO` 和复制；[引擎备份](/F:/codex/xingyao/src/engine-backup.ts:46) 同样复制全库。当前流程没有快照配额或保留策略。 | 历史越长，同步和启动复验成本越高，便携盘可能被备份耗尽。例如每代 200 MB、每天 10 代、90 天约 180 GB；这是示例估算，并非实测。 | 明确容量预算、空间预检、按时间分层保留与后台完整巡检。清理必须维护父代关系及分支信息，不能直接删除“较旧目录”。 |
+| **便携盘检查点尚未覆盖介质丢失和真实断电场景** | [main.ts](/F:/codex/xingyao/src/main.ts:28) 默认将活动库放在宿主 LocalAppData，检查点放在便携盘 vault；[checkpoint.ts](/F:/codex/xingyao/src/checkpoint.ts:22) 在 Windows 不执行目录 fsync；[恢复发布](/F:/codex/xingyao/src/checkpoint.ts:268) 依赖宿主文件系统硬链接。现有文档明确未验证另一实体机和真实断电。 | 拔盘后可能留下宿主未同步分支；丢失 F 盘并离开原宿主时，没有代码层面的独立第二恢复源。这里是架构推演，没有声称已发生数据丢失。 | 状态分别显示“宿主已提交”“本盘检查点完整”“独立介质已备份”。增加跨介质可验证副本，并做真实拔盘、磁盘空间不足、全新机器恢复演练。 |
+
+还有一个需要写进升级验收的边界：[server.ts](/F:/codex/xingyao/src/server.ts:63) 在产品任务和文件操作空闲后建立检查点，而[常规引擎备份回调](/F:/codex/xingyao/src/main.ts:95) 没有先停止引擎。目前没有复现跨库不一致，但“本产品没有正在执行的任务”并不充分证明未来 OpenCode 的全部后台写入均已停止。联合检查点应有明确的引擎静默屏障，并通过联合恢复演练验证。
+
+## 2026-09-17T15:29:28.911Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:29:43.888Z · 助理
+
+我开始补执行证据这一层：把“工具调用结束”和“工具实际返回成功”分开记录，只保留经过验证的退出码、时间等结构化字段，避免把模型文本或未知工具的返回内容当成成功证明。
+
+
+## 2026-09-17T15:33:16.281Z · 助理
+
+已核对当前上游实现：Shell 即使超时或被取消，也可能以 `completed` 结束，但其 `metadata.exit` 为 `null`。因此不能仅凭 `completed` 认定成功；我会保留这一差异，并验证普通工具、未知工具和重复返回都不会制造错误的成功证据。
+
+
+## 2026-09-17T15:36:22.186Z · 助理
+
+A01 已完成，修改仅涉及 [adapter.ts](/F:/codex/xingyao/src/adapter.ts:27) 和 [adapter.test.ts](/F:/codex/xingyao/test/adapter.test.ts:95)。没有安装、提交或修改上游代码。
+
+`NormalizedPart` 的工具分支现有必填 `execution`：
+
+```ts
+export type ToolExecutionEvidence = {
+  version: 1
+  lifecycle: "completed" | "failed" | "unknown"
+  outcome: "succeeded" | "failed" | "unknown"
+  basis: string
+  exitCode?: number | null
+  startedAt?: number
+  finishedAt?: number
+}
+```
+
+原 `status`、`upstreamStatus` 保留；调用方应依据 `execution.outcome` 判断工具层结果，并保留 `basis` 解释依据：
+
+| 条件 | outcome | basis |
+|---|---|---|
+| bash/shell 完成，结构化 `metadata.exit=0` | `succeeded` | `shell-exit-zero` |
+| bash/shell 完成，有效非零退出码 | `failed` | `shell-exit-nonzero` |
+| bash/shell 完成，退出码缺失、`null` 或无效 | `unknown` | `shell-exit-unavailable` |
+| 已核对的 read/write/edit 完成 | `succeeded` | `builtin-tool-completed` |
+| 已知工具报告执行异常 | `failed` | `builtin-tool-error` |
+| `metadata.interrupted=true` | `unknown` | `tool-interrupted` |
+| 尚未终结或未知生命周期 | `unknown` | `tool-not-terminal` |
+| 未知或 MCP 工具 | `unknown` | `unrecognized-tool-contract` |
+| provider 在外部执行的同名工具 | `unknown` | `provider-executed-tool` |
+
+这些值只表达进程或工具操作的结果。非零退出码不等于用户整体目标失败；读写工具正常返回也不等于代码正确、任务完成。
+
+白名单保留有效退出码与 `state.time.start/end`。无效值、任意 metadata、provider 凭据、诊断附加对象均不进入 `execution`。模型文字和工具输出中的“成功”“exit=0”等声明不会改变结果。取消后的旧 `exit=0` 也不会制造成功证据。
+
+已核对当前上游的关键行为：
+
+- [shell.ts](/C:/Users/LT/Documents/trae/packages/opencode/src/tool/shell.ts:542)：超时或取消返回 `null`，随后放入 `metadata.exit`。
+- [processor.ts](/C:/Users/LT/Documents/trae/packages/opencode/src/session/processor.ts:174)：工具函数返回即记录 `completed`，包括 Shell 非零退出的情况。
+- [取消处理](/C:/Users/LT/Documents/trae/packages/opencode/src/session/processor.ts:603)：中断记录 `metadata.interrupted=true`。
+- [公开 legacy schema](/C:/Users/LT/Documents/trae/packages/schema/src/v1/session.ts:277)：工具时间字段为 `time.start/end`。
+
+验证结果：`bun test test/adapter.test.ts` **19 通过、0 失败、121 次断言**；`bun run typecheck` 通过。新增回归覆盖非零退出、超时取消、缺失及无效 metadata、未知/MCP/provider 工具、时间校验、文本伪造、重复响应和重复 part。真实 engine.5 集成用例验证了隔离环境中的公共 API；新增 Shell 结果分类使用按已核对上游契约构造的回归响应，未宣称完成真实模型驱动的 Shell 执行验收。
+
+## 2026-09-17T15:37:03.918Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:37:12.115Z · 助理
+
+我接着做一轮只读交叉审查，重点检查旧证据迁移、重复快照、隐私删除和封存状态是否互相冲突，以及投影失败后会不会留下误导性的成功状态。
+
+
+## 2026-09-17T15:39:56.495Z · 助理
+
+已复现两个实际问题：删除记忆后，动作上的结构化执行证据仍会保留并可被重放写回；另外，首次晚到的旧运行快照能覆盖已完成结果。它们都已交给主实现方修复，我继续核对迁移与封存是否还有类似边界。
+
+
+## 2026-09-17T15:43:55.206Z · /root → /root/upstream_compat
+
+Message Type: MESSAGE
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:51:55.438Z · /root → /root/upstream_compat
+
+Message Type: MESSAGE
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:52:23.875Z · 助理
+
+升级审查又确认了一处问题：旧库打开时的迁移会增加版本计数，启动逻辑可能因此误判成未同步分支。接下来我负责补齐检查点和发行选择对旧、新两代数据结构的兼容，确保旧快照仍可校验恢复，同时阻止旧程序配上新结构数据。
+
+
+## 2026-09-17T15:53:20.774Z · /root → /root/upstream_compat
+
+Message Type: MESSAGE
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:53:44.558Z · 助理
+
+兼容范围会明确限定为已支持的两代数据结构：旧快照保持原样恢复，新程序再执行迁移；恢复分支升级后，启动器也要能验证从旧结构到新结构的连续关系。
+
+自动审批审查拒绝了删除本轮临时验证目录 `C:\Users\LT\AppData\Local\Temp\xingyao-upgrade-main-same-Zznz7Z` 的清理操作，给出的理由是“blocked by policy”。我保留该目录，不再重试删除；这不影响源码修改和隔离测试。
+
+
+## 2026-09-17T15:57:04.863Z · /root/canvas_research → /root/upstream_compat
+
+Message Type: MESSAGE
+Task name: /root/upstream_compat
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:01:15.312Z · 助理
+
+检查点和发行选择的兼容回归已通过：旧结构快照可以恢复且原文件不变，新结构可以接续旧检查点，回滚必须使用与旧程序结构匹配的数据。启动器新增的三项回归也已通过，正在完成已有启动与安装器测试。
+
+
+## 2026-09-17T16:02:39.262Z · /root → /root/upstream_compat
+
+Message Type: MESSAGE
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:03:16.590Z · 助理
+
+本轮验证已结束，**没有仍在运行的测试进程，已停止编辑**。没有构建或发布 dev.5 候选，也没有安装到正式目录。
+
+本轮修改的 6 个文件：
+
+- [checkpoint.ts](/F:/codex/xingyao/src/checkpoint.ts:115)：检查点支持验证和恢复 schema 1、2，保留旧快照原始结构和字节；拒绝未知结构版本，以及 schema 2 父代追加 schema 1 子代。
+- [releases.ts](/F:/codex/xingyao/src/releases.ts:82)：允许读取 schema 1 的历史发行与选择记录，并激活 schema 2 发行；回滚仍要求程序、检查点、实际恢复副本结构匹配。即使产品版本号更大，也不能通过普通激活降回旧结构。
+- [launcher.ts](/F:/codex/xingyao/src/launcher.ts:27)：从重新校验的当前发行清单读取目标结构版本。恢复基点为 schema 1 时，允许新版先启动未迁移的 schema 1 宿主，之后再次启动已迁移的 schema 2 宿主；后续 schema 2 检查点仍须沿父代证明属于原恢复分支。拒绝旧程序启动新结构恢复数据，以及结构或修订号倒退的历史链。
+- [checkpoint.test.ts](/F:/codex/xingyao/test/checkpoint.test.ts:86)：新增历史快照保持不变、混合结构父代链、未知结构及伪造匹配哈希的拒绝测试。
+- [releases.test.ts](/F:/codex/xingyao/test/releases.test.ts:166)：新增历史选择升级、回滚结构错配、更大产品版本号掩盖结构降级的测试；既有常量改用当前 `SCHEMA_VERSION`。
+- [launcher.test.ts](/F:/codex/xingyao/test/launcher.test.ts:119)：新增恢复基点跨结构升级后连续启动、旧程序拒绝新数据、已重算哈希但结构倒退的历史链测试；既有夹具适配当前结构版本。
+
+验证结果：
+
+| 检查 | 结果 |
+|---|---|
+| `bun test test/checkpoint.test.ts test/releases.test.ts` | **30 通过，0 失败，142 次断言** |
+| `bun test test/launcher.test.ts` | **17 通过，1 跳过，0 失败，69 次断言** |
+| 最后补充恢复基点检查后，`bun test test/launcher.test.ts --test-name-pattern schema` | **3 通过，0 失败，13 次断言** |
+| `bun run typecheck` | **通过** |
+
+跳过的是既有“编译启动器启动真实产品和引擎”的制品集成测试：运行该套测试时当前版本为 dev.4，相应完整发行制品不存在。独立编译启动器、入口缺参退出、真实子进程失败码传递测试均已通过。现在版本已升至 dev.5，真实制品集成需要交由即将执行的候选构建和完整验证覆盖。
+
+更早完成的 A01 改动仍保留在 [adapter.ts](/F:/codex/xingyao/src/adapter.ts:27) 与 [adapter.test.ts](/F:/codex/xingyao/test/adapter.test.ts:95)，当时为 **19 通过、0 失败、121 次断言**。`workspace-files.ts` 仍是未接入、未完成验证的开发草稿，本轮没有继续扩展它。
+
+自动审批审查拒绝了清理本轮临时验证目录 `C:\Users\LT\AppData\Local\Temp\xingyao-upgrade-main-same-Zznz7Z`，工具给出的理由为“blocked by policy”。已保留该目录，没有绕过或重试删除。
+
+## 2026-09-17T16:05:32.961Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:06:16.793Z · 助理
+
+我会补上整个便携库的版本保护：只要同一个库已经有新版结构的完整检查点，旧版程序就不能通过回滚选择或启动入口继续写入它。旧快照仍可由新版程序恢复；需要运行旧程序时，会明确要求使用隔离的恢复副本。
+
+
+## 2026-09-17T16:09:38.728Z · 助理
+
+新增防护的定向测试已通过：即使旧快照和旧宿主彼此完全匹配，只要同一个便携库已有新版完整检查点，回滚和启动都会被拒绝。旧结构独立库仍能启动，新版恢复旧快照的路径也保持可用。
+
+
+## 2026-09-17T16:10:34.724Z · 助理
+
+新增 P1 防护已完成，测试结束，已停止编辑。**没有构建或发布 dev.5，也没有安装到正式目录。**
+
+本轮只修改以下 4 个文件：
+
+- [releases.ts](/F:/codex/xingyao/src/releases.ts)：新增整个便携库的结构版本检查。回滚选中的旧快照与宿主即使完全匹配，只要同库还有结构版本高于所选程序的完整、已验证检查点，仍拒绝选择旧程序，并明确要求使用隔离的便携库和宿主恢复副本。
+- [launcher.ts](/F:/codex/xingyao/src/launcher.ts)：所有启动路径均执行上述检查，包括没有恢复记录的普通启动和显式指定新宿主目录的启动。一次检查点扫描结果同时用于版本保护和恢复分支验证，避免重复全量扫描。
+- [releases.test.ts](/F:/codex/xingyao/test/releases.test.ts)：增加同库 `g1(schema1) → g2(schema2)` 时拒绝回滚旧程序的回归，确认选择记录、旧宿主及旧快照保持不变；同时确认新版代码仍能恢复 `g1`。
+- [launcher.test.ts](/F:/codex/xingyao/test/launcher.test.ts)：增加既有旧恢复选择在新版检查点出现后被拒绝、普通旧版启动在新版检查点出现后被拒绝的回归。保留旧结构独立库合法启动、新版恢复旧分支的控制测试。
+
+验证结果：
+
+| 检查 | 结果 |
+|---|---|
+| 两套完整回归：`releases.test.ts`、`launcher.test.ts` | **36 通过、1 跳过、0 失败，168 次断言** |
+| 结构版本定向回归 | **9 通过、0 失败，48 次断言** |
+| `bun run typecheck` | **通过** |
+
+唯一跳过的是依赖真实 dev.5 发行制品的既有启动器集成测试；dev.5 尚未构建。真实编译启动器入口、子进程退出码传递等测试通过。
+
+本次防护覆盖已验证的 schema 1、2 检查点，封住了已复现的旧程序在同库生成第二个旧结构分支的问题。直接绕过新启动器执行旧二进制，或已经运行中的旧进程，仍无法由这两个入口撤销。另已向主实现方说明：未来未知 schema 3 需要单独的不兼容诊断，因为当前恢复候选列表会忽略尚不支持的结构版本。
+
+## 2026-09-17T16:12:35.660Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:12:47.648Z · 助理
+
+我先只读检查 GitHub 仓库的分支、代码、自动测试和发行现状，再把它与本地产品对应起来，给出可以直接落实的仓库分工建议。
+
+
+## 2026-09-17T16:15:39.937Z · 助理
+
+## Identity and active task
+
+You are subagent `/root/upstream_compat`, parent `/root`. Latest parent assignment is **read-only GitHub repository review** and an actionable recommendation, while parent continues product repair/release work.
+
+Parent exact scope:
+> 用户最新问“github仓库你看看怎么利用”。请独立只读检查我们仓库 https://github.com/LUTAO581314/xingyao-shuanji（用gh CLI API；不推送/创建issue/workflow/任何远程写入，不读凭据），分支/根文件/README/是否产品src与patches已上线/CI/release现状，结合本地 F:/codex/xingyao 设计一份简明可执行的GitHub职责建议。重点源码主线、最小OpenCode补丁、Actions契约/迁移测试、发行制品、独立聊天归档分支区别，不要把建议当完成。不改文件。root继续完成修复发行。
+
+**No modifications or remote writes for current task.** Research is already done; next step is send parent a concise fact-based recommendation/final. Do not repeat queries unnecessarily.
+
+## Workspace and constraints
+
+- CWD `F:/codex/xingyao`, Windows PowerShell, Bun 1.4.2.
+- Current date user context `2026-09-18`, Asia/Shanghai.
+- Product version currently `0.1.0-dev.5`, schema 2.
+- Root repo local branch `product-v2`; HEAD observed `364beb5 feat: ship knowledge graph workbench with verified source browsing`; worktree has ongoing parent changes.
+- Local remote points to `https://github.com/LUTAO581314/xingyao-shuanji.git`.
+- `AGENTS.md`: independent runtime; OpenCode coupling in `src/adapter.ts`; no private upstream imports/DB writes; provenance; temp isolated tests; no reading credentials.
+- Parent/source ownership instructions persist; current task is only read-only research.
+- Communicate Chinese, plain direct prose. Commentary already sent:
+  > 我先只读检查 GitHub 仓库的分支、代码、自动测试和发行现状，再把它与本地产品对应起来，给出可以直接落实的仓库分工建议。
+- Tools available via functions.exec + tools.exec_command; collaboration tools direct.
+- No skills needed.
+
+## Verified GitHub facts (from gh API)
+
+Repository:
+- https://github.com/LUTAO581314/xingyao-shuanji
+- Public, not archived.
+- `default_branch: conversation-archive`.
+- **Only one branch:** `conversation-archive`, unprotected.
+- Branch SHA `72988b9c23d3ed277541cd44bdf7907bf0969193`.
+- `license: null`, description null, issues/wiki enabled.
+- pushed_at `2026-09-17T15:05:07Z`.
+- Root entries:
+  - `.gitattributes` (108 bytes)
+  - `README.md` (351 bytes)
+  - `conversations/`
+  - `tools/`
+- Full recursive tree returned `truncated: false`; **no `src/`, `test/`, `patches/`, product `package.json`, or `.github/workflows/` online**.
+- `tools/` contains `export-conversations.ts` and `export-conversations.test.ts`.
+- Archives under `conversations/2026-09-17/01a0aede-90f2-7a73-baf2-0408fa980f18/`:
+  root + subagent `.jsonl` and `.md`, README index, manifest.json.
+- Actions API: **0 workflows, 0 runs**.
+- Releases API empty; tags API empty.
+- Recent commits all archive:
+  - `72988b9...` `archive: include final graph release validation and installation`, `2026-09-17T15:05:04Z`.
+  - `5bfce35...` archive graph conversations.
+  - `27cb2ce...` archive root and descendant records.
+
+Remote README exact:
+```
+# 星杳 · 璇玑对话档案
+
+[打开本任务的完整导出索引](conversations/2026-09-17/01a0aede-90f2-7a73-baf2-0408fa980f18/README.md)
+
+此分支用于保存当前任务及全部子智能体的可导出聊天与工具记录。快照截止 2026-09-17T15:04:43.508Z；凭据值已脱敏。产品源码与安装制品不在此档案分支中。
+```
+Do **not** assert archives are independently proven secret-free: only README states redacted. We did not read large conversation bodies or credential files.
+
+Useful source links for final:
+- [仓库](https://github.com/LUTAO581314/xingyao-shuanji)
+- [当前 README](https://github.com/LUTAO581314/xingyao-shuanji/blob/conversation-archive/README.md)
+- [分支](https://github.com/LUTAO581314/xingyao-shuanji/branches)
+- [Actions](https://github.com/LUTAO581314/xingyao-shuanji/actions)
+- [Releases](https://github.com/LUTAO581314/xingyao-shuanji/releases)
+- [上游 OpenCode](https://github.com/anomalyco/opencode)
+
+## Local code/build facts to use in recommendation
+
+Local `package.json`:
+```
+name xingyao-xuanji
+version 0.1.0-dev.5
+private true
+scripts:
+ dev bun run src/main.ts
+ test bun test test
+ typecheck tsc --noEmit
+ build bun run script/build.ts
+devDependencies:
+ @playwright/test 1.59.1
+ @types/bun 1.3.13
+ typescript 5.8.2
+```
+Local `.github` absent.
+
+`.gitignore` currently:
+```
+node_modules/
+dist/
+playwright-report/
+test-results/
+reports/
+*.log
+.local/
+```
+Recommendation: explicit allowlist source import; strengthen ignore for runtime/vault/db/config/auth if relevant. Do not upload F-drive backup/live data as source.
+
+Local files:
+- `src/`, `test/`, `script/`, `docs/`, `patches/opencode/`, `bun.lock`.
+- Local README detailed product behaviors and limits.
+- `docs/system-design.md`, `implementation-status.md`, `verification.md`, `verification-graph.md`, `opencode-patches.md`, `evidence-fixes-2026-09-17.md`, architecture review.
+- `script/build.ts`, `script/verify-release.ts`, `script/install.ts`, `script/graph-browser-check.mjs`, `script/source-hash.ts`.
+
+**Critical build reproducibility caveat:**
+`patches/opencode/manifest.json`:
+```
+baseline: d0a9b965ac3cfbd8a80c636508ab225c3c91f740
+verifiedEngine.version: 0.0.0-product-dev-20260917-engine.5
+verifiedEngine.sha256: 528277b2ea4178093a192da0fe33ef4768e7ae5514a7b21de006d07212c6df83
+replayVerified: true
+scope: These two patches only; earlier product working-tree changes are not included.
+```
+Patches:
+1. `001-filesystem-search-import-cycle.patch`
+   SHA `f9a8b233c08e5db0d46acd9edc834068bc4aae48b96f0a2419fa47b103462662`
+2. `002-portable-workspace-paths.patch`
+   SHA `b9118f91ad6932b0eadc594850aed1685fa3af4fd8f3a888a5d8622b76eb6338`
+
+`patches/opencode/README.md` explicitly says current engine is also based on **earlier dirty product working-tree changes** (old Soul/prompt/UI/update guard), not included in 2-patch queue. Thus:
+- Cannot claim clean clone upstream baseline + these 2 patches reproduces engine.5.
+- Highest-priority GitHub work: record complete qualified engine source commit/patch delta (separate engine branch/repo if needed), establish clean checkout reproducibility before CI claims.
+- Keep product runtime separate from minimal engine patches; eventually remove old fork modifications when separately verified.
+- Update in isolated checkout, `git apply --check`, test whether upstream fixes allow patch removal.
+- Current legacy HTTP adapter only; V2 unsupported.
+- Backup restoration exact engine version until separately verified migration.
+
+`script/build.ts`:
+- Bun compile `src/cli.ts` to Windows x64 `dist/xingyao-<PRODUCT_VERSION>/xingyao.exe`.
+- Env `XINGYAO_BUILD_ENGINE` supplies opencode.exe.
+- Upstream license env `XINGYAO_UPSTREAM_LICENSE`, fallback hardcoded local `C:/Users/LT/Documents/trae/LICENSE` (CI needs explicit checkout path).
+- Copies notices, docs, patches, README, licenses.
+- Produces release.json with file hashes, engineVersion, sourceHash, product/protocol/schema/version.
+- No assumption binary deterministic/hash identical across machines; source pinned reproducibility stronger than byte-identical claim.
+
+`script/verify-release.ts`:
+- Verifies candidate manifest, sourceHash matches current source.
+- typecheck then all tests with `XINGYAO_TEST_OPENCODE=<candidate/opencode.exe>`.
+- **Rejects skips/todos/fails** in release gate.
+- Requires output markers including real loopback model, real shell outcomes, HTTP evidence, startup migration, compiled product, portable/recovery.
+- Runs browser graph check against compiled product.
+- Rechecks executable/report hashes and sourceHash.
+- Generates `release-validation.json` bound to `release.json` hash.
+- Logs under ignored `reports/`; GitHub Actions artifacts should publish sanitized logs/browser evidence then attach selected release artifacts.
+- Existing tests real engine loopback uses deterministic local fake provider, **no paid public model credentials needed**.
+- Windows runner required for NTFS, SUBST, junction, process launcher; Linux-only CI not enough.
+- PR fast tests can skip engine checks but must be labeled limited; release must no skips and actual candidate binary.
+
+Suggested responsibilities (not implemented):
+1. `main` default product source from local `product-v2`, only reviewed source/test/lock/docs/scripts/patches; do not merge entire chat archive into main.
+2. Preserve `conversation-archive` independent history branch, crosslink README; archive evidence/design source, not product runtime memory or source-of-truth implementation.
+3. Minimal engine patch queue + exact source/base manifest + controlled compatible versions; no `latest` auto-upgrades.
+4. Windows Actions PR checks (typecheck/domain/API/recovery/schema), candidate/periodic upstream compatibility build (isolated, no auto-release), release gate invokes existing verify-release with actual engine and browser.
+5. Tags/releases for versioned binaries, release.json, validation, hashes, notices/source references; exclude live soul.db/vault/credentials/archives by default.
+6. Issues/milestones for concrete accepted work with test evidence; branch protection required checks. Repo currently license null—owner should choose product license before public source broad publishing, but do not block recommendation with legal checklist.
+7. Ready-to-execute order: finalize source-tested .5 → complete engine source provenance → publish main + README default branch plan → Actions gate → draft prerelease only after tests → upstream probe.
+Be clear these are proposals; no remote changes happened.
+
+## Previous completed implementation ownership/history (do not resume unless assigned)
+
+### A01 execution evidence
+Edited `src/adapter.ts`, `test/adapter.test.ts`.
+Tool execution evidence:
+```
+{version:1,lifecycle:"completed"|"failed"|"unknown",
+ outcome:"succeeded"|"failed"|"unknown",basis:string,
+ exitCode?:number|null,startedAt?:number,finishedAt?:number}
+```
+Known bash/shell metadata.exit0/nonnull process outcomes; missing/null invalid unknown; read/write/edit builtin result; unknown/MCP/providerExecuted unknown; interrupted unknown. Whitelist metadata, no output parsing. 19 pass /121 assertions then.
+
+### Schema 1→2 compatibility
+Parent authorized completed edits:
+- `src/checkpoint.ts`, `src/releases.ts`, `src/launcher.ts`
+- corresponding tests.
+Checkpoints support1/2 restore unchanged, reject unsupported/backward append.
+Releases support historical1 selection, activate2, exact matching rollback, block semver disguise schema downgrade.
+Launcher validates recovery base + target schema + monotonic lineage, supports base1 host1→host2 descendants.
+Earlier results 30 checkpoint/releases pass, launcher17pass1skip, typecheck.
+
+### Latest P1: old binary writes fork into mixed-schema vault
+Root reproduced real dev.4 g1schema1→g2schema2 ignored g2 and appended old head.
+Implemented only `src/releases.ts`,`src/launcher.ts`, tests:
+- export `assertVaultSchemaCompatible(schemaVersion, verifiedCheckpoints)` in releases checks any higher schema.
+- `rollbackRelease` checks whole verified vault before selecting old release.
+- `launch` scans whole vault before all launches incl no recovery, reuses scan in recoveryHost.
+- Reject old code even when selected g1/host1 match, require isolated vault+host copy.
+- New code can restore old snapshot / launch explicit old recovery.
+- targeted9 pass48; full releases+launcher **36pass1skip0fail168assertions**, typecheck.
+- One skipped integration requires dev.5 candidate not yet built.
+- No builds/install/push/commit done by this agent.
+- Limit explained parent: direct old exe/already-running old process outside new gate not constrained; `listCheckpoints` ignores unsupported future schema3 so future failclosed diagnostics separately needed. Root now may be implementing this elsewhere. Do not touch.
+
+### Read-only bugs reported parent
+- Privacy deletion retained Action.execution, stale unseen running snapshot overwrote completed, reproduced in temp. Other agent fixed, retest privacy passed.
+- Constructor upgrade revision before main clean branch check reproduced actual main with old host+newer vault. Parent/other agent fixed now.
+
+### Workspace draft
+`src/workspace-files.ts` initial unfinished draft from earlier assignment; TS fixes only; no tests/integration. Do not include in publication as completed product. Parent knows exclude workspace draft.
+
+## Approval block / leftover temp directory
+
+Earlier automatic approval review **refused** deletion:
+`C:/Users/LT/AppData/Local/Temp/xingyao-upgrade-main-same-Zznz7Z`
+Reason only `"blocked by policy"`.
+Already explained commentary and final to parent/user; **do not retry deletion via another tool/method**.
+Old another leftover from prior agent:
+`C:/Users/LT/AppData/Local/Temp/xingyao-launcher-meta-57fe23bb443243fbbc72b97c261a9af3`
+Also deletion refused; do not retry.
+No new such block current read-only task.
+
+## Next step now
+
+Send parent the verified GitHub status and succinct executable recommendation. Highlight:
+- Remote currently **only conversation archive**, not product source.
+- Local src/patches not uploaded.
+- 0 Actions/tags/releases.
+- Most important blocker for genuine CI reproducibility is incomplete engine source/patch provenance.
+- Use GitHub as source/version/test/release center; independent archive separate.
+- Existing Windows test/release scripts can be reused; no need propose total rewrite.
+- Distinguish recommendation vs completed work, include useful links.
+Then final to parent; no further tool work needed unless they ask.
+
+## 2026-09-17T16:16:34.866Z · 助理
+
+只读核查结果很明确：**目前 GitHub 上只有聊天档案，还没有产品源码、OpenCode 补丁、自动测试或发行包。** 可以把这个仓库建设成星杳·璇玑的源码、兼容验证与发行中心，保留现有档案分支作为独立记录。
+
+已核实的远程现状：
+
+| 项目 | 当前情况 |
+|---|---|
+| 仓库 | [LUTAO581314/xingyao-shuanji](https://github.com/LUTAO581314/xingyao-shuanji)，公开仓库 |
+| 默认分支 | `conversation-archive`，也是当前唯一分支，尚未保护 |
+| 根目录 | `.gitattributes`、`README.md`、`conversations/`、`tools/` |
+| 产品源码和补丁 | 没有 `src/`、`test/`、`patches/` 或产品 `package.json` |
+| 自动验证 | [Actions](https://github.com/LUTAO581314/xingyao-shuanji/actions) 中没有工作流或运行记录 |
+| 版本发行 | 没有标签或 [Releases](https://github.com/LUTAO581314/xingyao-shuanji/releases) |
+| 现有 README | 明确说明“产品源码与安装制品不在此档案分支中” |
+
+本地已有 `0.1.0-dev.5` 产品代码、构建脚本和发行验证脚本，可以沿用这些能力。建议按以下职责组织 GitHub：
+
+| 部分 | 建议职责 |
+|---|---|
+| `main` | 从本地 `product-v2` 整理产品源码、测试、锁文件、文档、构建脚本和补丁，作为正式主线 |
+| `conversation-archive` | 保留独立档案历史，README 相互链接；档案不直接成为运行时记忆或实现状态依据 |
+| `patches/opencode/` | 记录上游基线、完整改动、补丁哈希、适配协议和已验证引擎版本 |
+| Pull Request 与 Actions | 验证类型、功能、数据迁移、恢复、实际引擎和浏览器交互；必要检查通过才能合并 |
+| 标签与 Releases | 发布固定版本安装包、文件哈希、`release.json`、验证记录、许可证和源码版本信息 |
+| Issues 与里程碑 | 跟踪具体缺陷、上游兼容变化和产品计划，并链接可复核的验证结果 |
+
+**真正保证 OpenCode 更新可控，目前最先要补齐的是引擎的完整源码来源。** 本地补丁清单声明了上游基线 `d0a9b965ac3cfbd8a80c636508ab225c3c91f740`，现有两份补丁也已验证能够重放；但其 README 同时说明，当前 `engine.5` 还包含更早的 Soul、提示词、UI 和更新保护等工作区改动，这些没有包含在两份补丁中。因此，现在不能声称“干净克隆上游，再应用现有两份补丁，就能重建当前引擎”。
+
+建议先把这些遗留改动落实为明确的源码提交或完整补丁序列，记录构建工具及依赖版本，验证能从干净检出重新构建。此后再逐步收缩 OpenCode 内部改动，保持星杳运行时独立，把耦合集中在现有 `src/adapter.ts`。
+
+上游更新采用下面的固定流程：
+
+```mermaid
+flowchart LR
+    A[发现 OpenCode 新版本] --> B[独立检出固定上游版本]
+    B --> C[验证补丁并构建候选引擎]
+    C --> D[适配接口与工具结果测试]
+    D --> E[旧数据迁移与恢复测试]
+    E --> F[实际候选程序与浏览器验证]
+    F --> G[记录兼容版本并发布候选包]
+    G --> H[通过后更新产品固定引擎版本]
+```
+
+这里的兼容承诺应是“每个交付版本都验证过，升级失败有明确处理路径”。未来上游可能改变接口，不能承诺所有未来版本都自动兼容。当前适配器仍使用旧版 HTTP 接口，V2 接口尚未支持；发现协议变化时应明确拒绝升级并保留已有版本。
+
+自动验证可以直接复用本地已有能力：
+
+- PR 阶段运行类型检查和相关功能测试；没有实际引擎的检查要明确说明验证范围。
+- 发行阶段使用 Windows runner，运行现有 `script/verify-release.ts`，把候选 `opencode.exe` 交给测试。Windows 的路径、NTFS、SUBST、junction 和启动器行为需要真实覆盖。
+- 沿用现有发行门槛：拒绝失败、跳过和待办测试，验证编译后的产品、真实引擎调用、迁移恢复和浏览器界面，并把验证记录绑定到发行清单。
+- 现有引擎测试使用本地模拟模型服务，无须为基础兼容验证配置付费模型凭据。
+- 定期上游兼容检查只生成报告或候选制品，通过后再进入发行流程。
+
+推荐执行顺序是：**完成本地 dev.5 修复验证 → 补齐引擎源码与补丁来源 → 整理产品主线 → 配置 Windows Actions → 发布经过验证的预发行包 → 增加上游版本兼容检查。** 构建脚本中的本机许可证路径也需要改为 CI 显式提供的上游检出路径。
+
+以上是核查结果和实施建议；本次没有修改本地文件，也没有推送代码、创建工作流、议题或发行。

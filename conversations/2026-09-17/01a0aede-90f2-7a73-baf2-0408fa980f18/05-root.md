@@ -1,6 +1,6 @@
 # /root
 
-导出时间：2026-09-17T15:04:43.508Z
+导出时间：2026-09-17T16:23:22.146Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T18-59-26-01a0aede-90f2-7a73-baf2-0408fa980f18_01a0af05-78db-74a0-81af-9379588e9314.jsonl`
 
@@ -3291,4 +3291,1938 @@ API 按已确认契约读取：图谱直接返回 `KnowledgeGraph`；文档来�
 **0.1.0-dev.4 已安装并运行。** 我已核对运行程序的 SHA-256 与通过验收的制品一致，原有身份保持不变，OpenCode 引擎连接正常。
 
 最终版本通过了 211 项测试和实际浏览器验收。打开 F 盘的「启动星杳」，左侧现在有「知识图谱」入口；导入资料或保存记忆后，就能在那里查看关系和来源。
+
+
+## 2026-09-17T15:06:19.254Z · 助理
+
+**知识图谱已经做进星杳，并安装为 `0.1.0-dev.4`。** 我已从 F 盘的真实启动入口启动新版，核对了运行程序、原有身份和 OpenCode 引擎连接，均正常。
+
+现在打开 [启动星杳.cmd](F:/启动星杳.cmd)，左侧就有 **「知识图谱」** 入口，可以使用：
+
+- **资料侧栏**：按目录查看已导入文件，也能选择记忆和来源经历。
+- **关系浏览**：拖动、缩放，按名称、类型、项目范围和私密标记筛选，查看当前节点已加载的相邻关系。
+- **来源查看**：点击节点或连线，查看原文、行号、导入修订，以及记忆来自哪次经历。
+- **更新检查**：纠正或删除记忆后，旧节点失效；文件版本已经变化时，会提示刷新，避免把旧关系配到新正文。
+
+图谱使用本地打包的 Cytoscape.js，基础浏览无需联网。正式资料库目前还是空的：可以先在「知识库」导入 Markdown 或 UTF-8 文本，或者在「记忆」保存一条偏好，再到图谱中查看。源文件修改后，需要先在知识库刷新导入。
+
+最终验证结果是 **211 项测试通过、0 失败**，类型检查通过。实际浏览器也验证了来源分页、私密筛选、记忆纠正、旧版本识别和窄屏布局，页面错误与外部资源请求均为 0。
+
+可以查看 [图谱界面截图](F:/codex/design/xingyao-knowledge-graph.png) 和 [完整验收记录](F:/codex/xingyao/docs/verification-graph.md)。截图使用隔离的离线测试环境，其中的示例资料没有写入你的正式身份。
+
+这一版的资料树覆盖**已导入、已加载的文件**。完整项目文件浏览与编辑、子智能体协作面板、自动人物与时序记忆，以及独立的 Infinite Canvas 视觉创作模块，仍在后续实施范围内。
+
+聊天档案也已更新到 [GitHub 对话档案分支](https://github.com/LUTAO581314/xingyao-shuanji/tree/conversation-archive/conversations/2026-09-17/01a0aede-90f2-7a73-baf2-0408fa980f18)：快照截止北京时间 **2026 年 9 月 17 日 23:04:43**，包含本任务及子智能体共 **6 个任务身份、1,767 条可导出消息与工具记录**，凭据已脱敏。
+
+## 2026-09-17T15:06:56.266Z · 助理
+
+我继续补上实际的项目文件浏览与编辑：从工作台展开目录、打开文本、保存修改，再把选中的资料接到知识图谱。保存时会检查文件是否被外部改动，并保留修改前的副本，避免覆盖你在其他编辑器里的新内容。
+
+
+## 2026-09-17T15:09:07.079Z · 用户
+
+自我反省，看看整个架构有什么问题，你最不确定什么，3个月后出了问题大概是什么
+
+
+## 2026-09-17T15:09:41.241Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:10:00.371Z · 助理
+
+我会把正在做的文件模块也纳入这次审查，先看整个系统在长期使用中会怎样失效。
+
+目前我最不确定的是：**星杳能否持续记住正确、相关、属于你的信息，并在你改变想法后及时修正。** 图谱能展示关系，但自动提取、冲突处理和遗忘的实际质量还没有验证。我会同时检查数据恢复、OpenCode 升级和多模块之间的边界，把已发现的问题与尚未验证的风险分开说明。
+
+
+## 2026-09-17T15:10:00.382Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:10:33.042Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:11:55.810Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:16:28.651Z · 助理
+
+## Active objective and latest steering
+
+Persistent goal remains **“开始吧”**: implement the full approved **星杳 · 璇玑 V2** portable personal assistant on F:. **Do not mark the goal complete**; many full-design capabilities remain unfinished.
+
+The latest real user message is now the immediate priority:
+
+> **“自我反省，看看整个架构有什么问题，你最不确定什么，3个月后出了问题大概是什么”**
+
+We had just begun the next feature—actual project file browsing/editing—but the user steered us to an architectural self-review. Preserve the implementation objective while completing a candid, evidence-based review. Do not simply repeat the design or give generic risks.
+
+Latest user-facing commentary:
+
+> 我会把正在做的文件模块也纳入这次审查，先看整个系统在长期使用中会怎样失效。  
+> 目前我最不确定的是：**星杳能否持续记住正确、相关、属于你的信息，并在你改变想法后及时修正。** 图谱能展示关系，但自动提取、冲突处理和遗忘的实际质量还没有验证。我会同时检查数据恢复、OpenCode 升级和多模块之间的边界，把已发现的问题与尚未验证的风险分开说明。
+
+Next final response should be in Chinese, candid about our own architectural/process mistakes, distinguish observed gaps from predictions, identify the greatest uncertainty, and explain plausible 3-month failure modes and priority changes. A local audit document would make the conclusions durable and reviewable.
+
+## User preferences and constraints
+
+- Personality: **温暖、有主见、稳定**.
+- Platform: **Windows portable launcher + localhost browser UI**, Docker optional.
+- “Soul” must be independent persistent state/process, not a huge prompt.
+- Wants memory, forgetting, learning, emotion, sleep consolidation, files, subagents, continuous OpenCode upgrade compatibility.
+- Explicit separation:
+  - **Infinite Canvas** (`basketikun/infinite-canvas`) = image/video/visual creation only.
+  - **Files, knowledge, memory** = separate knowledge graph and source browsing.
+  - **Subagents** = task/status/results/messages linked to shared task and permission records.
+- Avoid repeated permission questions; authorized development should proceed.
+- Preserve the old F: OpenCode installation and the current production identity.
+- Chinese progress commentary about every 60 seconds.
+- Never print credentials or runtime token URLs.
+- Full filesystem/network access; approval policy never; **do not pass sandbox permissions**.
+- Root instructions: `F:/codex/xingyao/AGENTS.md`:
+  - Bun, strict TypeScript, `bun:sqlite`, single writer.
+  - OpenCode coupling in `src/adapter.ts`; no private imports/table edits.
+  - Evidence, scope, revisions, provenance.
+  - Temporary test identities; don’t read real model credentials or modify old OpenCode data.
+  - Run `bun test` and `bun run typecheck`.
+- Batch independent reads/searches using `functions.exec` and `Promise.allSettled`.
+- Developer says no section headings in user-facing prose; tables/lists only where useful. File links should be absolute.
+- No relevant skill needed for generic architecture/code review. Avoid unnecessary skill invocation.
+
+## Authoritative product state
+
+Environment:
+- cwd **`F:/codex`**, Windows PowerShell.
+- Bun **1.4.2**.
+- F: SanDisk USB, exFAT ~114.59 GiB.
+- Repo: **`F:/codex/xingyao`**, branch **`product-v2`**.
+- Latest committed source: **`364beb5`** — `feat: ship knowledge graph workbench with verified source browsing`.
+- Previous commit: **`6daf8ff`** — graph backend and module plan.
+- Source has **not been pushed**; only conversation archive branch is published.
+- Worktree was clean at beginning of current goal turn. **Agents are now drafting file workspace changes**, so inspect current status before editing/committing.
+
+Installed and running:
+- Launcher: **`F:/启动星杳.cmd`**
+- Product root: **`F:/Xuanji`**
+- Current installed version: **`0.1.0-dev.4`**
+- Current release:
+  **`F:/Xuanji/system/releases/r-mu5nppuc-ea98e7b5-3665-45a6-bc0d-36380f04323d`**
+- Host:
+  **`C:/Users/LT/AppData/Local/Xuanji/58c7da30-1594-4275-b11b-8816f9494e15`**
+- Stable SUBST **X:** → `F:/Xuanji`.
+- Production **identity ID**:
+  **`487fe2aa-0a93-4186-ac4e-3d331fc286bd`**
+  - This differs from the host/drive UUID above; do not confuse them.
+- Last verified PID **33472**; revalidate before relying.
+- Final live verification: version .4, same identity, running executable hash matched the tested artifact, engine health true, 0 tasks, 0 graph nodes, synchronized.
+- Real model credentials were not configured/read by us. Engine health is not evidence of successful public model use.
+- Production graph is empty; test fixture documents/memories were never added to production.
+
+Final `.4` artifact evidence:
+```text
+release.json  ca77c34c2c2d6aa0d5c9201d01bcbb0e4331a7ea543e3f8eb69775c4dbd7fe69
+xingyao.exe   5403a241d3679a30717e53e8de7794f5764ccbd760b34c068d22ec92cdc11704
+opencode.exe  528277b2ea4178093a192da0fe33ef4768e7ae5514a7b21de006d07212c6df83
+src tree      84919dc48e0417d72e03bba32b68aeed7f0e0655db9966c862bbfb0cea6d8246
+```
+
+Final verification:
+- **211 pass, 0 fail, 0 skip, 8230 assertions, 23 files**, 70.62 s.
+- Typecheck passed.
+- `F:/codex/xingyao/reports/2026-09-17T14-58-14-900Z-tests.txt`
+- matching `-typecheck.txt` and `-browser.txt`
+- `F:/codex/xingyao/reports/graph-browser-0.1.0-dev.4.json`
+- `F:/codex/xingyao/dist/xingyao-0.1.0-dev.4/release-validation.json`
+- Browser report binds exact `.4` exe SHA above; Edge, page errors 0, CSP errors 0, external requests 0.
+- Last browser report timestamp **2026-09-17T14:59:28.610Z**.
+
+Docs:
+- **`docs/verification-graph.md`** — complete .4 install/test/limitations evidence.
+- `docs/verification.md` retains .2 historical record, now links to .4.
+- `docs/workbench-modules.md` — component choices, roles, integration design, 3-month concerns.
+- `docs/implementation-status.md` — implemented and remaining capabilities.
+- `docs/system-design.md` and `F:/codex/design/xingyao-xuanji-v2.md` — full intended design.
+- `README.md` describes `.4`.
+
+Screenshots:
+- **`F:/codex/design/xingyao-knowledge-graph.png`**
+- **`F:/codex/design/xingyao-knowledge-graph-mobile.png`**
+- These are isolated **offline** fixtures, hence an engine-unavailable banner. Production engine was independently verified healthy.
+- Original UI flow regression was additionally run against earlier `.3` candidate and passed; its screenshots are under `F:/codex/design/graph-release-3/`.
+- Original `.2` screenshots were preserved.
+
+### Important release lesson from last turn
+
+- `.3` was initially installed, then visual review found overlapping graph nodes after filtering.
+- Fixed layout, attempted to install another `.3` build; installer correctly rejected same-version activation.
+- **Do not bypass this guard.** Normal activation requires a **strictly higher semantic version** (`src/releases.ts`, `selectRelease`).
+- We bumped to `.4`, rebuilt, fully validated, installed and verified actual running hash.
+- Old `.2` and initial `.3` releases remain. There is also an unused staged revised `.3` candidate and loader; don’t delete casually.
+- An earlier tool batch mistakenly attempted a restart after the failed same-version install; it restarted preserved `.3` without data loss. Final .4 installation is correct. For future dependent tool calls, inspect success before proceeding.
+- Perform visual review **before** install, to avoid another version bump.
+- `script/verify-release.ts` now runs actual compiled graph browser checks before writing a passed report. The browser report path is included in `soulIntegration` evidence.
+- CSS mixed CRLF/LF was normalized to LF before final .4 build. Keep source line endings stable; source hash is byte-based.
+- Bun cannot update lockfiles reliably in place on exFAT (`EINVAL/NtSetInformationFile`). Use NTFS staging for dependency changes, or preserve vendored standalone assets. Do not repeatedly delete/retry lockfiles.
+
+## What `.4` implements
+
+Existing core:
+- Independent SoulStore identity/events/memory/affect/task/action/chat/sleep/outbox/idempotency.
+- Memory corrections, deletion, tombstones, scope/private filtering.
+- KnowledgeStore UTF-8 imports <=2 MiB, Chinese lexical retrieval, line evidence, refresh/relocate.
+- LearningStore evidence-backed manual skill proposals/promotion/withdrawal.
+- Public legacy OpenCode adapter, owned isolated engine.
+- Host NTFS live DB, verified portable full checkpoints and engine backup.
+- Journaled paired domain/engine recovery; conflict/fork detection.
+- FileOrganizer plan/apply/undo preserving originals.
+- Immutable release staging, hash validation, verified loader.
+- Browser tasks/chat, memory, knowledge, skills, sleep, file organizer, system.
+
+Graph:
+- **`src/knowledge-graph.ts`**
+- `GraphStore.build({scope, includePrivate?, maxNodes?, maxEdges?})`
+- Nodes: document, memory, experience.
+- Edges: explicit wiki links, inline Markdown links, actual memory source IDs.
+- Stable IDs; provenance includes source hash/revision and original line/column.
+- SQL scope/private/status/retraction filtering before content parsing.
+- No similarity-generated or semantic/personal entity relationships.
+- Bounds/truncation/unresolved ambiguity reporting.
+- `GraphStore.source({scope, includePrivate?, id, startLine?, lineLimit?})`
+  - document: flat metadata plus `{number,text,truncated?}` lines.
+  - memory: `{kind,id,label,scope,private,memory,truncated}`.
+  - experience: nested `experience`, freeform evidence excluded.
+  - Returns null for hidden/deleted/retracted/non-active nodes.
+  - Default80/max200 lines, <=256Ki UTF16 displayed text, <=8Mi content scan.
+  - Cached imported snapshots only, no live file access.
+- Routes:
+  - `GET /api/graph`
+  - `GET /api/graph/source`
+- Frontend added to `src/web/{app.js,index.html,style.css}`:
+  - Graph nav, imported file tree, memory/event lists.
+  - Scope/private/node count controls.
+  - Search/type filters; loaded-neighbor view; full graph; fit.
+  - Source detail, paging, edge evidence, unresolved links.
+  - Request sequence guards prevent stale private/scope responses rendering.
+  - Hash/revision mismatch forces refresh before showing new source under old edges.
+  - New data uses `textContent`, not data-driven innerHTML.
+- Vendored **Cytoscape.js3.34.3**:
+  `src/web/vendor/cytoscape.min.js`, license and README.
+  - MIT.
+  - Bundle SHA **`5f3b5b529546d5af1fc5628590af033b74511a5b6f789f5f4682845863228b91`**
+  - `.gitattributes` preserves bundle bytes with `-text`.
+  - `/vendor/cytoscape.min.js`, no CDN.
+  - CSP allows only exact fixed injected stylesheet hash:
+    `sha256-pgvDUBa4IjFA2yuSJ2cqcyxmNYJMborsd0ORcRv9vw8=`
+    for `.__________cytoscape_container { position: relative; }`.
+- Layout now `cose`, randomize true, label dimensions, adequate spacing; >600 nodes grid. Resize fits graph.
+- New tests:
+  - `test/knowledge-graph.test.ts` 22 tests/173 assertions.
+  - `test/graph-api.test.ts` 4 tests/50 assertions.
+  - compiled server assets/API tests and CSP assertions.
+  - `script/graph-browser-check.mjs` self-contained temporary compiled offline fixture, screenshots/report/cleanup.
+
+## Active agents and current uncommitted file workspace work
+
+All 4 slots may be active:
+- `/root` — architectural review and later server integration.
+- `/root/upstream_compat` — **drafting `src/workspace-files.ts` plus tests**. Was asked to keep bounded draft, not install/commit; additionally review storage/backup failure risks for the user’s architecture question.
+- `/root/canvas_research` — **drafting frontend project file browser/editor in the 3 web files**. Was told user now requests architecture review; keep draft bounded, no install, add UX/long-term failure observations.
+- `/root/soul_dynamics` — was pending_init for an old reflection-client task, root interrupted it, then **restarted with a read-only architectural audit**. Latest confirmation:
+  > 按最新任务切换为只读架构审计；暂停尚未完成的reflection-model客户端，不实现新功能、不读真实资料库/凭据。重点核对记忆来源污染、衰减是否真影响召回、情绪重放、技能统计与睡眠实际实现，区分已验证缺陷和推演。
+
+Check messages/status for audit results. Do not assume source changes are frozen yet.
+
+### File workspace planned API and backend contract
+
+Root has **not yet added server/main APIs, bumped to .5, or built new files**.
+
+Intended server endpoints shared with frontend:
+- roots registration/list, directory tree, read/save file, explicit knowledge import, likely `/api/workspace/roots`, `/api/workspace/tree`, `/api/workspace/file`, `/api/workspace/import`.
+- **Inspect agent frontend/current messages to confirm exact parameter names and response shapes before integrating.**
+- `ServerOptions` will need the actual `projectDir` from main.
+- Owner explicitly selects additional absolute root; auth/root-relative operations.
+- Root sessions are process-local capabilities rather than silently trusting old absolute paths on another PC.
+- Project file editor distinct from imported graph snapshot.
+- Import action explicit scope/private, default private; saved file only.
+- Saving should refresh already-imported docs with existing scope/private, surface refresh failure honestly.
+- Current server max request body256000 and JSON limit200000 will need a deliberate route-specific extension for <=2MiB text save, without weakening other limits.
+
+Backend agent’s confirmed proposal:
+- `WorkspaceFiles` synchronous methods (can await at API).
+- `open(directory)` → `{id,path,label}`, `roots()` returns authorized copies.
+- `list` <=500 items.
+- `read` UTF-8 <=2MiB:
+  `{text, sha256, bom, lineEnding, path/absolutePath...}`, raw original bytes hash, BOM omitted from text.
+- `save` requires prior session read identity baseline + expectedSha256; original BOM preserved.
+- Pure CRLF restored from browser LF; mixed leaves submitted newlines as is.
+- Each changed save creates exclusive root `.xingyao-edit-UUID` directory:
+  `before`, `proposed`, append/flushed stage receipts.
+- Verify original, rename actual original into recovery `original`, verify archived identity/hash.
+- Publish new path via **wx exclusive create**, flush, read-back hash+identity; don’t overwrite an externally created target.
+- Failure preserves all evidence, returns structured `WorkspaceFileError` with kind/recoveryDirectory/backupPath; no false success or automatic overwrite rollback.
+- Successful result read fields + `backupPath` + `changed`; unchanged save has null backup.
+- Reject links/junctions, UNC/device/ADS/`..`, credential/runtime/dependency paths.
+- Proposed rename/publish protocol has a crash gap; architecture review should discuss recovery discoverability and not promise invisible atomic editing.
+- Root told frontend backend owns BOM/CRLF restoration; frontend submits LF, mixed newline changes should be explained before save.
+
+Frontend agent confirmation:
+- New project file view; roots list/default ID.
+- Unsaved changes confirmation on file/directory/view switch; beforeunload + Ctrl+S.
+- Conflict retains editor buffer, no “force overwrite” shortcut.
+- Request sequencing to avoid stale response replacement.
+- Only three web files, normalize LF.
+- Do not revert these drafts; coordinate ownership.
+
+## Architecture audit: evidence gathered and likely useful findings
+
+We have not delivered final audit yet. Ground statements in current code and agent results.
+
+Strong observed gaps already documented:
+1. **Memory graph is currently an evidence visualization, not a full personal semantic memory system.**
+   - Explicit file links and memory→experience only.
+   - No automatic people/entity/relationship extraction, temporal relationships, semantic graph retrieval, model-based consolidation.
+   - Graph is not used by `runPrompt` for retrieval; current prompt uses SoulStore projection + lexical KnowledgeStore + approved learning projection.
+   - Biggest uncertainty should be real Chinese long-term extraction/retrieval/correction quality, not drawing graphs.
+
+2. **“Portable” currently means paired domain/engine snapshots, not all original assets/dependencies/credentials.**
+   - Live DB in host NTFS.
+   - Original docs, attachments/project dependencies, future IndexedDB canvas media are not all carried automatically.
+   - Host model config JSON is plaintext and not portable encrypted.
+   - Safe exit matters; unsynced latest work can remain on prior computer.
+   - Real second-machine and power-pull tests not done.
+
+3. **Checkpoint growth/performance is a concrete 3-month concern.**
+   - `src/checkpoint.ts:listCheckpoints` enumerates **all generations**, hashes and SQLite integrity-checks each, validates extensions.
+   - Called during startup and publication/parent validation.
+   - `createCheckpoint` uses full `VACUUM INTO` and copies a full snapshot; engine DB backup is also included.
+   - No implemented retention/pruning/capacity budget.
+   - Predict accumulating full snapshots, slow startup/save, F: space pressure. Don’t invent throughput or dates/probabilities without measurement.
+   - Need storage budgets, retention strategy, optimized trusted index/manifests, periodic deeper validation, disaster drills.
+   - File editor recovery copies will add another growing retention category.
+
+4. **Deletion is incomplete across the whole product.**
+   - Active memory/domain derivatives cleared/tombstoned, but old portable snapshots, native OpenCode history, original files remain.
+   - GitHub conversation archive is separate public publication, not a memory backup or deletion-aware sync.
+   - Explicitly documented; don’t describe as currently fully erased.
+   - Need cross-store retention/deletion model rather than simply hiding graph nodes.
+
+5. **OpenCode compatibility is only a tested fixed version/legacy API, not “all future updates”.**
+   - `src/adapter.ts` health inspects legacy advertised routes/system field; V2 unsupported.
+   - `messages()` fetches **full session history**, no paging, and `runPrompt` fetches baseline history and persisted post-response history each turn.
+   - Long sessions create repeated transfer/parse/import work, a likely 3-month latency issue.
+   - Exact engine version required in restore. Upgrade migration evidence currently absent.
+   - Good existing boundary: isolated owned engine/public adapter and fixed release gates. Keep that, add real version matrix/migration fixtures.
+
+6. **Tests verify engineering contracts, not assistant usefulness or human-like continuity.**
+   - 211 real filesystem/DB/engine/compiled/browser checks meaningful.
+   - Model in integration tests is local deterministic fixture, not actual service.
+   - No 20–30 real Chinese task quality evaluation yet.
+   - Biggest uncertain semantic failures: mistaken entity merges, speaker/quote attribution, stale changed preferences, wrong relevant memory selection, repeated self narrative treated as facts.
+   - Have agent inspect actual safeguards before claiming any observed contamination bug.
+
+7. **Architecture/work process is expanding faster than operational evidence.**
+   - We implemented many modules/guards before real user task benchmark.
+   - We initially installed `.3` before visual review found overlap; fixed `.4`, added compiled browser gate.
+   - Useful candid self-critique: module count/test count ≠ coherent personal assistant; prioritize one end-to-end long-term user journey and quality metrics.
+   - Don’t casually propose microservices/Python/Neo4j just because many projects exist; preserve one authoritative domain store and rebuildable projections.
+
+Additional code observations to verify/focus:
+- `server.ts` maintenance:
+  ```ts
+  if (shuttingDown || checkpointing || jobs.size || reconciling.size || mutations ||
+      Date.now()-lastActivity < 5*60_000) return
+  if (!store.sealed && store.experiencesAfter(Number(store.meta("sleep_cursor")),1).length) store.sleep()
+  if (store.revision !== Number(store.meta("checkpoint_revision") || -1)) await checkpoint()
+  ```
+  Main runs every60s. Foreground activity may indefinitely delay “sleep”; current sleep deterministic, not complex reasoning.
+- `runPrompt` uses knowledge search limit5 and ~6500 char document budget, plus store/learning projections.
+- Chat frontend currently creates tasks with scope `'global'`; backend supports scope but project/task UI isn’t mature.
+- Graph build allocates document nodes first up to node cap, then memories/events. Enough documents can consume the cap; frontend type filter applies **only to already loaded graph**, so switching to memories doesn’t fetch missing ones. Local neighbors also only loaded nodes. This is a concrete accessibility/scaling issue, not data deletion.
+- `jobs` map has per-task serialization; investigate global concurrency/budget and subagent accounting.
+- Permission UI receives engine-wide requests; future subagent/task scoping needs explicit mapping.
+- `outbox` persisted but inspect draining/retention before alleging growth.
+- Store schema remains1; future migrations need real versioned strategy. Don’t assert breakage without reading exact initialization.
+- New filesystem editor is explicit user UI, so do **not** falsely call it a bypass of “one agent execution path”; distinguish owner UI commands from autonomous model actions.
+
+Last tool batch read:
+- `src/engine.ts` full
+- `src/adapter.ts` first260
+- `src/server.ts` latter285+
+- `src/checkpoint.ts` first170
+- some rg output on store/checkpoints was tool-output-truncated. Use focused reads instead of repeating massive batches.
+
+## Conversation archive — completed, latest remote verified
+
+Separate repo **`F:/codex/conversation-archive`**, branch **`conversation-archive`**.
+GitHub repo PUBLIC, user ADMIN.
+Remote `https://github.com/LUTAO581314/xingyao-shuanji.git`.
+
+Latest verified published commit:
+**`72988b9c23d3ed277541cd44bdf7907bf0969193`**
+
+Snapshot cutoff:
+**2026-09-17T15:04:43.508Z = Beijing23:04:43**
+- 6 task identities.
+- 10 historical fragments.
+- **1767 exported visible messages/agent messages/tool records**.
+- 20 data files checksum-verified.
+- Includes root and all descendant agents, including upstream’s launcher review.
+- Current root ID **`01a0aede-90f2-7a73-baf2-0408fa980f18`**.
+
+Link:
+`https://github.com/LUTAO581314/xingyao-shuanji/tree/conversation-archive/conversations/2026-09-17/01a0aede-90f2-7a73-baf2-0408fa980f18`
+
+Exporter:
+- `tools/export-conversations.ts`
+- Excludes system/developer, hidden reasoning/encrypted internal state, unrelated tasks.
+- Redacts credentials recursively.
+- Snapshot, not live continuous upload; later messages not included.
+- Test previously1pass/25assertions; no need rerun unchanged script.
+- To refresh:
+  `bun run tools/export-conversations.ts`, verify manifest file hashes, git add README/conversations, commit.
+- Push using:
+  ```powershell
+  $env:GIT_TERMINAL_PROMPT='0'
+  git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin conversation-archive
+  ```
+- Verify:
+  `gh api repos/LUTAO581314/xingyao-shuanji/git/ref/heads/conversation-archive --jq '.object.sha'`
+- Standard credential manager previously hung; use helper above.
+
+## Research decisions preserved
+
+- Graph UI: Cytoscape3.34.3 MIT chosen and implemented.
+- force-graph MIT native JS good Obsidian-like alternative; Sigma MIT/Graphology/WebGL large-graph candidate, stable3.0.3, latest4beta.
+- Graphiti Apache2: Python3.10+, Neo4j/FalkorDB, FalkorDBLite Python3.12+, Kuzu deprecated. Temporal memory candidate, not adopted.
+- LightRAG MIT Python3.10+: document extraction/retrieval candidate; defaults full in-memory JSON/NetworkX/NanoVectorDB, official production recommendation PostgreSQL. Not adopted.
+- SiYuan/Logseq AGPL full note apps, references/external source candidates; don’t embed wholesale by default.
+- Obsidian JSON Canvas is a format spec, not graph UI source.
+
+Infinite Canvas:
+- Clean vendor checkout **`F:/codex/vendor/infinite-canvas`**
+- Commit **`e856c878e0a34651bb828e28f0af20d71016a7d4`**
+- MIT with upstream attribution request.
+- React19/Vite7/Zustand/localforage; static deploy possible, no required Docker for editor.
+- Projects/media in IndexedDB → must bridge to host assets/checkpoints.
+- Native ZIP `projects.json`+media, formatversion3.
+- Browser provider keys/direct calls and separate Canvas Agent need integration with unified credentials/tasks.
+- Hardcoded routes/absolute plugin paths need `/studio/` adaptation.
+- Remote prompt/plugin defaults; pin/local bundle, explicit updates.
+- Upstream warns no historical data compatibility.
+- No integration yet.
+
+## Clear next steps
+
+1. **Finish latest architecture self-review first**:
+   - Get read-only audit findings from soul_dynamics and storage/UX observations from other agents.
+   - Inspect focused store/learning/affect and storage sections as needed.
+   - Write a concrete architecture-review document with evidence, uncertainties, 3-month failure scenarios, revised priorities.
+   - Answer user candidly in Chinese, lead with highest-impact findings and own process critique; don’t imply all implemented or guaranteed.
+2. Keep file workspace drafts coherent; do not install before review. Confirm exact interface with agents, preserve their modifications.
+3. Afterwards complete file API/main integration, meaningful tests, UI browser acceptance, release at **strictly higher version (.5 or later)** only when ready.
+4. Later full goal tasks remain: actual file editor/recovery UI, subagent task panel, Infinite Canvas integration, model-based evidence-backed extraction, temporal/entities, richer sleep/learning/personality calibration, storage retention/assets/credential portability and real-world evaluations.
+5. Keep full goal active. No completion or blocked status justified.
+
+## Minor cleanup caveat
+
+Old auxiliary metadata probe:
+`C:/Users/LT/AppData/Local/Temp/xingyao-launcher-meta-57fe23bb443243fbbc72b97c261a9af3`
+Deletion previously auto-review rejected “blocked by policy”; user already informed and docs record it. **Do not retry a workaround**. Not blocking.
+
+A completed `.3` UI regression temporary fixture remains:
+`C:/Users/LT/AppData/Local/Temp/xingyao-ui-regression-92e5773ad42d4732bbb9f86cfce16719`
+Was safely shut down via API. No need to prioritize cleanup; verify actual processes before any removal.
+
+## 2026-09-17T15:16:37.087Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:16:37.093Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:16:52.418Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:17:06.599Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:17:24.992Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:17:33.409Z · 助理
+
+查到一个比界面和图谱更优先的问题：当前适配层可能把“工具执行结束”记成“执行成功”，没有保留退出码。这个判断还会进入情绪、睡眠记忆和学习记录，可能让一次失败反复被当作成功经验。我正在用隔离样例确认影响范围；文件模块的草稿已经暂停扩展，本轮先完成审查。
+
+## 2026-09-17T15:18:34.070Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:19:14.349Z · /root/canvas_research → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+文件浏览／编辑前端已保留为**开发草稿**，暂停继续扩展。只修改 [app.js](F:/codex/xingyao/src/web/app.js)、[index.html](F:/codex/xingyao/src/web/index.html)、[style.css](F:/codex/xingyao/src/web/style.css)，未安装、未提交。Bun 浏览器构建、DOM ID 核对及 `git diff --check` 均通过，三个文件已统一 LF。实际接口联调和 Edge 交互仍未验收。
+
+草稿包含项目目录选择、递进文件列表、面包屑、文本编辑和 Ctrl+S、SHA-256 冲突保存、未保存离开确认、关闭页面提醒、显式知识库导入（默认私密）、备份位置和索引刷新警告。
+
+我建议架构审查优先处理这三个风险：
+
+1. **用户会把“保存文件”和“保存到 U 盘”理解为同一次完整保存，但当前不是。** 草稿的编辑内容只保存在 textarea 与内存状态，[app.js:152](F:/codex/xingyao/src/web/app.js:152)；关闭提醒在 [app.js:365](F:/codex/xingyao/src/web/app.js:365)，无法覆盖浏览器崩溃、强制退出或断电。现有顶部“保存到 U 盘”直接创建系统检查点，[app.js:685](F:/codex/xingyao/src/web/app.js:685)，没有协调未保存文件。三个月里持续编辑之后，这会成为真实的内容丢失与误解来源。优先做独立可恢复草稿，并给文件保存、外部项目文件和系统检查点明确的状态与覆盖范围。
+
+2. **项目隔离目前更依赖用户手工填写范围，而非项目上下文。** 聊天创建任务仍固定 `scope:'global'`，[app.js:91](F:/codex/xingyao/src/web/app.js:91)；文件导入默认范围也是 `global`，[index.html:42](F:/codex/xingyao/src/web/index.html:42)。后端 SQL 确实按指定范围加共享 `global` 筛选，[knowledge-graph.ts:175](F:/codex/xingyao/src/knowledge-graph.ts:175)，这里并未发现绕过过滤；风险在于用户取消私密后，以为资料属于当前项目，实际把它放进所有项目共享范围。三个月多项目使用后，最容易出现的是错误串联和回答混用。应让项目根、任务、资料与图谱共享一个明确项目 ID；“共享给所有项目”作为单独可见的选择。
+
+3. **图谱截断会系统性偏向文档，使用户误以为记忆缺失或关系不存在。** 后端先填满文档节点，再加入记忆，[knowledge-graph.ts:193](F:/codex/xingyao/src/knowledge-graph.ts:193)；前端虽允许 300／1000／2000 节点，但边固定只取 1000，[app.js:421](F:/codex/xingyao/src/web/app.js:421)。当前搜索和“相邻节点”仅处理已经加载的数据，[app.js:459](F:/codex/xingyao/src/web/app.js:459)，没有向全库查询。现有截断说明是必要的，但不能解决三个月后数千文件把记忆挤出视图的问题。应增加后端分页搜索、按节点查邻居、按类型分配展示额度，并将“当前加载概览”与“全库搜索结果”明确区分。
+
+## 2026-09-17T15:19:14.355Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:19:34.246Z · 助理
+
+另外两处长期风险已经有代码依据：检查点会全量保存，并在创建新检查点时复验全部历史；目前还没有容量和保留策略。聊天任务又默认使用全局范围，多项目长期使用时容易混用资料。
+
+我的判断开始明确：下一阶段应先把“结果判断正确、记忆可纠正、项目边界明确、换机可恢复”做成可验证的闭环。继续增加画布和子智能体，会把这些基础问题放大。
+
+## 2026-09-17T15:19:40.777Z · /root/upstream_compat → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+已按最新范围停止文件编辑功能扩展，完成类型检查和存储架构反省。**没有集成或安装新版本。**
+
+[workspace-files.ts](/F:/codex/xingyao/src/workspace-files.ts:38) 的 TypeScript 收窄错误已修复，`bun run typecheck` 通过。该模块目前没有被其他源码或测试引用，也尚未建立专属测试。保存协议仍有并发发布和恢复路径校验问题待解决，因此继续作为开发草稿保留。
+
+三个最高风险如下：
+
+| 风险 | 代码事实 | 三个月后的可能问题 | 建议设计 |
+|---|---|---|---|
+| **OpenCode 更新与历史恢复不兼容** | [engine-backup.ts](/F:/codex/xingyao/src/engine-backup.ts:94) 仅接受完全相同的引擎版本；[数据库识别](/F:/codex/xingyao/src/engine-backup.ts:145) 仅支持两个既定库名；[checkpoint.ts](/F:/codex/xingyao/src/checkpoint.ts:115) 只接受当前领域 schema。适配器只实现 legacy HTTP，未实现 `/api` V2。 | 直接更新后，新宿主恢复旧检查点可能被拒绝；旧引擎也未必能打开新版迁移后的库。这是目前的兼容边界，不能表述为支持任意上游更新。 | 产品代码、引擎二进制 SHA-256、适配器版本、领域 schema、数据兼容范围作为一个发行单元。跨版迁移在复制出的新数据分支上进行，验证恢复、原会话续接与工具执行后再选定新版，保留旧发行和旧分支。 |
+| **全量检查点导致容量和等待时间持续增长** | [checkpoint.ts](/F:/codex/xingyao/src/checkpoint.ts:159) 扫描并复验全部历史代次；[创建检查点](/F:/codex/xingyao/src/checkpoint.ts:197) 每次先重扫，再全量 `VACUUM INTO` 和复制；[引擎备份](/F:/codex/xingyao/src/engine-backup.ts:46) 同样复制全库。当前流程没有快照配额或保留策略。 | 历史越长，同步和启动复验成本越高，便携盘可能被备份耗尽。例如每代 200 MB、每天 10 代、90 天约 180 GB；这是示例估算，并非实测。 | 明确容量预算、空间预检、按时间分层保留与后台完整巡检。清理必须维护父代关系及分支信息，不能直接删除“较旧目录”。 |
+| **便携盘检查点尚未覆盖介质丢失和真实断电场景** | [main.ts](/F:/codex/xingyao/src/main.ts:28) 默认将活动库放在宿主 LocalAppData，检查点放在便携盘 vault；[checkpoint.ts](/F:/codex/xingyao/src/checkpoint.ts:22) 在 Windows 不执行目录 fsync；[恢复发布](/F:/codex/xingyao/src/checkpoint.ts:268) 依赖宿主文件系统硬链接。现有文档明确未验证另一实体机和真实断电。 | 拔盘后可能留下宿主未同步分支；丢失 F 盘并离开原宿主时，没有代码层面的独立第二恢复源。这里是架构推演，没有声称已发生数据丢失。 | 状态分别显示“宿主已提交”“本盘检查点完整”“独立介质已备份”。增加跨介质可验证副本，并做真实拔盘、磁盘空间不足、全新机器恢复演练。 |
+
+还有一个需要写进升级验收的边界：[server.ts](/F:/codex/xingyao/src/server.ts:63) 在产品任务和文件操作空闲后建立检查点，而[常规引擎备份回调](/F:/codex/xingyao/src/main.ts:95) 没有先停止引擎。目前没有复现跨库不一致，但“本产品没有正在执行的任务”并不充分证明未来 OpenCode 的全部后台写入均已停止。联合检查点应有明确的引擎静默屏障，并通过联合恢复演练验证。
+
+## 2026-09-17T15:23:01.647Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:23:01.652Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:23:58.817Z · 助理
+
+隔离复现确认了结果判断缺陷：输入两个非零退出和一个超时结果，三条都被记成“成功”；睡眠随后生成了三条情节记忆，技能统计也把它们计为三次成功。这是在临时身份中复现的，没有触碰你的正式记忆。
+
+还确认了两个长期偏差：同一次工具调用的不同结果版本，会重复触发情绪和归档；90 天前的经历今天才整理时，会被当作新记忆计算新鲜度。这些都要先于更复杂的“人格成长”修正。
+
+## 2026-09-17T15:24:55.311Z · /root/soul_dynamics → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+只读审计完成。最严重的问题已经通过隔离夹具复现：**失败或超时的 shell 调用会进入“成功经历”，继而污染情绪、睡眠记忆和人工启用的技能证据。** 产品代码未修改；仅新增审计脚本与结果文件，未读取真实身份、用户数据库或凭据。
+
+可直接引用的产物：
+
+- [机器可读审计结果](/F:/codex/xingyao/reports/architecture-audit-2026-09-17.json)
+- [可重跑的审计脚本](/F:/codex/xingyao/script/audit-soul-2026-09-17.ts)
+- 执行命令：`bun run script/audit-soul-2026-09-17.ts`
+- 脚本用合成上游消息、临时 SQLite 身份，贯穿实际 adapter、server、store、affect、sleep、learning；没有调用真实模型或执行真实失败命令。健康检查和创建会话是夹具，其余上述业务路径使用产品代码。
+- 脚本执行成功，临时身份清理完成；`bun run typecheck` 通过。本轮没有重跑整个产品测试套件，也没有把历史测试计数当作当前验收结果。
+
+1. **使用前优先修复：工具完成状态被当成命令成功，污染所有后续学习。**
+
+   [adapter.ts](/F:/codex/xingyao/src/adapter.ts:259) 只读取 `state.status`，把上游 `completed` 保留为完成，并丢掉 `metadata.exit`。[server.ts](/F:/codex/xingyao/src/server.ts:109) 随即把 `completed` 映射成 `succeeded`。
+
+   上游实际实现支持该失败形态：[shell.ts](/C:/Users/LT/Documents/trae/packages/opencode/src/tool/shell.ts:542) 获取退出码，超时返回 `null`；[shell.ts](/C:/Users/LT/Documents/trae/packages/opencode/src/tool/shell.ts:585) 正常返回包含 `metadata.exit` 的工具结果；[processor.ts](/C:/Users/LT/Documents/trae/packages/opencode/src/session/processor.ts:174) 把正常返回存成 `completed`。所以这里的 `completed` 表示工具执行流程已返回，并不等于命令退出成功。
+
+   夹具投入 `completed + exit=1`、`completed + exit=null（超时）`、`completed + exit=2`，实际得到：
+
+   | 检查项 | 实际结果 |
+   |---|---|
+   | 已保存动作状态 | 三条全部 `succeeded` |
+   | 经历类型 | 三条全部 `tool_success` |
+   | 情绪正负维度 | `+0.4046875` |
+   | 睡眠归档 | 新增 3 条 episode |
+   | 人工启用技能的统计 | 3 成功、0 失败，显示 `0.8` |
+   | 超时动作文本 | 同时出现“执行成功”和“exceeding timeout” |
+
+   修复应建立分层结果：工具流程完成、命令结果、任务目标验证，保存原始结构化证据。非零退出码也要结合工具语义理解，例如搜索无结果可能不是异常；不能用另一条过于简单的全局映射代替目前的问题。
+
+2. **P1：承诺与固定约束可能悄悄消失，界面无法解释为什么没有遵守。**
+
+   [server.ts](/F:/codex/xingyao/src/server.ts:215) 总是传入 `pinned: input.pinned === true`，用户省略字段时会传 `false`，覆盖 [store.ts](/F:/codex/xingyao/src/store.ts:132) 对 commitment 默认固定的规则。实际 HTTP 复现中，未传 pinned 的 commitment 保存为 `false`，面对不相关查询不会进入上下文。
+
+   即使明确固定，[store.ts](/F:/codex/xingyao/src/store.ts:263) 仍将全部固定记忆放入同一个 6500 字符预算，[store.ts](/F:/codex/xingyao/src/store.ts:268) 对放不下的记录直接 `continue`。一个 7028 字符的固定 commitment 在实际投影中完全消失，返回长度仅 176 字符，没有溢出提示、摘要或按需读取引用。没有找到其他保护通道。
+
+   这与设计中的“独立约束通道、超预算摘要与来源引用”不一致。应补固定约束覆盖报告、冲突与过期状态、预算溢出可见性，避免“她明明记住却突然忘了”的体验。
+
+3. **P1：同一工具调用的不同快照仍能重复推动情绪和生成记忆。**
+
+   [store.ts](/F:/codex/xingyao/src/store.ts:334) 对动作按 id 保存，但经历来源键包括 revision。同一调用的新文本或状态版本变成新的事件。[store.ts](/F:/codex/xingyao/src/store.ts:283) 睡眠只按数字事件 id 判断是否已经归档。
+
+   夹具让同一个调用连续出现三个成功版本，结果是 **1 个动作、3 个来源、3 条睡眠记忆**；情绪依次为 `0.175 → 0.30625 → 0.4046875`。学习模块已按 actionId 取最新版本，不存在同样的简单重复计数；问题主要在情绪与睡眠路径。
+
+   应让根动作、结果版本、因果尝试分别有明确身份。新版本可以纠正旧证据，不能被当作又成功了一次。失败重试也不应仅凭不同调用 id 就认定是独立学习样本。
+
+4. **P2：记忆年龄与遗忘机制比设计弱，旧内容会因晚整理重新变“新”。**
+
+   [store.ts](/F:/codex/xingyao/src/store.ts:132) 将记忆 `createdAt` 设置为归档时刻，[affect.ts](/F:/codex/xingyao/src/affect.ts:99) 用该时间计算新鲜度，而不是根事件发生时间。
+
+   夹具在第 0 天产生来源，第 90 天才睡眠归档，得到新鲜度 `1`；若按实际来源年龄应为 `0.011609`。这与设计要求的“整理与回忆不刷新来源年龄”不一致。
+
+   另外，当前评分为 `0.9 × 字面相关度 + 0.1 × 新鲜度`。一个精确命中的普通记忆再过 90 天，仍然得到 `0.901161`；不存在自动压缩、淡出阈值或删除。这是已公开的实施边界，不能把它称为完整的选择性遗忘系统。
+
+5. **P2：当前“学习”是人工选择证据的技能笔记，不是经过效果验证的技能成长。**
+
+   [learning.ts](/F:/codex/xingyao/src/learning.ts:145) 只评估候选已选择的 actionId，并没有“这套步骤实际在哪些尝试中被应用”的记录，也没有验证步骤和证据所执行动作的一致性。[learning.ts](/F:/codex/xingyao/src/learning.ts:236) 以至少三个可判定调用作为启用门槛。
+
+   在合成夹具中，任意、不出现在来源命令中的步骤仍能以这些来源启用。随后增加十个不同 id 的失败动作，原候选仍为 3 成功、0 失败、`0.8`。**后一个结果不能单独称为错误**：产品没有证据说明新调用采用了该技能，自然无法合理归因；它证明当前还缺“技能使用记录 → 实际结果 → 回归评估”的学习闭环。
+
+   当前投影文本明确说明数字只描述所列调用、并不保证统计独立，而且技能需要手工启用。这些约束是有价值的。建议保留诚实表述，将“调用统计”与“技能有效性”分开，不要把该数值包装成能力成熟度。
+
+6. **P2：睡眠目前会积累工具日志，规模增加后可能同时降低检索质量和响应速度。**
+
+   [store.ts](/F:/codex/xingyao/src/store.ts:274) 的睡眠是一次同步事务：对每个允许学习的工具事件，把原文复制成 episode；用户消息不做偏好或关系提取，游标仍继续推进。每个事件都调用全量记忆查询，插入时还再次查询去重。[store.ts](/F:/codex/xingyao/src/store.ts:104) 的查询先加载并解析整张表，再过滤排序，排序过程还反复分词评分。
+
+   已有证据足以说明数据量增长会增加工作量；**尚未做足量负载测试，不能宣称在某个条数或三个月后必然卡顿。** 推荐先加入索引与增量查重、时间预算和批处理，再做 1 千、1 万、10 万条合成经历的响应耗时与数据库增长测量。
+
+   工具日志归档和人物记忆应分开评价。当前图谱展示不能补齐事实抽取、冲突消解、关系建模、遗忘与学习闭环。
+
+7. **人格部分的主要风险是体验与证据不足，而不是数学公式不够复杂。**
+
+   [affect.ts](/F:/codex/xingyao/src/affect.ts:54) 目前只响应直接观察或经历的工具成功/失败，采用两组固定向量与相同增益。身份气质固定为“温暖、有主见、稳定”；没有持续成长的气质、关系模型、重要性评估、事件新颖度或目标进展评估。这些都在 [implementation-status.md](/F:/codex/xingyao/docs/implementation-status.md:24) 中列为后续能力。
+
+   因而大量“读取成功”会让状态偏正面，重大挫折与普通工具错误又使用相同冲击量。它有可重放的数值状态，但尚未证明这种状态会形成自然、稳定、有帮助的长期行为。
+
+   还有一个升级风险：[store.ts](/F:/codex/xingyao/src/store.ts:249) 重建情绪时使用当前公式；`experience_policy` 只存开关，没有保存当时的 reducer 参数版本。将来调整公式后，纠正一条记忆可能顺带重算整个历史人格状态。此项是依据代码的升级风险推断，尚未做跨版本复现。
+
+现有测试最关键的盲区是： [adapter.test.ts](/F:/codex/xingyao/test/adapter.test.ts:77) 的失败结果采用 `state.status="error"`，未覆盖真实 shell 的 `completed + 非零/null exit`；[learning.test.ts](/F:/codex/xingyao/test/learning.test.ts:26) 根据真实子进程退出码自行构造正确状态，再直接写入 store，绕开了出错的适配链。所以领域测试、实际子进程测试都通过，也不能证明“失败经历不会被学成成功”。
+
+我最不确定的是：加入个人记忆和情绪后，她在真实中文长期任务上是否比无记忆基线更可靠、更懂用户、更少自作主张。目前缺少同一批任务的对照评估、错误归属统计、过期偏好与矛盾事实测试，以及用户对表达自然程度的长期反馈。增加更多公式或图谱页面无法替代这组证据。
+
+若维持现状使用三个月，较合理的预测是：工具经历越存越多，重要承诺更容易受到预算挤压；旧偏好、重复经历与日志噪声增多；技能证据更新依赖手工维护；人格表现跟工具调用频率关联过强。故障发生频率和性能拐点尚不能给出可靠数字。优先顺序应是**修正结果证据 → 保护约束与事件身份 → 建立记忆效果评测和纠错闭环 → 控制整理与存储增长 → 再加入关系模型和有界成长**。
+
+## 2026-09-17T15:28:26.807Z · 助理
+
+有，而且这次发现了几处**需要先修正、再继续扩展功能的基础问题**。
+
+我的判断是：**独立记忆库、可替换的 OpenCode 执行层、带来源的知识图谱，这个方向值得保留；目前的实现还属于受监督试用的原型，尚未证明能成为长期可靠的主力助理。** 最大的问题在于，执行结果、记忆、情绪和学习之间，有些判断会把同一个错误逐层放大。
+
+我先反省自己的推进方式：前面把文件、图谱、睡眠、人格、学习、便携恢复等模块铺得太快了。模块齐全、测试数量多，容易让人高估整个系统的成熟度。我们应该更早验证一条完整过程：**完成真实任务 → 正确记录结果 → 保存有用记忆 → 下次正确调用 → 你纠正后停止使用旧结论 → 换电脑还能继续。**
+
+这次回到代码检查，并用临时身份做了复现，发现以下问题：
+
+| 问题 | 实际发现 | 长期影响 |
+|---|---|---|
+| **失败可能被记成成功** | 两个非零退出结果、一个超时结果，三条都被记为成功；睡眠生成了三条情节记忆，技能统计也计为三次成功。 | 她可能从失败中形成错误的“成功经验”，情绪状态也受到影响。这是第一优先级。 |
+| **“固定记住”仍可能没进入回答** | 一条 7028 字符的固定承诺被上下文预算直接跳过，没有提示；另有 API 默认值会让未指定固定状态的承诺保存为不固定。 | 你会觉得“明明让她记住了，为什么突然不遵守”。 |
+| **同一次操作会重复影响情绪和记忆** | 同一个工具调用出现三个结果版本，形成一个动作、三个经历、三条睡眠记忆，并推动三次正向情绪。 | 频繁更新结果的操作会被赋予过多影响，记忆也会重复积累。 |
+| **晚整理会把旧经历变“新”** | 90 天前发生的经历，今天才归档时，新鲜度按今天开始计算。 | 睡眠整理可能改变记忆的时间意义，让旧事情重新获得过高优先级。 |
+| **项目边界没有贯穿使用流程** | 后端有范围过滤，但聊天创建的任务默认属于全局范围。 | 多项目使用以后，容易把某个项目的习惯、资料和决定带入另一个项目。 |
+
+前四项已经通过隔离样例复现；第五项来自代码审查。**这些缺陷已确认，尚未修复。** 正式身份没有被拿来做实验。
+
+其中最严重的原因很具体：OpenCode 的“工具流程已经结束”，被我们解释成了“操作已经成功”，退出码等证据又在适配时丢失了。修补时需要分别记录工具流程、操作结果和任务验收；不同工具还要按各自契约判定，不能再换成另一条粗略规则。
+
+**我最不确定的是：长期使用之后，她能不能持续记住正确、属于你、仍然有效的信息，并在适当的时候用出来。**
+
+这件事比图谱绘制、接入更多模型更难。例如：
+
+- 你说“朋友喜欢这个”，她能否避免记成“你喜欢这个”。
+- 你说“这个项目暂时这样做”，她能否避免形成全局习惯。
+- 你改变偏好后，她能否保留变化的历史，同时停止执行旧偏好。
+- 她找不到证据时，能否坦诚说不确定。
+- 换一个模型以后，她能否继续遵守相同的事实、承诺和边界。
+
+目前还没有足够的真实中文长期任务对照，证明这些问题处理得可靠。**有图谱、能保存聊天、能生成摘要，都不足以证明她已经理解你。**
+
+情绪部分也需要降低预期、提高验证要求。当前机制主要响应工具成功和失败，使用固定的响应强度。读取一个文件成功，与解决一个重要问题，还没有充分区分。我们需要验证的是：情绪是否有真实原因、表达是否适度、能否恢复、会不会妨碍判断。继续增加公式和情绪维度，暂时不能解决这些问题。
+
+**如果保持现状使用三个月，我认为比较可能出现下面这些情况。** 时间段是情景推演，没有经过事故频率统计。
+
+| 使用阶段或触发条件 | 你可能首先感受到的问题 |
+|---|---|
+| 第一周运行失败命令 | 事情没做好，记录却显示成功，并进入后续经验。这个问题现在就能触发。 |
+| 两到四周，项目和偏好变化增多 | 她开始混用项目背景，反复需要你纠正，或者继续引用过期习惯。 |
+| 一到两个月，长期会话和工具日志增加 | 回答前等待变长，睡眠生成很多流水记录，真正有用的记忆更难找到。 |
+| 文件数量超过图谱加载额度 | 明明有记忆或关系，当前图里却找不到。现在的筛选主要针对已加载内容。 |
+| 第一次更新 OpenCode | 新引擎可能能启动，但旧检查点恢复、旧会话续接需要专门迁移。 |
+| 第一次仓促拔盘或换电脑 | 最新内容留在旧电脑，部分原文件或媒体没带走，模型连接还需重新配置。 |
+| 连续积累全量检查点 | F 盘容量和同步时间成为日常负担。 |
+
+存储问题尤其有明确依据：现在创建检查点时，会复验全部历史，再保存全量领域库和引擎库，还没有完整的容量与保留策略。
+
+举一个**估算例子**：如果每代快照平均 200 MB，每天 10 代，90 天约为 180 GB，已经超过这块 F 盘的容量。这不是当前实际增长速度，但说明“每次完整保存、一直保留”无法作为长期方案。
+
+另外，**兼容 OpenCode 更新目前只能理解为有隔离边界、有机会适配，不能理解为未来版本直接替换就一定能用。** 当前恢复要求引擎版本完全一致。以后必须把程序、引擎版本、数据格式和迁移步骤作为一个整体，在数据副本上验证旧会话能继续工作，再切换版本。
+
+如果由我重新调整开发顺序，我会这样做：
+
+1. **先修复证据链。** 成功、失败、未知、超时和取消能正确区分；同一事件的修订不会被当作多次经历。已有可疑记录也要能重新核实。
+2. **把项目和承诺放到核心位置。** 文件、任务、记忆、图谱使用一致的项目身份；必要约束超出上下文预算时必须明确报告，不能静默遗漏。
+3. **做真正的记忆质量评估。** 用 20–30 个中文任务比较开启记忆前后的效果，覆盖改口、引用他人、同名人物、跨项目、临时偏好和删除纠正。分别看事实准确性、引用来源和实际任务收益。
+4. **完成长期存储与恢复。** 明确哪些内容已经存到原文件、宿主数据库、F 盘检查点和独立备份；加入容量预算、保留政策和新电脑恢复演练。
+5. **再扩展文件编辑、子智能体和视觉画布。** 子智能体共享明确的任务、权限、预算和结果账本；Infinite Canvas 的媒体进入统一资产保存流程。
+
+你希望她温暖、有主见、稳定，我仍然认为这个目标很好落实。它应当体现为：记得你的重要决定、知道自己的依据、允许有分歧、发现错误会修正、经历变化后仍然可靠。**现阶段最值得投入的是这种行为连续性。**
+
+完整审查已写入 [架构反省报告](F:/codex/xingyao/docs/architecture-review-2026-09-17.md)，里面有源码位置、复现结果、三个月故障预演和修改顺序；另有 [可重跑的审计脚本](F:/codex/xingyao/script/audit-soul-2026-09-17.ts) 和 [机器可读结果](F:/codex/xingyao/reports/architecture-audit-2026-09-17.json)。
+
+本轮重新运行了类型检查和原有完整测试：**211 项通过、0 失败**。与此同时，新审计仍能复现上述缺陷——这说明原测试缺少贯穿“上游结果 → 记忆与学习”的关键案例。当前正式版仍为 `0.1.0-dev.4`；文件编辑保留为开发草稿，本轮交付的是审查与复现结果。
+
+## 2026-09-17T15:28:41.451Z · 助理
+
+我先落实审查中最关键的修补：保留工具结果的结构化证据，修正“执行结束就算成功”的判断，并补贯穿情绪、睡眠和学习的回归测试。同时处理承诺遗漏和重复经历，让后续功能建立在可信的记录上。
+
+## 2026-09-17T15:30:28.297Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:30:53.520Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:31:31.314Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:31:31.319Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:32:38.465Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:35:18.744Z · 助理
+
+修补会同时处理历史数据：旧版没有保存退出证据的动作，会先降为“待核实”，相关成功经验失效，再从引擎记录重新对账。固定承诺放不进上下文时，也会在发送模型请求前明确停止并说明原因，避免她在缺少必要约束的情况下继续执行。
+
+## 2026-09-17T15:35:42.922Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:36:08.828Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:36:08.833Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:36:43.922Z · /root/upstream_compat → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+A01 已完成，修改仅涉及 [adapter.ts](/F:/codex/xingyao/src/adapter.ts:27) 和 [adapter.test.ts](/F:/codex/xingyao/test/adapter.test.ts:95)。没有安装、提交或修改上游代码。
+
+`NormalizedPart` 的工具分支现有必填 `execution`：
+
+```ts
+export type ToolExecutionEvidence = {
+  version: 1
+  lifecycle: "completed" | "failed" | "unknown"
+  outcome: "succeeded" | "failed" | "unknown"
+  basis: string
+  exitCode?: number | null
+  startedAt?: number
+  finishedAt?: number
+}
+```
+
+原 `status`、`upstreamStatus` 保留；调用方应依据 `execution.outcome` 判断工具层结果，并保留 `basis` 解释依据：
+
+| 条件 | outcome | basis |
+|---|---|---|
+| bash/shell 完成，结构化 `metadata.exit=0` | `succeeded` | `shell-exit-zero` |
+| bash/shell 完成，有效非零退出码 | `failed` | `shell-exit-nonzero` |
+| bash/shell 完成，退出码缺失、`null` 或无效 | `unknown` | `shell-exit-unavailable` |
+| 已核对的 read/write/edit 完成 | `succeeded` | `builtin-tool-completed` |
+| 已知工具报告执行异常 | `failed` | `builtin-tool-error` |
+| `metadata.interrupted=true` | `unknown` | `tool-interrupted` |
+| 尚未终结或未知生命周期 | `unknown` | `tool-not-terminal` |
+| 未知或 MCP 工具 | `unknown` | `unrecognized-tool-contract` |
+| provider 在外部执行的同名工具 | `unknown` | `provider-executed-tool` |
+
+这些值只表达进程或工具操作的结果。非零退出码不等于用户整体目标失败；读写工具正常返回也不等于代码正确、任务完成。
+
+白名单保留有效退出码与 `state.time.start/end`。无效值、任意 metadata、provider 凭据、诊断附加对象均不进入 `execution`。模型文字和工具输出中的“成功”“exit=0”等声明不会改变结果。取消后的旧 `exit=0` 也不会制造成功证据。
+
+已核对当前上游的关键行为：
+
+- [shell.ts](/C:/Users/LT/Documents/trae/packages/opencode/src/tool/shell.ts:542)：超时或取消返回 `null`，随后放入 `metadata.exit`。
+- [processor.ts](/C:/Users/LT/Documents/trae/packages/opencode/src/session/processor.ts:174)：工具函数返回即记录 `completed`，包括 Shell 非零退出的情况。
+- [取消处理](/C:/Users/LT/Documents/trae/packages/opencode/src/session/processor.ts:603)：中断记录 `metadata.interrupted=true`。
+- [公开 legacy schema](/C:/Users/LT/Documents/trae/packages/schema/src/v1/session.ts:277)：工具时间字段为 `time.start/end`。
+
+验证结果：`bun test test/adapter.test.ts` **19 通过、0 失败、121 次断言**；`bun run typecheck` 通过。新增回归覆盖非零退出、超时取消、缺失及无效 metadata、未知/MCP/provider 工具、时间校验、文本伪造、重复响应和重复 part。真实 engine.5 集成用例验证了隔离环境中的公共 API；新增 Shell 结果分类使用按已核对上游契约构造的回归响应，未宣称完成真实模型驱动的 Shell 执行验收。
+
+## 2026-09-17T15:38:44.532Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:39:09.157Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:39:37.251Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:40:17.650Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:40:43.734Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:41:35.324Z · 助理
+
+结构化结果已经接入适配层，失败结果不再靠模型文字判断。真实引擎贯穿测试第一次暴露了测试夹具自身的 Windows shell 命令差异：预期退出码 7，实际拿到 1；我不会把这个夹具失败当成产品通过，先调整为引擎实际接受的安全命令，再继续验收。
+
+## 2026-09-17T15:42:21.821Z · /root/canvas_research → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+已完成新增 [tool-evidence-api.test.ts](F:/codex/xingyao/test/tool-evidence-api.test.ts)，未修改生产实现。
+
+测试使用本机合成 OpenCode HTTP 服务，经过实际 `OpenCodeAdapter`、`startServer` 和 SQLite 存储，不替换归一化结果。覆盖：
+
+- `bash` 完成状态下的退出码 `0`、`1`、`2`、`null`、缺失，分别形成成功、失败或未知证据。
+- `state.error` 形成失败证据；未知 MCP 工具不能凭完成状态和 `exit: 0` 被判定成功。
+- 即使助手声称“全部任务成功、所有检查通过”，动作、经历、情绪、睡眠归档和技能评价仍遵循实际工具证据。
+- 所有完整回复的任务保持 `verifying`，不会自动变为验收完成。
+- 纯文字成功声明不产生工具动作、情绪增益、自动记忆或技能来源。
+- 同一动作输出不变、退出码从 `0` 修正为 `2` 时，版本更新、旧经历撤回、派生记忆失效、技能转为待复核，旧快照再次同步不能恢复成功。
+- 旧版缺少结构化证据的成功记录在迁移时降为未知、撤回派生；通过真实 HTTP 重新同步后形成失败证据，且不会重新执行工具。
+- 重复同步及睡眠整理不会重复计数或重复生成记忆；夹具均使用临时目录并清理。
+
+验证结果：`bun test test/tool-evidence-api.test.ts` **10 项通过，384 个断言通过**；`bun run typecheck` **通过**。
+
+## 2026-09-17T15:43:03.964Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:43:03.969Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:43:22.106Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:44:12.526Z · /root/soul_dynamics → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+已完成分配的修复，未修改真实数据、安装目录，也未提交 commit。
+
+改动文件：
+
+- [store.ts](/F:/codex/xingyao/src/store.ts)：动作修订治理、旧库迁移、来源退役、情绪重放顺序、隐私清除、固定记忆预算保护。
+- [affect.ts](/F:/codex/xingyao/src/affect.ts)：新鲜度改为优先使用 `sourceObservedAt`。
+- [contracts.ts](/F:/codex/xingyao/src/contracts.ts)：我只新增了 Memory 的可选 `sourceObservedAt`；ActionExecution 部分是 root 同期改动。
+- [source-revisions.test.ts](/F:/codex/xingyao/test/source-revisions.test.ts)：新增 14 个隔离回归。
+- [domain-regression.test.ts](/F:/codex/xingyao/test/domain-regression.test.ts)、[learning.test.ts](/F:/codex/xingyao/test/learning.test.ts)：按新语义调整原案例，保留来源删除与学习撤审保护。
+
+现在同一 action 的新 revision 会撤回旧来源的有效性，旧派生记忆变成 `invalidated`，正文保留用于审计；旧来源支持的技能会进入 `needs_review`，需要使用当前有效来源重新建立候选。旧 revision 重放以及当前 revision 重复输入均幂等，包括重启后。首次见到的旧 running 或未知生命周期快照也不能覆盖终态；可靠结束时间更早的终态快照会被拒绝。
+
+新修订沿根动作最早观测时间重放，不会让一天前的工具结果重新激发当天情绪。同一时刻多个独立根事件的重放顺序固定，替换一个 revision 不改变它们的计算次序。结构化执行证据中的实际时间可以向前校准根时间，不能把根事件变新。
+
+旧库升级在构造器事务内完成：
+
+- 缺少 `action_evidence_version=1` 的旧库中，没有 `execution.version=1` 的历史动作改为 `unknown`，revision 变为 `legacy-unverified:原revision`，原正文保留并加待核实说明。
+- 撤回旧动作来源和派生影响，人工纠正的独立新来源保留。
+- 根来源删除标记与封存时的学习策略保留，不会因为升级重新学习。
+- `source_revision_version=1` 与 `action_evidence_version=1` 保证重复打开不重复迁移。
+- 新空库直接写 marker；内部测试明确调用 `recordAction` 时可以继续省略 execution，不会每次重开降级。
+- 旧记忆依据其根事件补齐 `sourceObservedAt`；晚归档不再刷新新鲜度，明确纠正的新来源拥有新日期。
+
+固定记忆无法全部放入预算时，`projection` 现在抛出导出的 `ProjectionCoverageError`，包含 `code="MEMORY_CONSTRAINT_OVERFLOW"`、`memoryIds`、`requiredCharacters`、`limit`。不会再悄悄漏掉固定约束。普通相关记忆仍按原 TopK 与预算选取。
+
+删除动作来源时会同时移除 `action.execution`；删除标记下再次输入结构化元数据也不会复活。旧体验的 `evidence` 仍按原隐私删除链完整清除。
+
+验证：
+
+- 首轮相关五文件：62 pass、0 fail、7334 个断言。
+- 加入 root 最后两项审阅修正后，受影响三文件：42 pass、0 fail、218 个断言。
+- 最终 `bun run typecheck` 通过。
+- 所有测试使用临时身份并清理，未读取真实用户数据库。
+
+剩余边界：revision 是不透明字符串。如果两个首次见到的终态快照没有可排序时间，程序不能证明哪个更新；当前允许明确终态纠正并拒绝已知旧 revision。另我未改 `SCHEMA_VERSION`：目前仍是 user_version=1，旧程序重新打开升级后的库可能重新写入旧语义。发行时建议 root 决定递增 schema 并阻止旧二进制回退打开升级后的库。
+
+## 2026-09-17T15:44:23.856Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:50:10.807Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:52:21.360Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:52:50.749Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:54:04.331Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:54:04.335Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:54:21.872Z · 助理
+
+真实 OpenCode 测试已通过：退出码 7 被记录为非零退出，超时保留为未知，退出码 0 才记为进程成功，权限拒绝保留失败证据。接着检查升级流程时，又发现迁移会增加数据库修订号，导致原本已同步的旧电脑被误判为存在未同步分支；正在把分支判断移到数据迁移之前，并加入旧库恢复测试。
+
+自动审批审查拒绝了删除一个本轮独立测试临时目录的清理操作，理由为“blocked by policy”。该目录已保留，未重试；不影响源代码修补或正式数据。
+
+## 2026-09-17T15:56:04.500Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:56:48.779Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:56:48.783Z · /root/soul_dynamics → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+完成。旧审计脚本现在用于修复后回归，历史报告不会被覆盖。
+
+- [审计脚本](/F:/codex/xingyao/script/audit-soul-2026-09-17.ts)：增加 `after-fixes-regression` 模式说明、历史基线哈希与 8 组断言，捕获 `ProjectionCoverageError` 和技能启用失败。
+- [修复后报告](/F:/codex/xingyao/reports/architecture-audit-after-fixes-2026-09-17.json)：已生成，记录当前真实结果与未解决的限制。
+- [证据说明草稿](/F:/codex/xingyao/docs/evidence-fixes-2026-09-17.md)：说明修复前后行为、迁移标记与验证边界，没有宣称发布、安装或全套验收。
+
+实际结果为：三个原始 shell 场景得到 **失败、未知、失败**；技能候选为 **0 成功、2 失败、1 未知**，保持草稿，未使用人工覆盖。一个调用的三个版本保留一条有效来源和一条活动记忆，情绪贡献保持 `0.175`。90 天旧来源晚归档后的新鲜度为 `0.011609330383882408`。
+
+旧记忆缺少 `sourceObservedAt` 且缺少 `source_revision_version` 标记的迁移也已在临时库验证：重开补齐根时间、保留归档时间，写入 marker；再次重开不重复增加 revision。
+
+脚本执行与 `bun run typecheck` 均通过。原历史报告 SHA-256 保持：
+
+`bf6ac1ee9d2a63e3d3c1fbab06d5bc646a0f2b678e9ccf6576bcfbfa9f63bf81`
+
+本次未再改 store、schema、main 或任何真实数据。
+
+## 2026-09-17T15:57:54.639Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:58:29.079Z · /root/canvas_research → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+已完成 [startup-migration.test.ts](F:/codex/xingyao/test/startup-migration.test.ts)，仅新增该测试文件，现已停止修改。
+
+三项测试均通过，共 **62 个断言**：
+
+- 干净的 schema 1 旧宿主停留在 `g1`，便携盘已有 `g2` 时，实际 `main --offline --no-open` 先恢复 `g2`，再迁移为 schema 2；身份保持一致，新资料存在，迁移后显示未同步，成功检查点保存后才变为已同步。
+- 旧宿主确有本地未同步修改时，启动明确拒绝；数据库内容、文件哈希、`user_version=1`、缺失的迁移标记均保持不变，锁正常释放。
+- 明确选择旧 `g1` 时，启动先校验恢复代次，再迁移；不会自动改用 `g2`。随后检查点因分支冲突被拒绝，测试捕获并检查停止提示，等待 `runtime.closed`，核验锁释放、停止标记和 `g1` 数据保留。
+
+测试发现的 `checkpoint_revision` 恢复基准问题已由 root 修复，独立复跑全部通过。`bun run typecheck` 也通过。
+
+## 2026-09-17T15:58:43.414Z · 助理
+
+旧库升级测试也已通过：干净的旧宿主会先恢复最新检查点再迁移；真正有本地未同步修改的宿主仍会被保护。数据库格式升为第 2 版后，旧程序会拒绝打开升级后的库，防止把旧的错误判断重新写回来。
+
+我正在把这批基础修复整理成独立发行候选，再运行完整测试和编译后的浏览器验收。
+
+## 2026-09-17T16:02:01.064Z · 助理
+
+## Active objective and user intent
+
+Persistent full goal is **“开始吧”**: implement the complete approved **星杳 · 璇玑 V2** portable personal assistant. Keep goal **active**; substantial features remain. Do not mark complete based on current fixes.
+
+Latest substantive user request was architectural self-review:
+
+> 自我反省，看看整个架构有什么问题，你最不确定什么，3个月后出了问题大概是什么
+
+That review was completed with evidence and delivered in Chinese. The subsequent goal continuation authorized continuing implementation. **Current work is fixing the high-priority review findings and preparing an independently verified `.5` release.**
+
+User preferences:
+- Personality **温暖、有主见、稳定**.
+- Windows portable launcher + localhost browser UI; Docker optional.
+- “Soul” is persistent state and processes, not one giant prompt.
+- Memory, forgetting, learning, emotion, sleep consolidation, files, subagents, OpenCode upgrade compatibility.
+- **Infinite Canvas** only for image/video/visual creation.
+- Files/knowledge/memory use separate graph and source browser.
+- Avoid unnecessary confirmation.
+- Preserve old F: OpenCode and current identity.
+- Prior explicit authorization to upload all visible root/subagent conversation records to GitHub remains.
+- Chinese progress commentary about every 60 seconds.
+- Do not print credentials or runtime URL tokens.
+
+Environment:
+- cwd `F:/codex`, repo **`F:/codex/xingyao`**, branch **`product-v2`**.
+- Windows PowerShell, Bun1.4.2, unrestricted filesystem/network, approval never.
+- F: exFAT SanDisk ~114.59GiB.
+- Read **`F:/codex/xingyao/AGENTS.md`** already:
+  - Bun/strict TS/bun:sqlite/single writer.
+  - OpenCode coupling only in adapter; no private imports/table edits.
+  - Evidence/provenance/scope.
+  - Temporary test identities, no real credential reads/old user OpenCode modifications.
+  - Run `bun test`, `bun run typecheck`.
+- No skill needed for this generic engineering task.
+- Batch independent tool reads in `functions.exec` using `Promise.allSettled`.
+- Collaboration tools direct calls, not inside exec.
+- Developer: no section headings in user-facing final prose; absolute clickable file links.
+
+## Installed production remains `.4`
+
+**No new build/install/commit has yet happened in this continuation.**
+
+- Launcher `F:/启动星杳.cmd`
+- Portable root `F:/Xuanji`
+- Installed **`0.1.0-dev.4`**
+- Release:
+  `F:/Xuanji/system/releases/r-mu5nppuc-ea98e7b5-3665-45a6-bc0d-36380f04323d`
+- Host:
+  `C:/Users/LT/AppData/Local/Xuanji/58c7da30-1594-4275-b11b-8816f9494e15`
+- Identity:
+  **`487fe2aa-0a93-4186-ac4e-3d331fc286bd`**
+- SUBST X: → F:/Xuanji
+- Previously running PID33472; revalidate before using.
+- `.4` exe SHA256:
+  `5403a241d3679a30717e53e8de7794f5764ccbd760b34c068d22ec92cdc11704`
+- engine SHA:
+  `528277b2ea4178093a192da0fe33ef4768e7ae5514a7b21de006d07212c6df83`
+- Engine version **`0.0.0-product-dev-20260917-engine.5`**.
+- Existing `.4` dist contains usable engine:
+  **`F:/codex/xingyao/dist/xingyao-0.1.0-dev.4/opencode.exe`**
+- Original model config not read/configured by us.
+- Last production graph/tasks were empty; do not insert fixtures into real identity.
+- Latest committed source still **`364beb5`**.
+- Must activate a strictly higher semantic version; never bypass same-version guard.
+- `.4` prior final validation211pass/8230assertions/23files.
+
+## Completed architecture audit
+
+Created:
+- **`docs/architecture-review-2026-09-17.md`**
+- **`script/audit-soul-2026-09-17.ts`**
+- Baseline **`reports/architecture-audit-2026-09-17.json`**
+- Updated `docs/implementation-status.md` to flag findings.
+- Opened audit doc in Codex side pane.
+
+Baseline isolated repro:
+1. completed shell `exit=1`, `exit=null` timeout, `exit=2` all stored succeeded/tool_success, affect+0.4046875, sleep3 episodes, skill3 successes/probability0.8.
+2. commitment omitted pinned through API became false.
+3. fixed7028-char commitment silently excluded by6500-char projection budget.
+4. same action3 revisions →3 emotional updates/3 episodes.
+5.90-day-old event archived today got freshness1 instead of0.011609.
+6. No real skill-application/outcome attribution loop.
+7. Full snapshots + full history validation, no retention/capacity.
+8. Graph document-first cap starves memories; only loaded graph search.
+9. global task default, full history fetching, incomplete asset portability, exact engine restore only.
+10. tests covered engineering but not real Chinese long-term assistant quality.
+
+Baseline SHA:
+**`bf6ac1ee9d2a63e3d3c1fbab06d5bc646a0f2b678e9ccf6576bcfbfa9f63bf81`**
+Do not overwrite it.
+
+Audit last full suite211pass/0fail/8230,62.24s:
+`reports/architecture-review-tests-2026-09-17.txt`.
+
+## Current code changes (uncommitted)
+
+### Adapter — agent upstream_compat completed
+
+`src/adapter.ts`:
+- Tool `NormalizedPart` gains required `execution: ToolExecutionEvidence`.
+- Original lifecycle `status`, `upstreamStatus` retained.
+```ts
+type ToolExecutionEvidence = {
+ version:1
+ lifecycle:"completed"|"failed"|"unknown"
+ outcome:"succeeded"|"failed"|"unknown"
+ basis:string
+ exitCode?:number|null
+ startedAt?:number
+ finishedAt?:number
+}
+```
+- Known bash/shell completed exit0 => succeeded; nonzero=>failed process exit.
+- null/missing/invalid exit=>unknown.
+- interruption=>unknown, even stale exit0.
+- Reviewed builtin read/write/edit normal return=>tool-level succeeded; error=>failed.
+- Unknown/MCP/providerExecuted=>unknown.
+- Whitelisted metadata only (exit/time); no arbitrary metadata/credentials.
+- Valid times nonnegative safe integer Date range; reject reversed end.
+- Constant basis strings:
+  `shell-exit-zero`, `shell-exit-nonzero`, `shell-exit-unavailable`,
+  `builtin-tool-completed`, `builtin-tool-error`,
+  `tool-interrupted`, `tool-not-terminal`,
+  `unrecognized-tool-contract`, `provider-executed-tool`.
+- `test/adapter.test.ts`:19pass/121 assertions, including7new regressions.
+
+`src/contracts.ts` root changes:
+- `ActionExecution` domain equivalent to adapter evidence.
+- optional `Action.execution`.
+- optional `Memory.sourceObservedAt` (agent).
+- **SCHEMA_VERSION now2**.
+- `isSupportedSchema(v)` accepts1 or2 only.
+- **PRODUCT_VERSION just bumped to `0.1.0-dev.5`**.
+- `package.json` also just bumped `.5` (lock contains no version).
+
+### Server — root completed
+
+`src/server.ts`:
+- `recordParts` uses execution.outcome; saves execution; hash includes it.
+- Labels distinguish known tool return/nonzero/error/unknown, exitcode shown.
+- Whole task still verifying until explicit user acceptance.
+- `attempt.delivered=true` moved **after** projection succeeds, before actual prompt.
+- Memory API preserves omitted pinned vs explicit false; rejects nonboolean pinned.
+
+`test/server.test.ts`:
+- Updated normalized fixture with execution and labels.
+- Added commitment default pin/opt-out/type validation.
+- Added oversized fixed constraint blocks prompt, neverSent reconciliation returns ready, correction permits subsequent prompt.
+
+### Soul/domain — soul_dynamics completed
+
+`src/store.ts`, `src/affect.ts`, `test/source-revisions.test.ts`:
+- `ProjectionCoverageError` with code `MEMORY_CONSTRAINT_OVERFLOW`, memoryIds/requiredCharacters/limit.
+- Preflight all pinned memories against projection budget; throw instead of silently omitting.
+- `sourceObservedAt` earliest source event used for freshness; archive date stays separate.
+- `action_revisions(action_id,revision,observed_at)` persisted seen revisions.
+- New result revision retires old source (retracted=true, text preserved), active derivative memory invalidated, skill sources cause needs_review.
+- Root action earliest time stable; actual execution time can calibrate earlier.
+- Affect rebuilt from effective source, stable root order for same timestamp.
+- Seen stale revisions idempotently ignored.
+- Terminal cannot regress to first-seen old running/unknown lifecycle.
+- Earlier finishedAt terminal rejected; terminal unknown without finishedAt rejected after terminal.
+- Unknown new ended result with time can withdraw previous success.
+- Two first-seen terminal hashes with no ordered time remain ambiguous; documented limitation.
+- Privacy deletion clears execution and prevents replay; raw experience evidence erased.
+- Migration markers `source_revision_version=1`, `action_evidence_version=1`:
+  - Legacy no execution.version1 => unknown, revision `legacy-unverified:<old>`.
+  - Retract old evidence/derivatives, preserve original text, corrections, tombstones, sealed policies.
+  - Backfill memory root times.
+  - Idempotent reopening.
+- Root added **schema1→2 always increments revision** via changed("schema_upgrade",identityId), even empty old DB, so new schema must sync.
+- New empty DB version0 doesn’t add schema upgrade revision.
+- Agent optimized migration sources grouping instead of actions×all events.
+- Updated two existing tests semantics in `domain-regression.test.ts`, `learning.test.ts`.
+-14 new source revision tests.
+- Agent related suites pass, final root targeted:
+  `reports/evidence-targeted-check.txt` **30pass/506assertions** for server+API+source revisions.
+
+### Cross-layer HTTP tests — canvas_research completed
+
+**`test/tool-evidence-api.test.ts`**
+10tests/384assertions:
+- Real HTTP adapter/server/SQLite, synthetic upstream payloads, health/document contracts.
+- exit0/1/2/null/missing/error/unknown MCP.
+- assistant success prose doesn’t affect evidence.
+- no tools=>no success learning.
+- exit changes with same output update hash/retire old evidence.
+- old replay can’t restore.
+- legacy migration/reconcile without re-execution.
+- sealed/task acceptance preserved.
+
+### Actual engine shell regression — root completed
+
+Added to **`test/real-engine.test.ts`**:
+- Actual engine.5 + local deterministic model provider + product server/store.
+- Real shell success, nonzero, timeout, permission reject.
+- Uses bare **`exit 7` / `exit 0`** for exact codes.
+  - Nested cmd.exe or powershell child nonzero yields outer Powershell1; don’t revert.
+  - Bare exit statements do not request permission in current upstream scanner, so permission count asserted only timeout/reject external commands.
+- timeout:
+  `powershell.exe -NoLogo -NoProfile -NonInteractive -Command "Start-Sleep -Seconds 8"`
+  tool timeout500ms.
+- reject uses external powershell exit0; deny request.
+- Reject can leave task waiting; asserts no completed, other3 verifying.
+- Test passed **1pass/37assertions/4.57s**.
+- Report **`reports/real-outcomes-check.txt`**.
+- Actual outcomes:
+  nonzero failed exit7, timeout unknown null, success succeeded exit0, reject failed.
+- No public models/real credentials.
+
+### Post-fix audit — soul_dynamics completed
+
+Updated audit script to assert post-fix semantics and write separate:
+**`reports/architecture-audit-after-fixes-2026-09-17.json`**
+with mode after-fixes-regression, baseline hash,8 assertion groups.
+-0success/2failure/1unknown skill stays draft (no manual override).
+-1effective source/memory for3revisions, affect each0.175.
+-90-day freshness0.011609.
+- legacy age backfill idempotent.
+- baseline untouched.
+Created **`docs/evidence-fixes-2026-09-17.md`**, currently **draft wording says not built/published/full tested**. Update when release evidence exists.
+
+### Startup migration — root completed, agent tests completed
+
+Found/fixed automatic migration incrementing revision before branch comparison, falsely marking clean old g1 host dirty when portable has g2.
+
+`src/main.ts`:
+- Added readonly `readHostState` helper under host lock; validates regular DB, schema1/2, identity/revision/generation.
+- Resume paired journal then enumerate checkpoints.
+- Compare identity/recovery branch/clean ancestor **before** opening migrating SoulStore.
+- Restore chosen/latest paired snapshot if appropriate; dirty host refuses before mutation.
+- Then new SoulStore migrates.
+- Set checkpoint_revision from **matching saved generation**, not migrated revision or latest unconditionally, so migration stays unsynced.
+- No store during restore, paired restore owns sidecar preservation.
+
+**`test/startup-migration.test.ts`**:
+3pass/62assertions, actual main offline:
+1.clean schema1 g1 host restores schema1g2 then migrates2, unsynced until valid schema2 checkpoint.
+2.genuinely dirty old host refused, bytes/schema/markers unchanged, lock released.
+3.explicit oldg1 preserved despite portableg2, then checkpoint refuses fork, stop reports host preserved and closes.
+- Report `reports/startup-migration-check.txt`.
+- Agent stopped editing.
+
+## ACTIVE agent: upstream_compat still working schema/release/launcher
+
+Check messages/status before changes.
+
+Assigned owns:
+- `src/checkpoint.ts`
+- `src/releases.ts`
+- **`src/launcher.ts`** (expanded ownership)
+- `test/checkpoint.test.ts`
+- `test/releases.test.ts`
+- `test/launcher.test.ts`
+
+Task:
+- Accept explicit schema1/2 for inspection, original-byte restore without migration.
+- New checkpoints preserve actual schema, prevent schema going backward along parent.
+- Historical schema1 release journal recognized.
+- Normal activation cannot choose lower schema just by higher semver.
+- Rollback must match chosen release schema, snapshot schema, restored host schema.
+- Launcher recovered branch may retain original schema1 base while host/new descendant checkpoints upgrade2; validate monotonic chain + selected release supported schema, reject schema2 host with schema1 selected binary.
+- Tests should cover mixed1→2chain, restore unchanged1, rollback pairing, lower schema activation refusal, recovered branch upgrade continuing launch.
+- Root owns main/contracts.
+- Last observed edits implemented checkpoint/releases and launcher partial; **do not assume finished/tests passed**.
+- Root told agent PRODUCT_VERSION soon `.5`, avoid full compiled suite until candidate built; use targeted real engine env if needed.
+
+Current checkpoint diffs observed:
+- `isSupportedSchema` instead exact current for inspect/manifest.
+- createCheckpoint captures1or2 unchanged, rejects parent schema greater than captured.
+Current releases observed:
+- accepts1/2 manifests/selections.
+- activation lower schema refused.
+- rollback still exact release/snapshot match.
+
+## File workspace draft safely stashed
+
+There was incomplete UI/backend file editor draft from prior goal work. It is **not ready to ship** (backend no tests, save concurrent publishing unresolved).
+
+Root has just saved it using scoped stash:
+```powershell
+git stash push -u -m 'workspace-files draft preserved before evidence-fix release' -- src/web/app.js src/web/index.html src/web/style.css src/workspace-files.ts
+```
+Verified **`stash@{0}`**, name above, exactly4files:
+- app.js226lines
+- index.html11
+- style.css6
+- workspace-files.ts286new
+527insertions/2deletions.
+
+**Current worktree web UI reverted to committed `.4` and workspace-files.ts absent intentionally for clean core release.**
+After building/verifying/installing/committing `.5`, restore draft with **`git stash apply 'stash@{0}'`**, inspect results. Prefer retain stash until verified no content lost, not pop/delete blindly.
+Do not forget this draft or count it as completed.
+
+## Just-made release preparation edits (not yet verified)
+
+- contracts PRODUCT_VERSION `.5`, schema2.
+- package.json `.5`.
+- `script/verify-release.ts` adds required test evidence strings:
+  `"real shell outcomes"`, `"HTTP evidence"`,
+  `"startup decides the clean old host branch before migration"`.
+- report restore evidence adds startup-migration test.
+- soulIntegration adds tool-evidence-api/source-revisions.
+- `script/build.ts` maintenanceFiles now includes architecture-review and evidence-fixes docs.
+
+**No build yet; `.5` dist may not exist.** Tests default actual engine/compiled paths use current version, so missing `.5` will skip/fail until built. For targeted engine tests use explicit env pointing `.4` engine if needed.
+
+README still says `.4`; implementation-status still says findings uncorrected; audit doc is historical `.4` and should stay clearly historical with link to fixes, not rewrite baseline.
+Need update docs before candidate build because some are included in artifact hashes.
+
+## Suggested next steps
+
+1. Get upstream agent final schema/launcher changes and inspect diff/tests. Ensure no ownership conflicts.
+2. Update README `.5`, implementation status fixes vs remaining, evidence-fixes doc schema2/startup/real-shell evidence, audit doc link to current fix.
+3. Check/strengthen old-binary refusal proof if needed:
+   - old `.4` actually cannot open schema2 due version guard.
+   - test migration idempotence/schema revision and preserved old checkpoints.
+4. Run post-fix audit and typecheck; targeted schema tests as needed.
+5. Build `.5` **using preserved `.4` engine**:
+```powershell
+$env:XINGYAO_BUILD_ENGINE='F:/codex/xingyao/dist/xingyao-0.1.0-dev.4/opencode.exe'
+bun run build
+```
+No lock install/version rewrite needed.
+6. Run **`bun run script/verify-release.ts`**:
+   - full tests with no skips,
+   - typecheck,
+   - actual compiled browser graph validation.
+   - communicates if >60s, use async session polling.
+   - Inspect failures, don’t bypass assertions.
+   - Existing graph screenshots/report paths version-specific; visual review before installation.
+7. Only after validated candidate, install `.5` authorized under full goal:
+   - Revalidate live production, use its runtime metadata privately to request `/api/shutdown` and await process terminal. Never print token URL.
+   - `bun run script/install.ts <.5 candidate> F:/Xuanji/system`.
+   - Check success before launching/restart.
+   - Start launcher and verify actual executable SHA, version, unchanged identity, engine health, schema2, checkpoint state. If migration unsynced, save/checkpoint through API then verify.
+   - All real interactions within authorized install, not model credentials.
+   - Keep prior release/checkpoints.
+8. Record exact evidence in new verification doc; update docs links.
+9. Commit core fixes/docs/tests carefully **excluding file draft**, no source push unless appropriate existing scope (prior source not pushed).
+10. Restore scoped file draft with stash apply after release to continue full goal.
+11. Full goal remains: file editor/API, project context, semantic memory eval/extraction, budgets/retention, subagent panel, Infinite Canvas assets/tasks bridge, real-world qualities.
+
+## Important extra discoveries / caveats
+
+- Domain schema2 prevents old `.4` writing old semantics into upgraded DB. Historical schema1 backup restoration must remain supported, migration after restore.
+- Main old store migration prior to compare was reproduced, fixed and tested.
+- New execution metadata initially survived deletion; fixed in store and tested.
+- First-seen stale running snapshot could regress terminal result; fixed and tested.
+- Projection overbudget stops prompt. Don’t call it full constraint compiler; no semantic compression yet.
+- Nonzero exit is process outcome, not universal business failure. User task still explicit acceptance.
+- Unknown/MCP contracts intentionally remain unknown until adapter supports them.
+- Revision hashes alone can’t order two unseen terminal versions with no timestamp.
+- Full snapshots retention, project scope UI, full graph queries remain unresolved.
+
+## Latest user-facing progress commentary
+
+> 旧库升级测试也已通过：干净的旧宿主会先恢复最新检查点再迁移；真正有本地未同步修改的宿主仍会被保护。数据库格式升为第 2 版后，旧程序会拒绝打开升级后的库，防止把旧的错误判断重新写回来。  
+> 我正在把这批基础修复整理成独立发行候选，再运行完整测试和编译后的浏览器验收。
+
+## Automatic cleanup rejection — must report briefly in final
+
+Agent attempted deleting isolated temp fixture:
+**`C:/Users/LT/AppData/Local/Temp/xingyao-upgrade-main-same-Zznz7Z`**
+Automatic approval review rejected with **“blocked by policy”**.
+Do not retry/work around.
+Agent says stopped fixture process, no real product/engine; left directory harmless.
+Already informed user in commentary:
+
+> 自动审批审查拒绝了删除一个本轮独立测试临时目录的清理操作，理由为“blocked by policy”。该目录已保留，未重试；不影响源代码修补或正式数据。
+
+Developer requires short separate paragraph at end of final explaining rejection too.
+Earlier cleanup rejection `xingyao-launcher-meta-57fe...` also remains; don’t retry.
+
+## Conversation archive prior completed state
+
+Separate repo `F:/codex/conversation-archive`, branch `conversation-archive`.
+Public GitHub `LUTAO581314/xingyao-shuanji`.
+Latest verified remote:
+**`72988b9c23d3ed277541cd44bdf7907bf0969193`**
+Snapshot cutoff2026-09-17T15:04:43.508Z,1767visible records,6task identities/10fragments.
+Current root ID `01a0aede-90f2-7a73-baf2-0408fa980f18`.
+Exporter `tools/export-conversations.ts` redacts credentials, excludes hidden/system/developer/unrelated.
+Later audit/fix messages not uploaded yet.
+Refresh if completing archive step: run exporter, verify manifest hashes, commit, push via:
+```powershell
+$env:GIT_TERMINAL_PROMPT='0'
+git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin conversation-archive
+```
+Then `gh api .../git/ref/heads/conversation-archive --jq '.object.sha'`.
+Do not expose real secrets.
+
+## 2026-09-17T16:02:07.007Z · 助理
+
+我会接着把架构审查发现的基础问题修好，重点验证“工具执行结果、记忆证据和学习结果”是否一致，以及旧数据升级后能否安全恢复。随后给你明确说明：哪些风险已经消除，哪些仍然是三个月内最可能暴露的问题。
+
+
+## 2026-09-17T16:02:07.017Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:02:45.811Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:03:17.865Z · /root/upstream_compat → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+本轮验证已结束，**没有仍在运行的测试进程，已停止编辑**。没有构建或发布 dev.5 候选，也没有安装到正式目录。
+
+本轮修改的 6 个文件：
+
+- [checkpoint.ts](/F:/codex/xingyao/src/checkpoint.ts:115)：检查点支持验证和恢复 schema 1、2，保留旧快照原始结构和字节；拒绝未知结构版本，以及 schema 2 父代追加 schema 1 子代。
+- [releases.ts](/F:/codex/xingyao/src/releases.ts:82)：允许读取 schema 1 的历史发行与选择记录，并激活 schema 2 发行；回滚仍要求程序、检查点、实际恢复副本结构匹配。即使产品版本号更大，也不能通过普通激活降回旧结构。
+- [launcher.ts](/F:/codex/xingyao/src/launcher.ts:27)：从重新校验的当前发行清单读取目标结构版本。恢复基点为 schema 1 时，允许新版先启动未迁移的 schema 1 宿主，之后再次启动已迁移的 schema 2 宿主；后续 schema 2 检查点仍须沿父代证明属于原恢复分支。拒绝旧程序启动新结构恢复数据，以及结构或修订号倒退的历史链。
+- [checkpoint.test.ts](/F:/codex/xingyao/test/checkpoint.test.ts:86)：新增历史快照保持不变、混合结构父代链、未知结构及伪造匹配哈希的拒绝测试。
+- [releases.test.ts](/F:/codex/xingyao/test/releases.test.ts:166)：新增历史选择升级、回滚结构错配、更大产品版本号掩盖结构降级的测试；既有常量改用当前 `SCHEMA_VERSION`。
+- [launcher.test.ts](/F:/codex/xingyao/test/launcher.test.ts:119)：新增恢复基点跨结构升级后连续启动、旧程序拒绝新数据、已重算哈希但结构倒退的历史链测试；既有夹具适配当前结构版本。
+
+验证结果：
+
+| 检查 | 结果 |
+|---|---|
+| `bun test test/checkpoint.test.ts test/releases.test.ts` | **30 通过，0 失败，142 次断言** |
+| `bun test test/launcher.test.ts` | **17 通过，1 跳过，0 失败，69 次断言** |
+| 最后补充恢复基点检查后，`bun test test/launcher.test.ts --test-name-pattern schema` | **3 通过，0 失败，13 次断言** |
+| `bun run typecheck` | **通过** |
+
+跳过的是既有“编译启动器启动真实产品和引擎”的制品集成测试：运行该套测试时当前版本为 dev.4，相应完整发行制品不存在。独立编译启动器、入口缺参退出、真实子进程失败码传递测试均已通过。现在版本已升至 dev.5，真实制品集成需要交由即将执行的候选构建和完整验证覆盖。
+
+更早完成的 A01 改动仍保留在 [adapter.ts](/F:/codex/xingyao/src/adapter.ts:27) 与 [adapter.test.ts](/F:/codex/xingyao/test/adapter.test.ts:95)，当时为 **19 通过、0 失败、121 次断言**。`workspace-files.ts` 仍是未接入、未完成验证的开发草稿，本轮没有继续扩展它。
+
+自动审批审查拒绝了清理本轮临时验证目录 `C:\Users\LT\AppData\Local\Temp\xingyao-upgrade-main-same-Zznz7Z`，工具给出的理由为“blocked by policy”。已保留该目录，没有绕过或重试删除。
+
+## 2026-09-17T16:04:29.958Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:04:40.573Z · 助理
+
+目前最关键的错误已经有回归证据：失败命令不再变成“成功经验”，同一次执行的多次更新也不会重复增加情绪和记忆。独立复查还在检查一个更隐蔽的边界：从旧检查点恢复、升级、继续工作后，下一次启动能否正确识别这条历史，避免把正常工作误判成冲突。
+
+
+## 2026-09-17T16:05:11.112Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:05:33.031Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:05:46.472Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:06:38.278Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:07:04.395Z · 助理
+
+复查又确认了两个恢复问题：旧程序可能看不见新版检查点，从而写出另一条历史；恢复后的正常新增工作也可能在重启时被错误拦住。我正在补上这两个边界的保护和连续启动测试。另一个需要收紧的规则是：封存期间的经历，不能因为解封后收到一次内容更新，就重新参与学习。
+
+
+## 2026-09-17T16:07:42.242Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:08:48.096Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:08:58.577Z · 助理
+
+从长期使用看，我最不确定的仍是“她是否记对了、用对了”，尤其是中文里的引用、否定、临时偏好和后来改口。目前的测试能证明执行、存储和恢复规则，尚不能证明这些记忆会持续提高任务质量。三个月内还很容易遇到全量备份变大、项目上下文混淆、换电脑后附件缺失；这些会继续列为主力使用前的验收重点。
+
+
+## 2026-09-17T16:09:35.719Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:09:58.301Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:11:03.967Z · /root/upstream_compat → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+新增 P1 防护已完成，测试结束，已停止编辑。**没有构建或发布 dev.5，也没有安装到正式目录。**
+
+本轮只修改以下 4 个文件：
+
+- [releases.ts](/F:/codex/xingyao/src/releases.ts)：新增整个便携库的结构版本检查。回滚选中的旧快照与宿主即使完全匹配，只要同库还有结构版本高于所选程序的完整、已验证检查点，仍拒绝选择旧程序，并明确要求使用隔离的便携库和宿主恢复副本。
+- [launcher.ts](/F:/codex/xingyao/src/launcher.ts)：所有启动路径均执行上述检查，包括没有恢复记录的普通启动和显式指定新宿主目录的启动。一次检查点扫描结果同时用于版本保护和恢复分支验证，避免重复全量扫描。
+- [releases.test.ts](/F:/codex/xingyao/test/releases.test.ts)：增加同库 `g1(schema1) → g2(schema2)` 时拒绝回滚旧程序的回归，确认选择记录、旧宿主及旧快照保持不变；同时确认新版代码仍能恢复 `g1`。
+- [launcher.test.ts](/F:/codex/xingyao/test/launcher.test.ts)：增加既有旧恢复选择在新版检查点出现后被拒绝、普通旧版启动在新版检查点出现后被拒绝的回归。保留旧结构独立库合法启动、新版恢复旧分支的控制测试。
+
+验证结果：
+
+| 检查 | 结果 |
+|---|---|
+| 两套完整回归：`releases.test.ts`、`launcher.test.ts` | **36 通过、1 跳过、0 失败，168 次断言** |
+| 结构版本定向回归 | **9 通过、0 失败，48 次断言** |
+| `bun run typecheck` | **通过** |
+
+唯一跳过的是依赖真实 dev.5 发行制品的既有启动器集成测试；dev.5 尚未构建。真实编译启动器入口、子进程退出码传递等测试通过。
+
+本次防护覆盖已验证的 schema 1、2 检查点，封住了已复现的旧程序在同库生成第二个旧结构分支的问题。直接绕过新启动器执行旧二进制，或已经运行中的旧进程，仍无法由这两个入口撤销。另已向主实现方说明：未来未知 schema 3 需要单独的不兼容诊断，因为当前恢复候选列表会忽略尚不支持的结构版本。
+
+## 2026-09-17T16:11:03.972Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:11:40.438Z · /root/canvas_research → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+本轮独立审查复现了两处问题，其中授权给我的启动恢复问题已修复，文件修改已停止。
+
+1. **已修复：恢复分支产生新检查点后，崩溃前的未同步工作导致无法重启。**  
+   原来 `main` 把恢复日志中的根代次与当前检查点代次直接比较；恢复根为 `g1`、后来保存了 `g2` 并继续工作时，会误报“恢复分支已有新工作”。现在 [main.ts](F:/codex/xingyao/src/main.ts:57) 通过 [祖先校验](F:/codex/xingyao/src/main.ts:171) 检查当前检查点能否沿同一身份、无环且 schema/revision 不倒退的父链回溯到已完成成对恢复的根。证据成立时保留当前宿主工作；证据不足时仍要求精确匹配检查点后执行成对恢复。
+
+   [startup-migration.test.ts](F:/codex/xingyao/test/startup-migration.test.ts:210) 新增真实子进程回归：启动实际 `main` → schema 升级 → 保存检查点 → 写入新记忆 → 强制终止 → 再次启动实际 `main`。测试确认未同步记忆保留、恢复日志未被重写，并能继续保存检查点。另有反例确认不同恢复来源不能借此绕过检查。
+
+2. **已交给 root/upstream：真实旧版程序可在同一资料库中制造跨 schema 分叉。**  
+   使用真实 `dist/xingyao-0.1.0-dev.4/xingyao.exe` 和临时资料复现：资料库已有 `g1(schema 1) → g2(schema 2)`，将旧程序启动在恢复的 `g1` 上，旧版 `/api/checkpoint` 返回 **200** 并生成 schema 1 检查点；新版读取发现 **两个头，schema 分别为 1、2**。原因是旧程序会忽略它不支持的 schema 2 检查点，新版 `createCheckpoint` 的保护无法约束已经发布的旧二进制。需要由启动器拒绝这类同库回滚，或使用独立恢复资料库。
+
+本次仅修改 `src/main.ts` 和 `test/startup-migration.test.ts`；已同步补齐旧版测试夹具的四个迁移标记清理。最终定向验证 **5 项通过、89 个断言通过**，`bun run typecheck` 和 `git diff --check` 均通过。所有复现使用临时身份与临时目录，已清理。
+
+## 2026-09-17T16:12:13.094Z · 用户
+
+github仓库你看看怎么利用
+
+
+## 2026-09-17T16:12:31.574Z · 助理
+
+我会检查我们自己的 GitHub 仓库，看看它适合承载哪些东西：产品源码、OpenCode 补丁、测试、版本发布，以及聊天档案。也会结合已经选中的开源项目，明确哪些值得直接接入、哪些只适合借鉴。当前这批基础修复会继续完成验收。
+
+
+## 2026-09-17T16:13:22.989Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:14:35.932Z · /root/soul_dynamics → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:15:19.274Z · /root/soul_dynamics → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/soul_dynamics
+Payload:
+独立复核发现的两项问题已按授权修复，本轮仅修改 [store.ts](/F:/codex/xingyao/src/store.ts) 和 [source-revisions.test.ts](/F:/codex/xingyao/test/source-revisions.test.ts)。
+
+- **执行证据与状态一致性**：存在 `execution` 时，领域层校验版本、生命周期、结果、时间、退出码以及 shell 退出码与结果是否矛盾，再从 `execution.outcome` 派生动作状态。非法证据使整个写入事务失败；额外字段不会保存。没有 execution 的现有内部测试调用保持兼容。
+- **旧结构化证据重核**：新增 `action_evidence_validation_version=1`。迁移不再只检查 `version=1`，矛盾或非法记录会降为 unknown，撤回原成功经历、情绪与派生记忆，并让相关技能重新审阅。旧记录正文保留；重复重开幂等。同一个引擎 revision 已经被隔离时，允许一次有效的重新核实建立独立新来源。
+- **封存策略不能随 revision 重新放开**：新增 `root_learning_policy_version=1`，同根历史策略采取保守交集。封存期间收到的来源不能在解封后靠输出更新或新 revision 重新获得学习权限。已经启用的根在封存期间出现新修订后，也不会在以后再次学习。不同 action id 的新调用仍正常学习。
+- **明确的保守边界**：如果非终态来源首次在封存期间被记录，解封后的同根终态也不追补学习。旧库里已被这种方式重新启用的来源会在迁移时撤回。
+
+新增 9 个回归，来源修订文件现在共 23 个测试。最终定向验证：
+
+`bun test test/source-revisions.test.ts test/learning.test.ts test/tool-evidence-api.test.ts test/domain-regression.test.ts test/startup-migration.test.ts`
+
+结果为 **66 pass、0 fail、754 个断言**；`bun run typecheck` 通过。已通知负责启动迁移测试的代理补齐新 marker 的旧库模拟。
+
+未碰正式身份、安装目录或 commit。本轮修复已结束，可继续整体发行验证与构建。
+
+## 2026-09-17T16:15:49.255Z · 助理
+
+GitHub 仓库的现状已经有一个关键信息：它是公开仓库，默认分支现在是聊天档案，而我们正在开发的产品源码仍在本地 `product-v2` 分支。要让它真正帮助产品迭代，首先应建立清楚的源码主线、升级测试和发布流程。新的 `.5` 候选已经编译完成，正在跑完整发行验收。
+
+
+## 2026-09-17T16:17:21.054Z · /root/upstream_compat → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+只读核查结果很明确：**目前 GitHub 上只有聊天档案，还没有产品源码、OpenCode 补丁、自动测试或发行包。** 可以把这个仓库建设成星杳·璇玑的源码、兼容验证与发行中心，保留现有档案分支作为独立记录。
+
+已核实的远程现状：
+
+| 项目 | 当前情况 |
+|---|---|
+| 仓库 | [LUTAO581314/xingyao-shuanji](https://github.com/LUTAO581314/xingyao-shuanji)，公开仓库 |
+| 默认分支 | `conversation-archive`，也是当前唯一分支，尚未保护 |
+| 根目录 | `.gitattributes`、`README.md`、`conversations/`、`tools/` |
+| 产品源码和补丁 | 没有 `src/`、`test/`、`patches/` 或产品 `package.json` |
+| 自动验证 | [Actions](https://github.com/LUTAO581314/xingyao-shuanji/actions) 中没有工作流或运行记录 |
+| 版本发行 | 没有标签或 [Releases](https://github.com/LUTAO581314/xingyao-shuanji/releases) |
+| 现有 README | 明确说明“产品源码与安装制品不在此档案分支中” |
+
+本地已有 `0.1.0-dev.5` 产品代码、构建脚本和发行验证脚本，可以沿用这些能力。建议按以下职责组织 GitHub：
+
+| 部分 | 建议职责 |
+|---|---|
+| `main` | 从本地 `product-v2` 整理产品源码、测试、锁文件、文档、构建脚本和补丁，作为正式主线 |
+| `conversation-archive` | 保留独立档案历史，README 相互链接；档案不直接成为运行时记忆或实现状态依据 |
+| `patches/opencode/` | 记录上游基线、完整改动、补丁哈希、适配协议和已验证引擎版本 |
+| Pull Request 与 Actions | 验证类型、功能、数据迁移、恢复、实际引擎和浏览器交互；必要检查通过才能合并 |
+| 标签与 Releases | 发布固定版本安装包、文件哈希、`release.json`、验证记录、许可证和源码版本信息 |
+| Issues 与里程碑 | 跟踪具体缺陷、上游兼容变化和产品计划，并链接可复核的验证结果 |
+
+**真正保证 OpenCode 更新可控，目前最先要补齐的是引擎的完整源码来源。** 本地补丁清单声明了上游基线 `d0a9b965ac3cfbd8a80c636508ab225c3c91f740`，现有两份补丁也已验证能够重放；但其 README 同时说明，当前 `engine.5` 还包含更早的 Soul、提示词、UI 和更新保护等工作区改动，这些没有包含在两份补丁中。因此，现在不能声称“干净克隆上游，再应用现有两份补丁，就能重建当前引擎”。
+
+建议先把这些遗留改动落实为明确的源码提交或完整补丁序列，记录构建工具及依赖版本，验证能从干净检出重新构建。此后再逐步收缩 OpenCode 内部改动，保持星杳运行时独立，把耦合集中在现有 `src/adapter.ts`。
+
+上游更新采用下面的固定流程：
+
+```mermaid
+flowchart LR
+    A[发现 OpenCode 新版本] --> B[独立检出固定上游版本]
+    B --> C[验证补丁并构建候选引擎]
+    C --> D[适配接口与工具结果测试]
+    D --> E[旧数据迁移与恢复测试]
+    E --> F[实际候选程序与浏览器验证]
+    F --> G[记录兼容版本并发布候选包]
+    G --> H[通过后更新产品固定引擎版本]
+```
+
+这里的兼容承诺应是“每个交付版本都验证过，升级失败有明确处理路径”。未来上游可能改变接口，不能承诺所有未来版本都自动兼容。当前适配器仍使用旧版 HTTP 接口，V2 接口尚未支持；发现协议变化时应明确拒绝升级并保留已有版本。
+
+自动验证可以直接复用本地已有能力：
+
+- PR 阶段运行类型检查和相关功能测试；没有实际引擎的检查要明确说明验证范围。
+- 发行阶段使用 Windows runner，运行现有 `script/verify-release.ts`，把候选 `opencode.exe` 交给测试。Windows 的路径、NTFS、SUBST、junction 和启动器行为需要真实覆盖。
+- 沿用现有发行门槛：拒绝失败、跳过和待办测试，验证编译后的产品、真实引擎调用、迁移恢复和浏览器界面，并把验证记录绑定到发行清单。
+- 现有引擎测试使用本地模拟模型服务，无须为基础兼容验证配置付费模型凭据。
+- 定期上游兼容检查只生成报告或候选制品，通过后再进入发行流程。
+
+推荐执行顺序是：**完成本地 dev.5 修复验证 → 补齐引擎源码与补丁来源 → 整理产品主线 → 配置 Windows Actions → 发布经过验证的预发行包 → 增加上游版本兼容检查。** 构建脚本中的本机许可证路径也需要改为 CI 显式提供的上游检出路径。
+
+以上是核查结果和实施建议；本次没有修改本地文件，也没有推送代码、创建工作流、议题或发行。
+
+## 2026-09-17T16:18:05.631Z · 助理
+
+完整验收已通过：269 项测试、9027 个断言，零失败、零跳过；编译后的浏览器检查也通过了。接下来会保存并关闭当前 `.4`，安装 `.5`，再核对身份、引擎和迁移后的检查点。
+
+仓库方面还发现一个关键缺口：当前两份 OpenCode 补丁没有包含早期改装的全部源码。要让 GitHub 自动构建和验证升级，必须先补齐这份完整来源。
+
+
+## 2026-09-17T16:23:20.410Z · 助理
+
+`.5` 已安装并启动，身份保持一致，引擎正常，迁移后的新检查点已保存。修复源码已提交为本地 `08fc700`；文件编辑草稿也已恢复到开发区，留待后续完成。
+
+GitHub 使用方案已经写成文档。我现在补传这一轮主任务和子智能体的可导出记录，延续你之前要求的聊天归档。
 

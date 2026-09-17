@@ -2,7 +2,7 @@
   "format": 1,
   "rootThread": "01a0aede-90f2-7a73-baf2-0408fa980f18",
   "title": "检测 F 盘健康状态",
-  "exportedAt": "2026-09-17T15:04:43.508Z",
+  "exportedAt": "2026-09-17T16:23:22.146Z",
   "repository": "LUTAO581314/xingyao-shuanji",
   "visibility": "public",
   "scope": "当前根任务的全部本地历史片段，以及按 parent_thread_id 递归找到的全部子智能体；不包含其他无关任务。",
@@ -110,25 +110,25 @@
       "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "parentThreadId": null,
       "source": "sessions/2026/09/17/rollout-2026-09-17T18-59-26-01a0aede-90f2-7a73-baf2-0408fa980f18_01a0af05-78db-74a0-81af-9379588e9314.jsonl",
-      "originalBytes": 10656830,
-      "sourceRecords": 2584,
-      "exportedRecords": 748,
-      "messages": 179,
-      "toolCalls": 285,
-      "toolResults": 284,
+      "originalBytes": 18275333,
+      "sourceRecords": 3758,
+      "exportedRecords": 1097,
+      "messages": 268,
+      "toolCalls": 415,
+      "toolResults": 414,
       "markdown": "05-root.md",
       "jsonl": "05-root.jsonl",
       "excluded": {
         "session_meta": 1,
-        "event_msg": 1110,
+        "event_msg": 1608,
         "internal_developer": 3,
-        "world_state": 14,
-        "turn_context": 9,
-        "reasoning": 282,
-        "token_usage_record": 291,
-        "inter_agent_communication_metadata": 117,
-        "compacted": 3,
-        "runtime_context": 6
+        "world_state": 17,
+        "turn_context": 13,
+        "reasoning": 399,
+        "token_usage_record": 424,
+        "inter_agent_communication_metadata": 182,
+        "compacted": 5,
+        "runtime_context": 9
       }
     },
     {
@@ -137,24 +137,25 @@
       "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "parentThreadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "source": "sessions/2026/09/17/rollout-2026-09-17T19-00-04-01a0af06-0b6a-7f43-81fd-5f9fb661b4a2.jsonl",
-      "originalBytes": 2434042,
-      "sourceRecords": 671,
-      "exportedRecords": 168,
-      "messages": 36,
-      "toolCalls": 66,
-      "toolResults": 66,
+      "originalBytes": 6229646,
+      "sourceRecords": 1249,
+      "exportedRecords": 318,
+      "messages": 58,
+      "toolCalls": 130,
+      "toolResults": 130,
       "markdown": "06-root--soul_dynamics.md",
       "jsonl": "06-root--soul_dynamics.jsonl",
       "excluded": {
         "session_meta": 2,
-        "event_msg": 305,
+        "event_msg": 568,
         "internal_developer": 3,
-        "runtime_context": 1,
-        "world_state": 3,
-        "turn_context": 14,
-        "inter_agent_communication_metadata": 13,
-        "token_usage_record": 73,
-        "reasoning": 89
+        "runtime_context": 3,
+        "world_state": 6,
+        "turn_context": 19,
+        "inter_agent_communication_metadata": 28,
+        "token_usage_record": 142,
+        "reasoning": 159,
+        "compacted": 1
       }
     },
     {
@@ -190,25 +191,25 @@
       "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "parentThreadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "source": "sessions/2026/09/17/rollout-2026-09-17T19-09-35-01a0af0e-c4fc-7720-9f82-68bf4038f0f8.jsonl",
-      "originalBytes": 5897694,
-      "sourceRecords": 1420,
-      "exportedRecords": 388,
-      "messages": 68,
-      "toolCalls": 160,
-      "toolResults": 160,
+      "originalBytes": 11436517,
+      "sourceRecords": 2019,
+      "exportedRecords": 552,
+      "messages": 100,
+      "toolCalls": 226,
+      "toolResults": 226,
       "markdown": "08-root--upstream_compat.md",
       "jsonl": "08-root--upstream_compat.jsonl",
       "excluded": {
         "session_meta": 2,
-        "event_msg": 647,
+        "event_msg": 929,
         "internal_developer": 4,
-        "runtime_context": 2,
-        "world_state": 8,
-        "turn_context": 13,
-        "inter_agent_communication_metadata": 31,
-        "token_usage_record": 167,
-        "reasoning": 157,
-        "compacted": 1
+        "runtime_context": 3,
+        "world_state": 11,
+        "turn_context": 20,
+        "inter_agent_communication_metadata": 43,
+        "token_usage_record": 240,
+        "reasoning": 212,
+        "compacted": 3
       }
     },
     {
@@ -243,46 +244,46 @@
       "sessionId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "parentThreadId": "01a0aede-90f2-7a73-baf2-0408fa980f18",
       "source": "sessions/2026/09/17/rollout-2026-09-17T22-03-54-01a0afae-59d0-7cb2-b50a-8bf96bfdf4ff.jsonl",
-      "originalBytes": 2400195,
-      "sourceRecords": 304,
-      "exportedRecords": 91,
-      "messages": 17,
-      "toolCalls": 37,
-      "toolResults": 37,
+      "originalBytes": 5695600,
+      "sourceRecords": 788,
+      "exportedRecords": 234,
+      "messages": 36,
+      "toolCalls": 99,
+      "toolResults": 99,
       "markdown": "10-root--canvas_research.md",
       "jsonl": "10-root--canvas_research.jsonl",
       "excluded": {
         "session_meta": 2,
-        "compacted": 1,
-        "world_state": 8,
-        "turn_context": 7,
-        "event_msg": 119,
-        "runtime_context": 4,
+        "compacted": 2,
+        "world_state": 10,
+        "turn_context": 12,
+        "event_msg": 326,
+        "runtime_context": 5,
         "internal_developer": 3,
-        "inter_agent_communication_metadata": 10,
-        "token_usage_record": 40,
-        "reasoning": 19
+        "inter_agent_communication_metadata": 24,
+        "token_usage_record": 107,
+        "reasoning": 63
       }
     }
   ],
   "redactions": {
-    "credential_assignment": 61,
-    "url_token": 12,
-    "auth_header": 8,
+    "credential_assignment": 123,
+    "url_token": 14,
+    "auth_header": 33,
     "escaped_credential": 3,
     "private_key": 2
   },
   "excluded": {
     "session_meta": 15,
-    "event_msg": 2825,
+    "event_msg": 4075,
     "internal_developer": 30,
-    "runtime_context": 15,
-    "world_state": 44,
-    "turn_context": 66,
-    "token_usage_record": 728,
-    "reasoning": 709,
-    "inter_agent_communication_metadata": 186,
-    "compacted": 7
+    "runtime_context": 22,
+    "world_state": 55,
+    "turn_context": 87,
+    "token_usage_record": 1070,
+    "reasoning": 995,
+    "inter_agent_communication_metadata": 292,
+    "compacted": 13
   },
   "files": [
     {
@@ -292,7 +293,7 @@
     },
     {
       "path": "01-root.md",
-      "sha256": "316f15d869a254523ab3b87742d4b03a885bb0c5058fc604dd9be00b50d2573b",
+      "sha256": "46275bf71a665051997d5d798e1e29c5570ce7716069d67dce4f094413205478",
       "bytes": 47572
     },
     {
@@ -302,7 +303,7 @@
     },
     {
       "path": "02-root.md",
-      "sha256": "8781ba797fa8655b27efbf282dcb452aa9be146d3f3d53667e07a853fac1a0a5",
+      "sha256": "45708d1eac5c9491e3fdd7a5932cee4e56f09d92f5102f966312122c59a69d74",
       "bytes": 568
     },
     {
@@ -312,7 +313,7 @@
     },
     {
       "path": "03-root.md",
-      "sha256": "b123aaf45f8707a8d3e8e8f479361f3ddce7ec47345c1f8f65fdf6268ae96f69",
+      "sha256": "8c7b379b3860ef4a5e83725e9398ea79d5ec2d1a3a2568f6a435e4da1b565644",
       "bytes": 568
     },
     {
@@ -322,28 +323,28 @@
     },
     {
       "path": "04-root.md",
-      "sha256": "64e05a9975c08aae3d10f3153269120d0b5522c374cb8a8989be61a5a32aee32",
+      "sha256": "7d39e6354a299a2a2cb9df3600abbcfd150cec2298b959fecb1b39a8df8e0b66",
       "bytes": 939
     },
     {
       "path": "05-root.jsonl",
-      "sha256": "b232faa50f4c268bbc40846cb951743dc2c8ac0e46a82dfac82b260c8051f7bf",
-      "bytes": 3184398
+      "sha256": "955bc0db0d26013d32b15201bca617cae66fee352e4bb47782f1e3627cb413d8",
+      "bytes": 4703229
     },
     {
       "path": "05-root.md",
-      "sha256": "4a1c42d72879f5a7de93f3024d410dc474aafc6850515941af6d1dacf503e30f",
-      "bytes": 185093
+      "sha256": "fa71522c6c63d346355c96e399239d1016143e56221ca1517a9df7657c5f7e81",
+      "bytes": 303111
     },
     {
       "path": "06-root--soul_dynamics.jsonl",
-      "sha256": "08c4cb699e1f7d31c68d0979e84a26e5491c98e22e5836754edb5ea9e1dae77e",
-      "bytes": 586796
+      "sha256": "dc2dfcf9f7c6eeb46ec1c5faaa60a1ef62e1823cfa9d7877696b5416afe895a3",
+      "bytes": 1326685
     },
     {
       "path": "06-root--soul_dynamics.md",
-      "sha256": "3cd8c84194ea982f3bd6af44cfff8f886566704638afba407e7a334dead53f42",
-      "bytes": 63433
+      "sha256": "3d61d51e91cc2c90fefa8aee219a491f440f0e15a2cc640629bc193ee5731fc0",
+      "bytes": 99100
     },
     {
       "path": "07-root--soul_stability.jsonl",
@@ -352,18 +353,18 @@
     },
     {
       "path": "07-root--soul_stability.md",
-      "sha256": "7ede4b492ea1398f7e1394af73e54079e3ee098615e0f921e4836b56e694ed6a",
+      "sha256": "af242f62efadfd3c4570a888551a3bcb8ceae6120da3b86c1cd72bcffb253102",
       "bytes": 80702
     },
     {
       "path": "08-root--upstream_compat.jsonl",
-      "sha256": "3a11b84dd979c6cfade1368a34a52b61fa41d9a719b79aa5cef16ea710d386b4",
-      "bytes": 1376436
+      "sha256": "3b7fab07b512ad1bf45bd416579d77a9ee85a9eba3b618fcc11cb626db9a1a7d",
+      "bytes": 2290731
     },
     {
       "path": "08-root--upstream_compat.md",
-      "sha256": "641827a7ea802f2ec677c765b2fbe79ee2e290dfe77cd1f528be6e0066fe9a40",
-      "bytes": 90799
+      "sha256": "a786d524280131914d458472d65dba18050bfdff2fe19686f4188306c8504462",
+      "bytes": 142796
     },
     {
       "path": "09-root--upstream_compat--launcher_entry_review.jsonl",
@@ -372,18 +373,18 @@
     },
     {
       "path": "09-root--upstream_compat--launcher_entry_review.md",
-      "sha256": "5530f1d4e3373eb724d54c81a4a043e0631e01efe63c91001f37101691681d19",
+      "sha256": "04c027d8e918f4b86fe64df2ed43ff67331e99fd1155894da35f81ab5a908d64",
       "bytes": 7976
     },
     {
       "path": "10-root--canvas_research.jsonl",
-      "sha256": "390f67e1857361ea853e3018732309cea81bc61b4d8f0f34950e054a1813bee5",
-      "bytes": 544555
+      "sha256": "e93e83aaffba939a5e49b2d2cb9c0f6b7973d0e6b51da1f463206f9a10300918",
+      "bytes": 1186426
     },
     {
       "path": "10-root--canvas_research.md",
-      "sha256": "a2721cfbc26885673213bd948b403c37da8838ccbd4f40575bdc50511c018225",
-      "bytes": 17053
+      "sha256": "29e91e8e5ce5a3f2db11d903577b32d91d5488723ad1a5e90d388d25abee5fbd",
+      "bytes": 40556
     }
   ]
 }

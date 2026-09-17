@@ -1,6 +1,6 @@
 # /root/canvas_research
 
-导出时间：2026-09-17T15:04:43.508Z
+导出时间：2026-09-17T16:23:22.146Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T22-03-54-01a0afae-59d0-7cb2-b50a-8bf96bfdf4ff.jsonl`
 
@@ -233,3 +233,503 @@ Payload:
 验证已完成：`bun build src/web/app.js --target browser` 通过，`git diff --check` 通过。实际 Edge 交互、截图和发行验收由父代理继续进行。
 
 API 按已确认契约读取：图谱直接返回 `KnowledgeGraph`；文档来源字段平铺；记忆在 `source.memory`，经历在 `source.experience`。正文分页使用 `endLine + 1`，超长行截断明确提示下一页不会续接该行。
+
+## 2026-09-17T15:09:07.088Z · /root → /root/canvas_research
+
+Message Type: NEW_TASK
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:11:42.528Z · /root → /root/canvas_research
+
+Message Type: MESSAGE
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:17:51.260Z · /root → /root/canvas_research
+
+Message Type: MESSAGE
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:18:57.090Z · 助理
+
+文件浏览／编辑前端已保留为**开发草稿**，暂停继续扩展。只修改 [app.js](F:/codex/xingyao/src/web/app.js)、[index.html](F:/codex/xingyao/src/web/index.html)、[style.css](F:/codex/xingyao/src/web/style.css)，未安装、未提交。Bun 浏览器构建、DOM ID 核对及 `git diff --check` 均通过，三个文件已统一 LF。实际接口联调和 Edge 交互仍未验收。
+
+草稿包含项目目录选择、递进文件列表、面包屑、文本编辑和 Ctrl+S、SHA-256 冲突保存、未保存离开确认、关闭页面提醒、显式知识库导入（默认私密）、备份位置和索引刷新警告。
+
+我建议架构审查优先处理这三个风险：
+
+1. **用户会把“保存文件”和“保存到 U 盘”理解为同一次完整保存，但当前不是。** 草稿的编辑内容只保存在 textarea 与内存状态，[app.js:152](F:/codex/xingyao/src/web/app.js:152)；关闭提醒在 [app.js:365](F:/codex/xingyao/src/web/app.js:365)，无法覆盖浏览器崩溃、强制退出或断电。现有顶部“保存到 U 盘”直接创建系统检查点，[app.js:685](F:/codex/xingyao/src/web/app.js:685)，没有协调未保存文件。三个月里持续编辑之后，这会成为真实的内容丢失与误解来源。优先做独立可恢复草稿，并给文件保存、外部项目文件和系统检查点明确的状态与覆盖范围。
+
+2. **项目隔离目前更依赖用户手工填写范围，而非项目上下文。** 聊天创建任务仍固定 `scope:'global'`，[app.js:91](F:/codex/xingyao/src/web/app.js:91)；文件导入默认范围也是 `global`，[index.html:42](F:/codex/xingyao/src/web/index.html:42)。后端 SQL 确实按指定范围加共享 `global` 筛选，[knowledge-graph.ts:175](F:/codex/xingyao/src/knowledge-graph.ts:175)，这里并未发现绕过过滤；风险在于用户取消私密后，以为资料属于当前项目，实际把它放进所有项目共享范围。三个月多项目使用后，最容易出现的是错误串联和回答混用。应让项目根、任务、资料与图谱共享一个明确项目 ID；“共享给所有项目”作为单独可见的选择。
+
+3. **图谱截断会系统性偏向文档，使用户误以为记忆缺失或关系不存在。** 后端先填满文档节点，再加入记忆，[knowledge-graph.ts:193](F:/codex/xingyao/src/knowledge-graph.ts:193)；前端虽允许 300／1000／2000 节点，但边固定只取 1000，[app.js:421](F:/codex/xingyao/src/web/app.js:421)。当前搜索和“相邻节点”仅处理已经加载的数据，[app.js:459](F:/codex/xingyao/src/web/app.js:459)，没有向全库查询。现有截断说明是必要的，但不能解决三个月后数千文件把记忆挤出视图的问题。应增加后端分页搜索、按节点查邻居、按类型分配展示额度，并将“当前加载概览”与“全库搜索结果”明确区分。
+
+## 2026-09-17T15:30:13.508Z · /root → /root/canvas_research
+
+Message Type: NEW_TASK
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:32:56.463Z · /root → /root/canvas_research
+
+Message Type: MESSAGE
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:35:08.969Z · 助理
+
+## Identity and collaboration
+
+You are subagent **`/root/canvas_research`**, working for `/root` in shared Windows workspace `F:/codex/xingyao`. Current subtask is **independent end-to-end tool execution evidence tests**, not UI development.
+
+Use tools through `functions.exec` with `tools.exec_command` / `tools.apply_patch`; collaboration directly via `collaboration.send_message`. PowerShell shell; Bun installed. Full filesystem access; approval never. Do not install, commit, or modify production files for current task.
+
+Parent’s latest task:
+
+> Create **new `test/tool-evidence-api.test.ts`** using a synthetic local OpenCode HTTP service and the **real `OpenCodeAdapter` and `startServer`**. Cover completed shell exit 0/1/2/null/missing, `state.error`, unknown MCP tools -> unknown, and assistant prose claiming success must not change actual outcome. Assert action + original exit evidence, experience kind, affect/sleep/learning don't treat failure as success, task remains `verifying` pending manual acceptance. Also cover existing legacy success action evidence being corrected by re-reconciliation and invalidating derived memories. All fixtures temporary and cleaned.
+
+**No test file has been written yet.** Reads/research completed; new contracts received, implementations still being changed by sibling agents.
+
+## Current agreed contract (parent message)
+
+Adapter exports:
+
+```ts
+export type ToolExecutionEvidence = {
+  version: 1
+  lifecycle: "completed" | "failed" | "unknown"
+  outcome: "succeeded" | "failed" | "unknown"
+  basis: string
+  exitCode?: number | null
+  startedAt?: number
+  finishedAt?: number
+}
+```
+
+- `NormalizedPart` of `type: "tool"` gets **required `execution: ToolExecutionEvidence`**.
+- `Action` will persist `execution` same shape.
+- `server.recordParts` must derive status only from `execution.outcome`, preserve output/error and neutral Chinese status, revision hash includes complete execution evidence.
+- Store migration: legacy actions without execution will be downgraded to unknown and old derivatives withdrawn.
+- Parent owns `src/server.ts`, `src/contracts.ts`.
+- `upstream_compat` owns adapter normalization.
+- `soul_dynamics` owns store correctness/migration.
+- You own **only `test/tool-evidence-api.test.ts`** for this task.
+
+Sent to `/root/soul_dynamics` just before compaction:
+
+> I’m writing API end-to-end tests. For legacy correction fixture, how should legacy Action be created after new recordAction behavior? Parent suggests deleting `meta.action_evidence_version` and reopening. Need know if `recordAction` missing execution automatically becomes unknown; if so, create clearly documented historical on-disk fixture via old schema SQL only for migration, no fake success in new runtime. Will assert old source retracted, memory invalidated, real HTTP reconcile imports failure, no false positive affect/learning.
+
+Await answer; can proceed building general fixture/tests independently.
+
+## Useful existing code and test patterns
+
+Read:
+- `test/server.test.ts`
+- `test/adapter.test.ts`
+- `test/product-integration.test.ts`
+- `src/adapter.ts`
+- `src/server.ts`
+- `src/store.ts`
+- `src/learning.ts`
+- `src/affect.ts`
+- `src/contracts.ts`
+
+### Server fixture pattern
+
+```ts
+const dir = mkdtempSync(join(tmpdir(), "xingyao-tool-evidence-"))
+const store = new SoulStore(join(dir, "host", "soul.db")) // optional fixed clock
+const adapter = new OpenCodeAdapter({baseURL: synthetic.url.origin, timeoutMs: 1000})
+const app = startServer({store, adapter, token:"[REDACTED]", vaultDir:join(dir,"vault")})
+```
+
+Request helper fetches `http://127.0.0.1:${app.server.port}/api/...` with:
+`authorization: [REDACTED_AUTHORIZATION]`, JSON content-type.
+
+Cleanup existing tests:
+
+```ts
+await app.server.stop(true)
+await Promise.allSettled([...app.jobs.values()])
+store.close()
+rmSync(dir,{recursive:true,force:true})
+synthetic.stop(true)
+```
+
+Ensure synthetic server lives until jobs settled; avoid stop ordering blocking network jobs. Each matrix case should isolated store (emotion must not be contaminated by previous cases).
+
+`startServer` returns `{server, jobs, ...}`; await `Promise.allSettled([...app.jobs.values()])` after chat202. Existing tests do this.
+
+### Synthetic OpenCode protocol
+
+Required `GET /global/health`:
+```json
+{"healthy":true,"version":"local-evidence-fixture"}
+```
+
+Required `GET /doc`:
+```ts
+{
+ openapi:"3.1.0",
+ paths:{
+   "/session":{post:{}},
+   "/session/{sessionID}/message":{
+      get:{},
+      post:{requestBody:{content:{"application/json":{schema:{$ref:"#/components/schemas/Prompt"}}}}}
+   },
+   "/permission/{requestID}/reply":{post:{}}
+ },
+ components:{schemas:{Prompt:{type:"object",properties:{system:{type:"string"}}}}}
+}
+```
+
+`POST /session` -> `{id:"ses_evidence"}`.
+
+Before `POST /session/ses_evidence/message`, GET history should return `[]` (server captures baseline).
+POST returns assistant message and marks delivered; subsequent GET returns `[message]`.
+
+Message:
+```ts
+{
+ info:{
+   id:"msg_evidence",
+   sessionID:"ses_evidence",
+   role:"assistant",
+   time:{created:1,completed:2},
+   finish:"stop"
+ },
+ parts:[
+  {
+   id:"part_tool",
+   sessionID:"ses_evidence",
+   messageID:"msg_evidence",
+   type:"tool",
+   callID:"call_evidence",
+   tool:"bash", // or unknown e.g. "mcp_unrecognized_tool"
+   state:{
+      status:"completed",
+      input:{command:"synthetic fixture only; not executed"},
+      output:"fixed output",
+      metadata:{exit:0}, // null, missing, 1, 2 variants
+      time:{start:1,end:2} // verify upstream exact raw field contract if needed
+   }
+  },
+  {
+   id:"part_text", sessionID, messageID, type:"text",
+   text:"我已经成功完成全部任务。" // deliberate misleading self-report
+  }
+ ]
+}
+```
+`state.status:"error"` needs string `state.error`, and no `output` required.
+Unknown MCP completed may output `"success"` with `metadata.exit:0`; should still unknown unless supported tool contract.
+If `GET /provider`, return `{all:[],connected:[],default:{}}`; `GET /permission` -> `[]`; not likely used in task endpoints.
+Record unexpected routes to assert fixture strictness.
+
+Do **not** subclass adapter or fake normalized objects in these tests.
+
+### Product API flow
+
+```ts
+POST /api/tasks {key:"...",title:"...",scope:"evidence"} ->201 Task
+POST /api/tasks/:id/chat {key:"...",text:"..."} ->202
+await app.jobs
+GET /api/tasks/:id -> Task & {messages: ChatMessage[],actions:Action[]}
+```
+
+Current server runPrompt:
+1 health
+2 create session/update running
+3 GET messages baseline
+4 meta `attempt:${taskId}` `{baseline,delivered:true,...}`
+5 prompt
+6 recordParts(result.parts)
+7 GET persisted messages -> importMessages again (dedup must work)
+8 `result.status === "completed"` -> **verifying**, irrespective individual tool failure/unknown.
+Assistant message normalization uses completed time + finish stop; individual tool failures do not make message itself failed.
+Task `/complete` explicit manual acceptance only from verifying.
+
+`POST /api/tasks/:id/reconcile {}`:
+- import persisted messages.
+- attempts baseline chooses fresh messages.
+- previous code settled required no `part.status==="unknown"`; root may change to lifecycle correctness.
+- should remain verifying for completed agent response, never auto-completed.
+
+### Store public methods
+
+```ts
+store.experiencesAfter(cursor, limit=100)
+store.experience(id)
+store.actions(taskId)
+store.affect()
+store.sleep()
+store.memory(id)
+store.memories({scope?,private?,history?,query?})
+store.recordAction(action:Omit<Action,"updatedAt">)
+store.remember({text,scope,kind,sourceIds,...})
+store.createTask(title,scope)
+store.updateTask(id,{sessionId,status,error})
+store.setMeta(key,value)
+store.meta(key)
+```
+
+`SoulStore` constructor `(path, clock = Date.now)`. Fixed clock useful consistent affect assertions.
+
+Old (pre-fix) action ID server:
+`${part.sessionID}:${part.messageID}:${part.callID}`.
+
+Old action source key:
+`action:${action.id}:${action.revision}`
+
+Old action experience:
+```ts
+{
+ kind: status==="succeeded" ? "tool_success" : status==="failed" ? "tool_failure" : "tool_unknown",
+ ownership:"experienced",
+ text:action.text,
+ evidence:{actionId:action.id,tool:action.tool,status:action.status}
+}
+```
+
+New store likely adds execution and retracts old action revisions; inspect once siblings finish.
+
+### Sleep behavior
+
+`POST /api/sleep {}` -> SleepReport.
+Only nonretracted `tool_success` or `tool_failure`, learning enabled, become `episode` memory containing event text/sourceId.
+`tool_unknown` is not archived.
+Repeated sleep should created0.
+Neither assistant/user messages should become auto fact/memory.
+Assert by source IDs and event kinds, not brittle Chinese exact text.
+
+### Learning endpoints
+
+`GET /api/skills/sources?scope=evidence` -> `SkillObservation[]`:
+
+```ts
+{sourceId,actionId,tool,scope,private,outcome:"success"|"failure"|"unknown",observedAt,text}
+```
+
+Only latest allowed event per tool call returned.
+
+`POST /api/skills` ->201 candidate:
+```ts
+{title,scope,when,steps:["..."],avoid:[],sourceIds:[eventId]}
+```
+
+Candidate `evaluation`:
+`successes`, `failures`, `unknownSources`, `independentSources`, `status`, etc.
+Use API candidates to assert failures/unknown not counted successes.
+Assistant self-report source should be rejected if used in skill propose.
+Promote requires 3 independent decidable calls; no need force promotion for single case unless useful combined test.
+
+### Affect
+
+`applyExperience` ignores all but experienced/observed `tool_success`/`tool_failure`.
+Initial zeros.
+Single success valence >0.
+Single failure valence <0.
+Unknown/text-only valence remains0.
+Memory/source withdrawal calls replay affect; expect stale success disappears after correction.
+Use sign/zero instead of duplicating formulas.
+
+### Legacy DB schema
+
+Store uses SQLite:
+- `meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)`
+- `experiences(id INTEGER PRIMARY KEY AUTOINCREMENT, source_key TEXT UNIQUE, body TEXT)`
+- `experience_policy(experience_id,...,affect_enabled,learning_enabled)`
+- `actions(id TEXT PRIMARY KEY,task_id REFERENCES tasks,body TEXT)`
+- `memories(id TEXT PRIMARY KEY,body TEXT)`
+- `memory_sources(memory_id,source_id)`
+- `tasks(id,body)`
+New migration marker parent says **`action_evidence_version`**.
+Could construct legacy via public old-shaped recordAction only if supported; otherwise explicit migration fixture SQL is legitimate to simulate prior release, must be clear not fake normalized execution.
+
+## Previous completed work (do not redo)
+
+You previously:
+1. Researched user’s specific `basketikun/infinite-canvas` (MIT, React/Vite static frontend, browser IndexedDB/ZIP v3, needs portable storage and central execution adaptation). User clarified **visual creation only**, files/memory separate graph.
+2. Reviewed graph selection; Cytoscape recommended; original JS `vasturiano/force-graph` added as alternate; LightRAG document RAG vs Graphiti temporal memory clearly distinguished.
+3. Implemented graph frontend in app.js/index.html/style.css, parent integrated/released `.3`.
+4. Implemented **unreleased workspace file editor draft** in same three UI files. Syntax passed, LF verified. Parent now prioritizes core architecture correctness and explicitly says **do not change web draft this task**.
+   - `data-view="workspace"` project directory/file browser, textarea, revision-checked save, dirty confirm, beforeunload, private import default.
+   - draft has no runtime browser acceptance yet.
+   - parent owns other implementation pieces `src/workspace-files.ts` etc.
+5. Reported architecture risks:
+   - in-memory unsaved editor vs global “save to USB” checkpoint ambiguity/no crash draft recovery;
+   - global task scope default vs manually chosen project data scope;
+   - graph doc-first node truncation starves memories, local filtering not full-store search.
+No need expand them now.
+
+## Next actions
+
+1. Inspect updated contract/adapter/store files or wait for sibling response without blocking independent preparation.
+2. Write isolated synthetic HTTP fixture and typed API helper in **new test/tool-evidence-api.test.ts**.
+3. Matrix tests with fixed clock:
+   - bash completed exit0 -> succeeded/tool_success/positive affect/sleep episode/learning success
+   - exit1, exit2 -> failed/tool_failure/negative affect/sleep failure episode/learning failure
+   - exitnull, missing -> unknown/tool_unknown/zero affect/no sleep episode/learning unknown
+   - state.error -> failed
+   - unknown MCP completed with “success” output -> unknown
+   - each completed assistant task `verifying`, never completed; assistant success narrative has no influence.
+4. Separate text-only narrative test (no actions/tool experiences, no affect, no auto memory, cannot use narrative for skill evidence).
+5. Legacy fixture test after storage contract clarification; migrate/reconcile via real server and verify old derivation invalidated + old source withdrawn + corrected outcome no positive learning.
+6. Run `bun test test/tool-evidence-api.test.ts` when production siblings land. Failures may be intentional before fix; report evidence, don't weaken assertions to pass current bugs.
+7. Run typecheck (parent may run global typecheck concurrently; avoid editing unrelated errors).
+8. Report exact tests/results plus any real discovered implementation bug to root. Keep source ownership limited.
+
+## 2026-09-17T15:35:20.699Z · /root/soul_dynamics → /root/canvas_research
+
+Message Type: MESSAGE
+Task name: /root/canvas_research
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:41:48.045Z · 助理
+
+已完成新增 [tool-evidence-api.test.ts](F:/codex/xingyao/test/tool-evidence-api.test.ts)，未修改生产实现。
+
+测试使用本机合成 OpenCode HTTP 服务，经过实际 `OpenCodeAdapter`、`startServer` 和 SQLite 存储，不替换归一化结果。覆盖：
+
+- `bash` 完成状态下的退出码 `0`、`1`、`2`、`null`、缺失，分别形成成功、失败或未知证据。
+- `state.error` 形成失败证据；未知 MCP 工具不能凭完成状态和 `exit: 0` 被判定成功。
+- 即使助手声称“全部任务成功、所有检查通过”，动作、经历、情绪、睡眠归档和技能评价仍遵循实际工具证据。
+- 所有完整回复的任务保持 `verifying`，不会自动变为验收完成。
+- 纯文字成功声明不产生工具动作、情绪增益、自动记忆或技能来源。
+- 同一动作输出不变、退出码从 `0` 修正为 `2` 时，版本更新、旧经历撤回、派生记忆失效、技能转为待复核，旧快照再次同步不能恢复成功。
+- 旧版缺少结构化证据的成功记录在迁移时降为未知、撤回派生；通过真实 HTTP 重新同步后形成失败证据，且不会重新执行工具。
+- 重复同步及睡眠整理不会重复计数或重复生成记忆；夹具均使用临时目录并清理。
+
+验证结果：`bun test test/tool-evidence-api.test.ts` **10 项通过，384 个断言通过**；`bun run typecheck` **通过**。
+
+## 2026-09-17T15:51:58.076Z · /root → /root/canvas_research
+
+Message Type: NEW_TASK
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:53:08.419Z · /root → /root/canvas_research
+
+Message Type: MESSAGE
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:55:23.614Z · /root → /root/canvas_research
+
+Message Type: MESSAGE
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:57:38.286Z · /root → /root/canvas_research
+
+Message Type: MESSAGE
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:58:07.564Z · 助理
+
+已完成 [startup-migration.test.ts](F:/codex/xingyao/test/startup-migration.test.ts)，仅新增该测试文件，现已停止修改。
+
+三项测试均通过，共 **62 个断言**：
+
+- 干净的 schema 1 旧宿主停留在 `g1`，便携盘已有 `g2` 时，实际 `main --offline --no-open` 先恢复 `g2`，再迁移为 schema 2；身份保持一致，新资料存在，迁移后显示未同步，成功检查点保存后才变为已同步。
+- 旧宿主确有本地未同步修改时，启动明确拒绝；数据库内容、文件哈希、`user_version=1`、缺失的迁移标记均保持不变，锁正常释放。
+- 明确选择旧 `g1` 时，启动先校验恢复代次，再迁移；不会自动改用 `g2`。随后检查点因分支冲突被拒绝，测试捕获并检查停止提示，等待 `runtime.closed`，核验锁释放、停止标记和 `g1` 数据保留。
+
+测试发现的 `checkpoint_revision` 恢复基准问题已由 root 修复，独立复跑全部通过。`bun run typecheck` 也通过。
+
+## 2026-09-17T16:02:45.652Z · /root → /root/canvas_research
+
+Message Type: NEW_TASK
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:05:03.472Z · /root → /root/canvas_research
+
+Message Type: MESSAGE
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:08:13.587Z · /root → /root/canvas_research
+
+Message Type: MESSAGE
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:08:54.796Z · /root/soul_dynamics → /root/canvas_research
+
+Message Type: MESSAGE
+Task name: /root/canvas_research
+Sender: /root/soul_dynamics
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:11:03.516Z · 助理
+
+本轮独立审查复现了两处问题，其中授权给我的启动恢复问题已修复，文件修改已停止。
+
+1. **已修复：恢复分支产生新检查点后，崩溃前的未同步工作导致无法重启。**  
+   原来 `main` 把恢复日志中的根代次与当前检查点代次直接比较；恢复根为 `g1`、后来保存了 `g2` 并继续工作时，会误报“恢复分支已有新工作”。现在 [main.ts](F:/codex/xingyao/src/main.ts:57) 通过 [祖先校验](F:/codex/xingyao/src/main.ts:171) 检查当前检查点能否沿同一身份、无环且 schema/revision 不倒退的父链回溯到已完成成对恢复的根。证据成立时保留当前宿主工作；证据不足时仍要求精确匹配检查点后执行成对恢复。
+
+   [startup-migration.test.ts](F:/codex/xingyao/test/startup-migration.test.ts:210) 新增真实子进程回归：启动实际 `main` → schema 升级 → 保存检查点 → 写入新记忆 → 强制终止 → 再次启动实际 `main`。测试确认未同步记忆保留、恢复日志未被重写，并能继续保存检查点。另有反例确认不同恢复来源不能借此绕过检查。
+
+2. **已交给 root/upstream：真实旧版程序可在同一资料库中制造跨 schema 分叉。**  
+   使用真实 `dist/xingyao-0.1.0-dev.4/xingyao.exe` 和临时资料复现：资料库已有 `g1(schema 1) → g2(schema 2)`，将旧程序启动在恢复的 `g1` 上，旧版 `/api/checkpoint` 返回 **200** 并生成 schema 1 检查点；新版读取发现 **两个头，schema 分别为 1、2**。原因是旧程序会忽略它不支持的 schema 2 检查点，新版 `createCheckpoint` 的保护无法约束已经发布的旧二进制。需要由启动器拒绝这类同库回滚，或使用独立恢复资料库。
+
+本次仅修改 `src/main.ts` 和 `test/startup-migration.test.ts`；已同步补齐旧版测试夹具的四个迁移标记清理。最终定向验证 **5 项通过、89 个断言通过**，`bun run typecheck` 和 `git diff --check` 均通过。所有复现使用临时身份与临时目录，已清理。

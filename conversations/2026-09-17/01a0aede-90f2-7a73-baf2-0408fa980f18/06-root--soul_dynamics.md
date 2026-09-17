@@ -1,6 +1,6 @@
 # /root/soul_dynamics
 
-导出时间：2026-09-17T15:04:43.508Z
+导出时间：2026-09-17T16:23:22.146Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T19-00-04-01a0af06-0b6a-7f43-81fd-5f9fb661b4a2.jsonl`
 
@@ -1228,3 +1228,470 @@ Payload:
 
 
 {"type":"encrypted_content"}
+
+## 2026-09-17T15:11:25.402Z · /root → /root/soul_dynamics
+
+Message Type: MESSAGE
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:11:25.407Z · /root → /root/soul_dynamics
+
+Message Type: NEW_TASK
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:15:12.540Z · 助理
+
+We are sub-agent `/root/soul_dynamics`, collaborating with parent `/root`. Current assignment is **read-only audit**, superseding previous implementation work. Do not implement more features, edit production files, read credentials, or inspect real user databases.
+
+Current parent request:
+
+> Audit `F:/codex/xingyao` source corresponding to installed `0.1.0-dev.4`, focusing on memory, emotion, learning, sleep: `src/store.ts`, `affect.ts`, `learning.ts`, `server.ts`, `docs/system-design.md`, `docs/implementation-status.md`. Identify concrete long-term contamination/forgetting/personality problems, gaps between design and implementation, missing tests, priorities, and realistic three-month forecasts. Provide code locations, reproduction evidence or clearly mark hypotheses. Do not equate graph UI with complete long-term memory. Parent covers execution/security/upgrades and will create overall review document.
+
+I notified parent that this audit takes priority and the earlier `reflection-model.ts` task is paused. **No reflection-model files were implemented.**
+
+Environment: Windows PowerShell, cwd `F:/codex`, Bun `1.4.2`; unrestricted filesystem tools but avoid genuine secrets/data. Tools accessed via `functions.exec` and `tools.exec_command`; batch independent reads with `Promise.allSettled`. `collaboration.send_message` tool messages appear encrypted in transcript but parent receives normal contents.
+
+Relevant project instructions (`F:/codex/xingyao/AGENTS.md`): OpenCode coupling stays in adapter; independent runtime; Bun TypeScript strict SQLite single writer; model narrative is never evidence of external success; preserve provenance/scope/revisions; tests temp identities; no genuine credentials or old user data.
+
+Current audit findings/read results:
+
+- `src/contracts.ts:3` confirms `PRODUCT_VERSION = "0.1.0-dev.4"`.
+- `docs/implementation-status.md` honestly distinguishes implemented vs pending:
+  - Implemented: deterministic emotion/mood, explicit scoped memory, source correction/deletion, 14-day recency, task ledger, deterministic sleep, keyword knowledge retrieval, graph UI, manually proposed/promoted skills, backups/recovery.
+  - Pending: model memory extraction, people/relationship/world models, fixed-task comparison evaluations, long-term temperament growth, compression/archive/backup cleanup, upstream chat erasure, embeddings/OCR etc.
+  - `.3` added Cytoscape graph/source views; `.4` only graph layout improvements.
+- `docs/verification.md` first paragraphs say `.4` installed but main body is historical `.2` acceptance. Historical `.2` tests: 185 pass, 0 fail, 0 skip, 8002 assertions, exact build hashes. Explicitly says local deterministic model fixture validates protocol/tool/storage, **not real model answer quality**; no true second physical machine/pull/blackout testing.
+- `docs/system-design.md` remains aspirational with detailed formula and phase goals. Useful lines:
+  - 75: versioned fixed parameters.
+  - 93: same root event should update reducer once; replay under original policy.
+  - 131: memory age should use independent event time, recall must not refresh.
+  - 139: constraints use distinct channel; token budget, summaries/source refs when oversized.
+  - 151: learning only specific observable proposition, independent causal clusters, sample/interval.
+  - 157: commitments protected; no forgetting automatically generates seeds.
+  - 163: bounded evidence-based temperament.
+  - 175: failure facts should include exit codes, logs, version/time.
+  - 209–226: elaborate sleep workflow, budgets, interruptibility.
+  - 370: retries of one fault share a cluster.
+  - 422–447: uncertainty and three-month risk table.
+  - 451 onward clarifies design history, links actual implementation status.
+
+`affect.ts` current:
+- Constants at 4–7: 5-minute emotion half-life, mood 3-hour time constant, 14-day memory half-life.
+- `applyExperience` (~47):
+  - Retracted or observedAt earlier than current state updatedAt skipped (propagation only).
+  - Only tool_success/failure, ownership experienced/observed.
+  - Success fixed `[0.7,0.3,0.6]`, failure fixed `[-0.65,0.45,-0.5]`, gain `.25`.
+  - Does not assess task importance, tool semantics, novelty, intent, or dedup (expects store).
+- `affectDescription` picks simple fixed text, combines emotion .75/mood .25, lastSource reason/id.
+- `memoryActivation` (~107):
+  - age = now - **memory.createdAt**, not source.observedAt.
+  - pinned recency=1.
+  - Chinese bigram + English token lexical relevance; query substring = 1.
+  - no match = 0; otherwise `.9*similarity + .1*freshness`.
+  - Therefore after 90 days exact matching memory still scores ~.901; “forgetting” only affects small ranking component, no compression/delete (documented).
+  - Read/updatedAt doesn't refresh but late sleep creates memory “now”, so old source gets fresh memory.
+- No implementation of persistent learned temperament; identity values fixed.
+- Math properties tests exist (semigroup, bounds, offline no abandoned reaction etc), not user naturalness/semantic evaluation.
+
+`store.ts` current read in full:
+- Tables JSON bodies. Source idempotency by unique `source_key`, `experience_policy` and `source_redactions`.
+- `appendExperience`: sourceKey duplicate checks text/kind/scope/ownership/private but **does not compare evidence or observedAt**; policy flags whether sealed at ingestion. Event time defaults current clock.
+- All memories loaded/parsing/filter/sort in `memories` line ~106. Scorer repeatedly tokenizes in sort.
+- `insertMemory` line ~122:
+  - validates source existence/retraction/scope/private.
+  - duplicate only exact text/scope/kind/sourceIds; no semantic contradiction detection.
+  - createdAt=now regardless event timestamps.
+  - pinned default true for kind commitment when caller leaves undefined.
+- `server.ts:215` passes `pinned: input.pinned === true` always; omitted flag becomes false, overriding commitment default. Concrete bug: API create commitment without pinned -> commitment not protected/constraint projected.
+- `correctMemory` line ~148:
+  - For facts/episodes/etc invalidates all sources. For inference deliberately does not revoke factual inputs.
+  - New correction experience and new memory with `supersedes`.
+  - No full dependency graph between inferences; source root links only.
+- `forgetMemory` ~161:
+  - Walks requested memory’s supersedes chain then roots.
+  - Deletion fanout scrubs co-derived content while preserving independent co-sources (previously fixed).
+  - Tool/chat tombstones prevent reimport under same action/message IDs.
+  - Ordinary correction doesn’t create tombstone.
+  - Existing OpenCode chat/source files/checkpoints retained, user notice explicit.
+- `rebuildAffect` ~250 replays all valid policy-enabled events sorted observedAt; no stored reducer policy version, uses current formula. **Potential upgrade replay inconsistency**: changing coefficients would rewrite past computed state on correction; design says original policy version.
+- `projection` ~259:
+  - base identity/emotion; sealed returns base.
+  - selected = top12 lexical memories.
+  - constraints = **all pinned** memories.
+  - unique constraints first; iterates JSON strings; if total exceeds 6500 **skip whole record silently**.
+  - No token budget, no summary/read fallback, no inclusion coverage reporting.
+  - Lots of older pinned constraints can evict current relevant constraint; single >budget pinned item silently omitted.
+- `sleep` ~274:
+  - one synchronous DB transaction, max 100 events default (cap500).
+  - processes only tool_success/tool_failure with learning_enabled.
+  - each event if no memory references its numeric id -> copy event.text into episode via remember.
+  - For each event `this.memories({history:true,private:true})` full scans/sorts all memory; `remember` also full scan for duplicates. Quadratic-ish growth and synchronous foreground blocking.
+  - user messages skipped but cursor advanced, no conversational preferences extracted.
+  - same tool action revisions have different experience IDs -> copied separately.
+  - no compression, importance extraction, conflict candidate, learning into procedures, model budget. These are pending not bugs themselves.
+- `recordAction` ~333:
+  - action table current by id; if same revision skip.
+  - new revision writes experience sourceKey `action:${action.id}:${action.revision}`.
+  - success/failure mapped from action status.
+  - **same underlying call with changing text/revision yields extra independent emotion impulses and multiple sleep episode memories**; LearningStore dedups actionId but affect/sleep don't.
+  - `observedAt` not passed so reconciliation uses ingestion time, not actual engine event time.
+- Need reproduce key behaviors in in-memory synthetic stores without editing files. Can use PowerShell literal here-string -> `bun -e $auditScript`, with imports absolute to module. `new SoulStore(":memory:", ()=>fixedTime)` doesn't touch real data (mkdir "." harmless). No tests/files changed yet during this audit.
+
+`server.ts` current useful lines:
+- `recordParts` 106:
+  - normalized tool completed -> succeeded, failed -> failed else unknown.
+  - text tool name + “执行成功/失败” + output/error `.slice(0,16000)`.
+  - revision hash of truncated `{status,text}`, actionId `${sessionID}:${callID}`.
+  - Loses upstream tool input/metadata and content beyond 16K. Same completed call changed output beyond16K not recognized; errors/trailing evidence omitted.
+  - `recordAction` source lacks original timestamps.
+- `runPrompt`: pre-hits query first2000 chars, knowledge up to6500 JSON, memory projection6500, learning2500. Same upstream session persists across corrections/deletion.
+- `maintenance` 330 checks 5min since latest mutation, idle, not sealed -> sleep; then checkpoint when revision differs. GET use doesn’t mark activity; not major.
+- Normal privacy flags API only explicit memory/knowledge. Tool output paths not automatically privacy classified, sleep treats all action events public.
+- Need assess actual tool “completed” vs nonzero shell exit. Tried search `C:/Users/LT/Documents/trae/packages/opencode/src/tool/bash.ts`, **path missing**. Need locate with `rg --files C:/Users/LT/Documents/trae/packages/opencode/src | rg 'bash|shell'`. Suspect OpenCode bash completed state may contain nonzero metadata.exit rather than throw, and adapter drops metadata. This would turn exit1 into learning success. **Unverified so far; don't assert until locate/repro**. Parent covers execution but tell them if confirmed.
+- `src/graph.ts` also nonexistent. Need `rg --files src | rg graph` (probably knowledge-graph.ts) if need clarify graph read-only display. No need overfocus.
+
+`learning.ts` current full read:
+- Explicit `SkillProposal` manual title/scope/when/steps/avoid/sourceIds.
+- Valid sources must be tool kinds/evidence actionId/tool/status, experienced/observed, learning enabled, action exists.
+- `ledger` loads entire experiences/actions/policies every call.
+- latest event per actionId grouping, count success/failure; unknown excluded. `independentSources` = successes+failures; Beta(1,1) `.probability`.
+- roots define clusters; **new independent calls NOT among selected sourceIds are never considered**, so skill can remain .8 after many later failures; selection bias/outdated evidence.
+- actionId uniqueness ≠ independent causal trials: three read calls in same task can count 3, says “independent” but no shared attempt/fault/env relation. design calls causal clusters.
+- No validation that “steps” were the procedure executed in evidence; any three unrelated successful calls can promote arbitrary procedure if one success.
+- promote >=3 determined distinct calls and >=1 success OR manualCheck string. All failures can be active with handwritten manualCheck, probability remains .2; transparent but not validation of actual skill.
+- fingerprint detects changes only within selected action roots; source retractions make needs_review; deletion trigger atomically scrubs skill text and notes.
+- projection offers selected active skills by lexical matching and 2500 char budget. Header explicitly says probability is outcomes for **listed calls**, not fact credibility and does not guarantee statistical independence.
+- Thus no immediate automatic dangerous execution; manual explicit promotion. Audit should classify as **P2 semantics/misleading confidence risk**, not claim autonomous learning/authorization bug.
+- No evidence-specific environment/version/context/outcome validation, no holdout/wilson/Beta interval.
+- Good robust aspects: retraction cascade, tombstones, private/scope, deterministic checks, no tools in learning.
+
+Prior code work context (all already implemented/tested; do NOT repeat):
+- We authored affect.ts tests, knowledge.ts tests, learning.ts tests, product-integration test, lifecycle regressions.
+- Last lifecycle bug fixes by root all pass; don't re-report old fixed lifecycle bugs as current.
+- Tests:
+  - affect15/7096
+  - knowledge15/88 (later root added relocate)
+  - store+domain22/76 during prior round
+  - learning14/92
+  - product-integrations real engine .3 at SHA `321282...` historical; current installed engine .5 later.
+  - lifecycle4/14 all pass, typecheck passed.
+- Product release audit must distinguish `.4` current from earlier successful test results, don't present stale counts as current.
+
+Recommended next steps for audit:
+1. Locate true bash tool source and adapter metadata normalization; confirm or mark inability.
+2. Get exact line numbers using `rg -n`/numbered excerpts for top 5 issues.
+3. Use synthetic in-memory execution for concrete:
+   - same actionId with 3 successful revisions -> affect valence rises from .175 to .4046875; sleep creates3 for one call.
+   - memory old source ingested/sleep later -> createdAt fresh age; compare activation after90days.
+   - API omitted pinned for commitment using expression (can show source not need HTTP).
+   - oversized pinned text silently absent projection; >12 old same query tied ordering.
+   - unrelated actual successful call evidence promotes arbitrary manual steps (needs actual subprocess if claiming actual verified outcome; can use trivial local test commands).
+4. Parent update soon with prioritised emerging findings; no files modified. Return audit with actual bugs vs pending scope gaps vs 3mo forecasts/unknowns.
+5. First optimization recommendation: source/event outcome semantics, causality/verification, then memory selection/conflict/benchmark; not graph/personalization proliferation.
+6. Most uncertain: actual semantic memory correctness and task quality benefit, because real model extraction pending and tests protocol/local fixture, plus affect naturalness unmeasured. Three-month likely accumulation, stale/contradictory constraints, pinned budget omission, growing sync scans, log-heavy memory, inflated tool-driven positivity, manual skill overconfidence. Ensure forecast labelled prediction and no numerical false certainty.
+
+## 2026-09-17T15:17:56.976Z · /root → /root/soul_dynamics
+
+Message Type: MESSAGE
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:18:20.015Z · /root → /root/soul_dynamics
+
+Message Type: MESSAGE
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:18:54.314Z · /root → /root/soul_dynamics
+
+Message Type: MESSAGE
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:24:52.196Z · 助理
+
+只读审计完成。最严重的问题已经通过隔离夹具复现：**失败或超时的 shell 调用会进入“成功经历”，继而污染情绪、睡眠记忆和人工启用的技能证据。** 产品代码未修改；仅新增审计脚本与结果文件，未读取真实身份、用户数据库或凭据。
+
+可直接引用的产物：
+
+- [机器可读审计结果](/F:/codex/xingyao/reports/architecture-audit-2026-09-17.json)
+- [可重跑的审计脚本](/F:/codex/xingyao/script/audit-soul-2026-09-17.ts)
+- 执行命令：`bun run script/audit-soul-2026-09-17.ts`
+- 脚本用合成上游消息、临时 SQLite 身份，贯穿实际 adapter、server、store、affect、sleep、learning；没有调用真实模型或执行真实失败命令。健康检查和创建会话是夹具，其余上述业务路径使用产品代码。
+- 脚本执行成功，临时身份清理完成；`bun run typecheck` 通过。本轮没有重跑整个产品测试套件，也没有把历史测试计数当作当前验收结果。
+
+1. **使用前优先修复：工具完成状态被当成命令成功，污染所有后续学习。**
+
+   [adapter.ts](/F:/codex/xingyao/src/adapter.ts:259) 只读取 `state.status`，把上游 `completed` 保留为完成，并丢掉 `metadata.exit`。[server.ts](/F:/codex/xingyao/src/server.ts:109) 随即把 `completed` 映射成 `succeeded`。
+
+   上游实际实现支持该失败形态：[shell.ts](/C:/Users/LT/Documents/trae/packages/opencode/src/tool/shell.ts:542) 获取退出码，超时返回 `null`；[shell.ts](/C:/Users/LT/Documents/trae/packages/opencode/src/tool/shell.ts:585) 正常返回包含 `metadata.exit` 的工具结果；[processor.ts](/C:/Users/LT/Documents/trae/packages/opencode/src/session/processor.ts:174) 把正常返回存成 `completed`。所以这里的 `completed` 表示工具执行流程已返回，并不等于命令退出成功。
+
+   夹具投入 `completed + exit=1`、`completed + exit=null（超时）`、`completed + exit=2`，实际得到：
+
+   | 检查项 | 实际结果 |
+   |---|---|
+   | 已保存动作状态 | 三条全部 `succeeded` |
+   | 经历类型 | 三条全部 `tool_success` |
+   | 情绪正负维度 | `+0.4046875` |
+   | 睡眠归档 | 新增 3 条 episode |
+   | 人工启用技能的统计 | 3 成功、0 失败，显示 `0.8` |
+   | 超时动作文本 | 同时出现“执行成功”和“exceeding timeout” |
+
+   修复应建立分层结果：工具流程完成、命令结果、任务目标验证，保存原始结构化证据。非零退出码也要结合工具语义理解，例如搜索无结果可能不是异常；不能用另一条过于简单的全局映射代替目前的问题。
+
+2. **P1：承诺与固定约束可能悄悄消失，界面无法解释为什么没有遵守。**
+
+   [server.ts](/F:/codex/xingyao/src/server.ts:215) 总是传入 `pinned: input.pinned === true`，用户省略字段时会传 `false`，覆盖 [store.ts](/F:/codex/xingyao/src/store.ts:132) 对 commitment 默认固定的规则。实际 HTTP 复现中，未传 pinned 的 commitment 保存为 `false`，面对不相关查询不会进入上下文。
+
+   即使明确固定，[store.ts](/F:/codex/xingyao/src/store.ts:263) 仍将全部固定记忆放入同一个 6500 字符预算，[store.ts](/F:/codex/xingyao/src/store.ts:268) 对放不下的记录直接 `continue`。一个 7028 字符的固定 commitment 在实际投影中完全消失，返回长度仅 176 字符，没有溢出提示、摘要或按需读取引用。没有找到其他保护通道。
+
+   这与设计中的“独立约束通道、超预算摘要与来源引用”不一致。应补固定约束覆盖报告、冲突与过期状态、预算溢出可见性，避免“她明明记住却突然忘了”的体验。
+
+3. **P1：同一工具调用的不同快照仍能重复推动情绪和生成记忆。**
+
+   [store.ts](/F:/codex/xingyao/src/store.ts:334) 对动作按 id 保存，但经历来源键包括 revision。同一调用的新文本或状态版本变成新的事件。[store.ts](/F:/codex/xingyao/src/store.ts:283) 睡眠只按数字事件 id 判断是否已经归档。
+
+   夹具让同一个调用连续出现三个成功版本，结果是 **1 个动作、3 个来源、3 条睡眠记忆**；情绪依次为 `0.175 → 0.30625 → 0.4046875`。学习模块已按 actionId 取最新版本，不存在同样的简单重复计数；问题主要在情绪与睡眠路径。
+
+   应让根动作、结果版本、因果尝试分别有明确身份。新版本可以纠正旧证据，不能被当作又成功了一次。失败重试也不应仅凭不同调用 id 就认定是独立学习样本。
+
+4. **P2：记忆年龄与遗忘机制比设计弱，旧内容会因晚整理重新变“新”。**
+
+   [store.ts](/F:/codex/xingyao/src/store.ts:132) 将记忆 `createdAt` 设置为归档时刻，[affect.ts](/F:/codex/xingyao/src/affect.ts:99) 用该时间计算新鲜度，而不是根事件发生时间。
+
+   夹具在第 0 天产生来源，第 90 天才睡眠归档，得到新鲜度 `1`；若按实际来源年龄应为 `0.011609`。这与设计要求的“整理与回忆不刷新来源年龄”不一致。
+
+   另外，当前评分为 `0.9 × 字面相关度 + 0.1 × 新鲜度`。一个精确命中的普通记忆再过 90 天，仍然得到 `0.901161`；不存在自动压缩、淡出阈值或删除。这是已公开的实施边界，不能把它称为完整的选择性遗忘系统。
+
+5. **P2：当前“学习”是人工选择证据的技能笔记，不是经过效果验证的技能成长。**
+
+   [learning.ts](/F:/codex/xingyao/src/learning.ts:145) 只评估候选已选择的 actionId，并没有“这套步骤实际在哪些尝试中被应用”的记录，也没有验证步骤和证据所执行动作的一致性。[learning.ts](/F:/codex/xingyao/src/learning.ts:236) 以至少三个可判定调用作为启用门槛。
+
+   在合成夹具中，任意、不出现在来源命令中的步骤仍能以这些来源启用。随后增加十个不同 id 的失败动作，原候选仍为 3 成功、0 失败、`0.8`。**后一个结果不能单独称为错误**：产品没有证据说明新调用采用了该技能，自然无法合理归因；它证明当前还缺“技能使用记录 → 实际结果 → 回归评估”的学习闭环。
+
+   当前投影文本明确说明数字只描述所列调用、并不保证统计独立，而且技能需要手工启用。这些约束是有价值的。建议保留诚实表述，将“调用统计”与“技能有效性”分开，不要把该数值包装成能力成熟度。
+
+6. **P2：睡眠目前会积累工具日志，规模增加后可能同时降低检索质量和响应速度。**
+
+   [store.ts](/F:/codex/xingyao/src/store.ts:274) 的睡眠是一次同步事务：对每个允许学习的工具事件，把原文复制成 episode；用户消息不做偏好或关系提取，游标仍继续推进。每个事件都调用全量记忆查询，插入时还再次查询去重。[store.ts](/F:/codex/xingyao/src/store.ts:104) 的查询先加载并解析整张表，再过滤排序，排序过程还反复分词评分。
+
+   已有证据足以说明数据量增长会增加工作量；**尚未做足量负载测试，不能宣称在某个条数或三个月后必然卡顿。** 推荐先加入索引与增量查重、时间预算和批处理，再做 1 千、1 万、10 万条合成经历的响应耗时与数据库增长测量。
+
+   工具日志归档和人物记忆应分开评价。当前图谱展示不能补齐事实抽取、冲突消解、关系建模、遗忘与学习闭环。
+
+7. **人格部分的主要风险是体验与证据不足，而不是数学公式不够复杂。**
+
+   [affect.ts](/F:/codex/xingyao/src/affect.ts:54) 目前只响应直接观察或经历的工具成功/失败，采用两组固定向量与相同增益。身份气质固定为“温暖、有主见、稳定”；没有持续成长的气质、关系模型、重要性评估、事件新颖度或目标进展评估。这些都在 [implementation-status.md](/F:/codex/xingyao/docs/implementation-status.md:24) 中列为后续能力。
+
+   因而大量“读取成功”会让状态偏正面，重大挫折与普通工具错误又使用相同冲击量。它有可重放的数值状态，但尚未证明这种状态会形成自然、稳定、有帮助的长期行为。
+
+   还有一个升级风险：[store.ts](/F:/codex/xingyao/src/store.ts:249) 重建情绪时使用当前公式；`experience_policy` 只存开关，没有保存当时的 reducer 参数版本。将来调整公式后，纠正一条记忆可能顺带重算整个历史人格状态。此项是依据代码的升级风险推断，尚未做跨版本复现。
+
+现有测试最关键的盲区是： [adapter.test.ts](/F:/codex/xingyao/test/adapter.test.ts:77) 的失败结果采用 `state.status="error"`，未覆盖真实 shell 的 `completed + 非零/null exit`；[learning.test.ts](/F:/codex/xingyao/test/learning.test.ts:26) 根据真实子进程退出码自行构造正确状态，再直接写入 store，绕开了出错的适配链。所以领域测试、实际子进程测试都通过，也不能证明“失败经历不会被学成成功”。
+
+我最不确定的是：加入个人记忆和情绪后，她在真实中文长期任务上是否比无记忆基线更可靠、更懂用户、更少自作主张。目前缺少同一批任务的对照评估、错误归属统计、过期偏好与矛盾事实测试，以及用户对表达自然程度的长期反馈。增加更多公式或图谱页面无法替代这组证据。
+
+若维持现状使用三个月，较合理的预测是：工具经历越存越多，重要承诺更容易受到预算挤压；旧偏好、重复经历与日志噪声增多；技能证据更新依赖手工维护；人格表现跟工具调用频率关联过强。故障发生频率和性能拐点尚不能给出可靠数字。优先顺序应是**修正结果证据 → 保护约束与事件身份 → 建立记忆效果评测和纠错闭环 → 控制整理与存储增长 → 再加入关系模型和有界成长**。
+
+## 2026-09-17T15:29:59.126Z · /root → /root/soul_dynamics
+
+Message Type: NEW_TASK
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:32:04.455Z · /root → /root/soul_dynamics
+
+Message Type: MESSAGE
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:34:14.404Z · /root/canvas_research → /root/soul_dynamics
+
+Message Type: MESSAGE
+Task name: /root/soul_dynamics
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:39:53.258Z · /root → /root/soul_dynamics
+
+Message Type: MESSAGE
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:43:57.565Z · 助理
+
+已完成分配的修复，未修改真实数据、安装目录，也未提交 commit。
+
+改动文件：
+
+- [store.ts](/F:/codex/xingyao/src/store.ts)：动作修订治理、旧库迁移、来源退役、情绪重放顺序、隐私清除、固定记忆预算保护。
+- [affect.ts](/F:/codex/xingyao/src/affect.ts)：新鲜度改为优先使用 `sourceObservedAt`。
+- [contracts.ts](/F:/codex/xingyao/src/contracts.ts)：我只新增了 Memory 的可选 `sourceObservedAt`；ActionExecution 部分是 root 同期改动。
+- [source-revisions.test.ts](/F:/codex/xingyao/test/source-revisions.test.ts)：新增 14 个隔离回归。
+- [domain-regression.test.ts](/F:/codex/xingyao/test/domain-regression.test.ts)、[learning.test.ts](/F:/codex/xingyao/test/learning.test.ts)：按新语义调整原案例，保留来源删除与学习撤审保护。
+
+现在同一 action 的新 revision 会撤回旧来源的有效性，旧派生记忆变成 `invalidated`，正文保留用于审计；旧来源支持的技能会进入 `needs_review`，需要使用当前有效来源重新建立候选。旧 revision 重放以及当前 revision 重复输入均幂等，包括重启后。首次见到的旧 running 或未知生命周期快照也不能覆盖终态；可靠结束时间更早的终态快照会被拒绝。
+
+新修订沿根动作最早观测时间重放，不会让一天前的工具结果重新激发当天情绪。同一时刻多个独立根事件的重放顺序固定，替换一个 revision 不改变它们的计算次序。结构化执行证据中的实际时间可以向前校准根时间，不能把根事件变新。
+
+旧库升级在构造器事务内完成：
+
+- 缺少 `action_evidence_version=1` 的旧库中，没有 `execution.version=1` 的历史动作改为 `unknown`，revision 变为 `legacy-unverified:原revision`，原正文保留并加待核实说明。
+- 撤回旧动作来源和派生影响，人工纠正的独立新来源保留。
+- 根来源删除标记与封存时的学习策略保留，不会因为升级重新学习。
+- `source_revision_version=1` 与 `action_evidence_version=1` 保证重复打开不重复迁移。
+- 新空库直接写 marker；内部测试明确调用 `recordAction` 时可以继续省略 execution，不会每次重开降级。
+- 旧记忆依据其根事件补齐 `sourceObservedAt`；晚归档不再刷新新鲜度，明确纠正的新来源拥有新日期。
+
+固定记忆无法全部放入预算时，`projection` 现在抛出导出的 `ProjectionCoverageError`，包含 `code="MEMORY_CONSTRAINT_OVERFLOW"`、`memoryIds`、`requiredCharacters`、`limit`。不会再悄悄漏掉固定约束。普通相关记忆仍按原 TopK 与预算选取。
+
+删除动作来源时会同时移除 `action.execution`；删除标记下再次输入结构化元数据也不会复活。旧体验的 `evidence` 仍按原隐私删除链完整清除。
+
+验证：
+
+- 首轮相关五文件：62 pass、0 fail、7334 个断言。
+- 加入 root 最后两项审阅修正后，受影响三文件：42 pass、0 fail、218 个断言。
+- 最终 `bun run typecheck` 通过。
+- 所有测试使用临时身份并清理，未读取真实用户数据库。
+
+剩余边界：revision 是不透明字符串。如果两个首次见到的终态快照没有可排序时间，程序不能证明哪个更新；当前允许明确终态纠正并拒绝已知旧 revision。另我未改 `SCHEMA_VERSION`：目前仍是 user_version=1，旧程序重新打开升级后的库可能重新写入旧语义。发行时建议 root 决定递增 schema 并阻止旧二进制回退打开升级后的库。
+
+## 2026-09-17T15:44:40.502Z · /root → /root/soul_dynamics
+
+Message Type: NEW_TASK
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T15:46:00.231Z · 助理
+
+我会只更新隔离审计脚本并补一份证据说明草稿：保留旧版基线数据、增加 after-fixes 输出路径和断言，不改产品逻辑或历史报告。先运行现脚本定位与新修订语义的冲突，再做最小调整。
+
+## 2026-09-17T15:53:26.309Z · 助理
+
+新脚本已经跑通：三个历史污染场景现在分别记录为失败、未知、失败，技能没有被自动启用；同一调用三次修订只剩一条有效来源和一条活动记忆，90 天旧来源的年龄也得到保留。历史报告的哈希保持不变，我正在把验证边界写进说明并完成类型检查。
+
+## 2026-09-17T15:56:24.318Z · 助理
+
+完成。旧审计脚本现在用于修复后回归，历史报告不会被覆盖。
+
+- [审计脚本](/F:/codex/xingyao/script/audit-soul-2026-09-17.ts)：增加 `after-fixes-regression` 模式说明、历史基线哈希与 8 组断言，捕获 `ProjectionCoverageError` 和技能启用失败。
+- [修复后报告](/F:/codex/xingyao/reports/architecture-audit-after-fixes-2026-09-17.json)：已生成，记录当前真实结果与未解决的限制。
+- [证据说明草稿](/F:/codex/xingyao/docs/evidence-fixes-2026-09-17.md)：说明修复前后行为、迁移标记与验证边界，没有宣称发布、安装或全套验收。
+
+实际结果为：三个原始 shell 场景得到 **失败、未知、失败**；技能候选为 **0 成功、2 失败、1 未知**，保持草稿，未使用人工覆盖。一个调用的三个版本保留一条有效来源和一条活动记忆，情绪贡献保持 `0.175`。90 天旧来源晚归档后的新鲜度为 `0.011609330383882408`。
+
+旧记忆缺少 `sourceObservedAt` 且缺少 `source_revision_version` 标记的迁移也已在临时库验证：重开补齐根时间、保留归档时间，写入 marker；再次重开不重复增加 revision。
+
+脚本执行与 `bun run typecheck` 均通过。原历史报告 SHA-256 保持：
+
+`bf6ac1ee9d2a63e3d3c1fbab06d5bc646a0f2b678e9ccf6576bcfbfa9f63bf81`
+
+本次未再改 store、schema、main 或任何真实数据。
+
+## 2026-09-17T16:03:08.723Z · /root → /root/soul_dynamics
+
+Message Type: NEW_TASK
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:06:03.808Z · /root → /root/soul_dynamics
+
+Message Type: MESSAGE
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:07:09.270Z · /root → /root/soul_dynamics
+
+Message Type: MESSAGE
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:08:27.174Z · /root → /root/soul_dynamics
+
+Message Type: MESSAGE
+Task name: /root/soul_dynamics
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:08:52.049Z · /root/canvas_research → /root/soul_dynamics
+
+Message Type: MESSAGE
+Task name: /root/soul_dynamics
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T16:14:56.414Z · 助理
+
+独立复核发现的两项问题已按授权修复，本轮仅修改 [store.ts](/F:/codex/xingyao/src/store.ts) 和 [source-revisions.test.ts](/F:/codex/xingyao/test/source-revisions.test.ts)。
+
+- **执行证据与状态一致性**：存在 `execution` 时，领域层校验版本、生命周期、结果、时间、退出码以及 shell 退出码与结果是否矛盾，再从 `execution.outcome` 派生动作状态。非法证据使整个写入事务失败；额外字段不会保存。没有 execution 的现有内部测试调用保持兼容。
+- **旧结构化证据重核**：新增 `action_evidence_validation_version=1`。迁移不再只检查 `version=1`，矛盾或非法记录会降为 unknown，撤回原成功经历、情绪与派生记忆，并让相关技能重新审阅。旧记录正文保留；重复重开幂等。同一个引擎 revision 已经被隔离时，允许一次有效的重新核实建立独立新来源。
+- **封存策略不能随 revision 重新放开**：新增 `root_learning_policy_version=1`，同根历史策略采取保守交集。封存期间收到的来源不能在解封后靠输出更新或新 revision 重新获得学习权限。已经启用的根在封存期间出现新修订后，也不会在以后再次学习。不同 action id 的新调用仍正常学习。
+- **明确的保守边界**：如果非终态来源首次在封存期间被记录，解封后的同根终态也不追补学习。旧库里已被这种方式重新启用的来源会在迁移时撤回。
+
+新增 9 个回归，来源修订文件现在共 23 个测试。最终定向验证：
+
+`bun test test/source-revisions.test.ts test/learning.test.ts test/tool-evidence-api.test.ts test/domain-regression.test.ts test/startup-migration.test.ts`
+
+结果为 **66 pass、0 fail、754 个断言**；`bun run typecheck` 通过。已通知负责启动迁移测试的代理补齐新 marker 的旧库模拟。
+
+未碰正式身份、安装目录或 commit。本轮修复已结束，可继续整体发行验证与构建。
