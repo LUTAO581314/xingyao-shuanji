@@ -109,7 +109,9 @@ export function memoryActivation(memory: Memory, query: string, now: number): nu
     const wanted = terms(needle)
     const available = terms(haystack)
     let matched = 0
-    for (const term of wanted) if (available.has(term)) matched++
+    // A standalone Han query term (e.g. “茶”) must also match inside a longer
+    // unsegmented sentence. Keep bigrams for longer queries to limit noise.
+    for (const term of wanted) if (available.has(term) || /^h:\p{Script=Han}$/u.test(term) && haystack.includes(term.slice(2))) matched++
     similarity = wanted.size ? matched / wanted.size : 0
   }
   // No lexical evidence means no match: being new or pinned is not relevance.

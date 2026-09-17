@@ -7,7 +7,7 @@ import { createCheckpoint, listCheckpoints, restoreCheckpoint } from "../src/che
 import { main } from "../src/main"
 import { SoulStore } from "../src/store"
 import { restoreProduct } from "../src/recovery"
-import type { CheckpointInfo, Memory } from "../src/contracts"
+import { SCHEMA_VERSION, type CheckpointInfo, type Memory } from "../src/contracts"
 
 const roots: string[] = []
 const runtimes: NonNullable<Awaited<ReturnType<typeof main>>>[] = []
@@ -113,7 +113,7 @@ async function start(f: Awaited<ReturnType<typeof fixture>>, host = f.host, extr
 
 type State = { identityId: string; unsynced: boolean; revision: number; checkpointGeneration: string; checkpointRevision: number }
 
-test("startup decides the clean old host branch before migration, restores g2 and checkpoints schema 2", async () => {
+test("startup decides the clean old host branch before migration, restores g2 and checkpoints current schema", async () => {
   const f = await fixture()
   const original = inspect(f.database)
   expect(original.revision).toBe(f.first.revision)
@@ -129,7 +129,7 @@ test("startup decides the clean old host branch before migration, restores g2 an
   expect(state.checkpointRevision).toBe(f.second.revision)
   expect(state.unsynced).toBe(true)
   expect(state.revision).toBeGreaterThan(f.second.revision)
-  expect(migrated.version).toBe(2)
+  expect(migrated.version).toBe(SCHEMA_VERSION)
   expect(migrated.marker).toBe("1")
   expect(migrated.hasRevisions).toBe(true)
   expect(migrated.memories.map(item => item.text)).toEqual([FIRST, SECOND])
@@ -137,7 +137,7 @@ test("startup decides the clean old host branch before migration, restores g2 an
   expect((await listCheckpoints(f.vault)).map(item => item.generation).sort()).toEqual([f.first.generation, f.second.generation].sort())
 
   const saved = await runtime.checkpoint()
-  expect(saved.schemaVersion).toBe(2)
+  expect(saved.schemaVersion).toBe(SCHEMA_VERSION)
   expect(saved.identityId).toBe(f.first.identityId)
   expect(saved.parent).toBe(f.second.generation)
   const synced = await api<State>("/api/state")
@@ -145,7 +145,7 @@ test("startup decides the clean old host branch before migration, restores g2 an
   expect(synced.checkpointRevision).toBe(synced.revision)
   const restoredPath = join(f.root, "verified-new-checkpoint", "soul.db")
   await restoreCheckpoint(f.vault, saved.generation, restoredPath)
-  expect(inspect(restoredPath).version).toBe(2)
+  expect(inspect(restoredPath).version).toBe(SCHEMA_VERSION)
   expect(inspect(restoredPath).memories.map(item => item.text)).toEqual([FIRST, SECOND])
 })
 
@@ -188,7 +188,7 @@ test("startup validates an explicitly restored old generation before schema migr
   expect(state.unsynced).toBe(true)
   expect(state.revision).toBeGreaterThan(f.first.revision)
   const selected = inspect(selectedPath)
-  expect(selected.version).toBe(2)
+  expect(selected.version).toBe(SCHEMA_VERSION)
   expect(selected.memories.map(item => item.text)).toEqual([FIRST])
   expect(selected.memories[0]!.sourceObservedAt).toBeNumber()
   // Selection is allowed, but it cannot silently overwrite the newer g2 head.
@@ -230,7 +230,7 @@ test("a recovered host restarts after a new checkpoint and a crash without disca
       return result as T
     }
     saved = await api<CheckpointInfo>("/api/checkpoint", {}, 200)
-    expect(saved.schemaVersion).toBe(2)
+    expect(saved.schemaVersion).toBe(SCHEMA_VERSION)
     expect(saved.parent).toBe(f.second.generation)
     memory = await api<Memory>("/api/memories", { key: "crash-local", kind: "fact", scope: "migration", text: DIRTY }, 201)
     unsyncedRevision = inspect(selectedPath).revision

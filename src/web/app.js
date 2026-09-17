@@ -51,7 +51,7 @@ async function refresh() {
     $('#toggle-seal').textContent = state.sealed ? '解除封存' : '封存记忆'
     $('#task-list').innerHTML = state.tasks.length ? state.tasks.map(task => `<button class="task-item${task.id === selectedTask ? ' selected' : ''}" data-task="${escape(task.id)}"><strong>${escape(task.title)}</strong><small>${statusNames[task.status]} · ${date(task.updatedAt)}</small></button>`).join('') : '<p class="empty">暂时没有任务。<br>发送第一条消息，就能开始。</p>'
     if (selectedTask && view === 'chat') await refreshTask()
-    if (view === 'sleep') renderSleep()
+    if (view === 'sleep') { renderSleep(); await refreshMemoryReview() }
     if (view === 'system') await renderSystem()
     if (state.busy.length && view === 'chat') await refreshPermissions()
     else if (permissionSignature) { permissionSignature = ''; $('#permissions').innerHTML = '' }
@@ -62,7 +62,7 @@ async function refreshView() {
   if (view === 'memory') await refreshMemories()
   if (view === 'knowledge') await refreshKnowledge()
   if (view === 'graph') await refreshGraph()
-  if (view === 'sleep') renderSleep()
+  if (view === 'sleep') { renderSleep(); await refreshMemoryReview() }
   if (view === 'files') await refreshFiles()
   if (view === 'skills') await refreshSkills()
   if (view === 'system') await renderSystem()
@@ -108,7 +108,7 @@ $('#permissions').onclick = event => action(async () => { const item = event.tar
 
 async function refreshMemories() {
   memories = await api(`/memories?q=${encodeURIComponent($('#memory-search').value)}&private=${$('#private-memories').checked}`)
-  $('#memory-list').innerHTML = memories.length ? memories.map(memory => `<article class="memory-card"><div class="card-meta"><span class="tag">${kindNames[memory.kind]}</span><span>${escape(memory.scope)}</span>${memory.pinned ? '<span>固定保留</span>' : ''}${memory.private ? '<span>私密</span>' : ''}<span>${date(memory.updatedAt)}</span></div><p>${escape(memory.text)}</p><div class="card-meta">来源 #${memory.sourceIds.join('、#')} · 修订 ${memory.revision}</div><div class="card-actions"><button class="secondary" data-edit-memory="${escape(memory.id)}">纠正</button><button class="secondary" data-forget-memory="${escape(memory.id)}">忘记</button></div></article>`).join('') : '<p class="empty">还没有匹配的记忆。你可以在左侧明确告诉我一件值得记住的事。</p>'
+  $('#memory-list').innerHTML = memories.length ? memories.map(memory => `<article class="memory-card"><div class="card-meta"><span class="tag">${kindNames[memory.kind]}</span><span>${escape(memory.scope)}</span>${memory.pinned ? '<span>固定保留</span>' : ''}${memory.private ? '<span>私密</span>' : ''}<span>${date(memory.updatedAt)}</span></div><p>${escape(memory.text)}</p>${memoryClaimMarkup(memory)}<div class="card-meta">来源 #${memory.sourceIds.map(escape).join('、#')} · 修订 ${memory.revision}</div><div class="card-actions"><button class="secondary" data-edit-memory="${escape(memory.id)}">纠正</button><button class="secondary" data-forget-memory="${escape(memory.id)}">忘记</button></div></article>`).join('') : '<p class="empty">还没有匹配的记忆。你可以在左侧明确告诉我一件值得记住的事。</p>'
 }
 $('#memory-form').onsubmit = event => { event.preventDefault(); action(async () => { const form = new FormData(event.target); await api('/memories', {key:uuid(),text:form.get('text'),scope:form.get('scope'),kind:form.get('kind'),pinned:form.has('pinned'),private:form.has('private')}); event.target.elements.text.value = ''; notice('已保存记忆，并保留来源。'); await refreshMemories(); await refresh() }) }
 $('#memory-search').oninput = () => action(refreshMemories)
@@ -128,9 +128,251 @@ async function refreshKnowledge() {
 $('#knowledge-form').onsubmit = event => { event.preventDefault(); action(async () => { const form = new FormData(event.target); const result = await api('/knowledge', {path:form.get('path'),scope:form.get('scope')}); notice(`已导入 ${result.name}，共 ${result.chunkCount} 个片段。`); await refreshKnowledge(); await refresh() }) }
 $('#document-list').onclick = event => action(async () => { const item = event.target.closest('[data-refresh-document],[data-remove-document]'); if (!item) return; if (item.dataset.refreshDocument) await api(`/knowledge/${item.dataset.refreshDocument}`, {}); else await api(`/knowledge/${item.dataset.removeDocument}`, undefined, 'DELETE'); await refreshKnowledge(); $('#knowledge-results').innerHTML = ''; await refresh() })
 $('#search-knowledge').onclick = () => action(async () => { const hits = await api(`/knowledge/search?q=${encodeURIComponent($('#knowledge-search').value)}`); $('#knowledge-results').innerHTML = hits.length ? hits.map(hit => `<div class="memory-card"><div class="card-meta">${escape(hit.name)} · 第 ${hit.startLine}–${hit.endLine} 行</div><p>${escape(hit.text)}</p></div>`).join('') : '<p class="empty">没有找到相关资料。</p>' })
-function renderSleep() { if (!state) return; $('#sleep-reports').innerHTML = state.sleep.length ? state.sleep.map(report => `<article class="report-card"><div class="card-meta"><span class="tag">${report.status === 'completed' ? '整理完成' : '已暂停'}</span><span>${date(report.finishedAt)}</span></div><p>检查 ${report.examined} 条新经历，归档 ${report.created} 条记忆。<br>${escape(report.detail)}</p></article>`).join('') : '<p class="empty">完成一些任务后，在这里整理新的经历。</p>' }
+function renderSleep() { if (!state) return; $('#run-sleep').disabled = state.sealed || state.busy.length > 0; renderMemoryReviewHeader(); $('#sleep-reports').innerHTML = state.sleep.length ? state.sleep.map(report => `<article class="report-card"><div class="card-meta"><span class="tag">${report.status === 'completed' ? '整理完成' : '已暂停'}</span><span>${date(report.finishedAt)}</span></div><p>检查 ${report.examined} 条新经历，归档 ${report.created} 条记忆。<br>${escape(report.detail)}</p></article>`).join('') : '<p class="empty">完成一些任务后，在这里整理新的经历。</p>' }
 $('#run-sleep').onclick = () => action(async () => { const report = await api('/sleep', {}); notice(`整理完成：处理 ${report.examined} 条新经历，归档 ${report.created} 条。`); await refresh() })
 $('#toggle-seal').onclick = () => action(async () => { await api('/seal', {sealed:!state.sealed}); await refresh(); notice(state.sealed ? '已封存：个人记忆暂停参与对话和学习。' : '已解除封存。') })
+
+// Candidate forms are kept as DOM nodes. Background polling updates their status
+// and evidence availability, never the owner's text, dates, selection or focus.
+const attributionNames = {user_statement:'用户陈述',reported:'转述他人或资料',inference:'待验证推断'}
+const reviewBatchNames = {running:'正在提取',completed:'提取完成',failed:'提取失败',interrupted:'提取中断',redacted:'来源已删除'}
+const reviewCandidateNames = {pending:'等待审阅',accepted:'已保存为记忆',rejected:'已决定不保存',invalidated:'来源或候选已失效',erased:'来源已删除'}
+const memoryReviewUI = {taskId:'',data:null,drafts:new Map(),request:0,loading:false,starting:false,operation:null,tasksSignature:'',batchSignature:'',message:'',requestKey:null,submittedBatch:null}
+const memoryReviewAuto = {loaded:false,loading:false,saving:false,dirty:false,model:null}
+for (const id of ['#memory-review-auto-enabled','#memory-review-auto-limit']) $(id).oninput = () => { memoryReviewAuto.dirty = true }
+$('#memory-review-auto-form').onsubmit = event => {
+  event.preventDefault()
+  action(async () => {
+    memoryReviewAuto.saving = true; renderMemoryReviewHeader()
+    try {
+      const saved = await api('/memory-review/settings',{automatic:$('#memory-review-auto-enabled').checked,dailyBatchLimit:Number($('#memory-review-auto-limit').value),model:memoryReviewAuto.model})
+      memoryReviewAuto.dirty = false
+      $('#memory-review-auto-status').textContent = saved.automatic ? `已启用；自动整理最多 ${saved.dailyBatchLimit} 批 / 滚动 24 小时。` : '已关闭自动提取；仍可手动整理。'
+    } finally { memoryReviewAuto.saving = false; renderMemoryReviewHeader() }
+  })
+}
+async function loadMemoryReviewSettings() {
+  if (memoryReviewAuto.loaded || memoryReviewAuto.loading) return
+  memoryReviewAuto.loading = true
+  try {
+    const settings = await api('/memory-review/settings')
+    if (!memoryReviewAuto.dirty) { $('#memory-review-auto-enabled').checked = settings.automatic; $('#memory-review-auto-limit').value = settings.dailyBatchLimit }
+    memoryReviewAuto.model = settings.model
+    $('#memory-review-auto-status').textContent = settings.automatic ? `已启用；自动整理最多 ${settings.dailyBatchLimit} 批 / 滚动 24 小时。` : '自动提取当前关闭。'
+    memoryReviewAuto.loaded = true
+  } catch (error) { $('#memory-review-auto-status').textContent = `读取设置失败：${error.message}` }
+  finally { memoryReviewAuto.loading = false; renderMemoryReviewHeader() }
+}
+function claimDate(value) { return new Date(value).toLocaleString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) }
+function memoryClaimMarkup(memory) {
+  if (!memory.claim) return ''
+  const claim = memory.claim, now = Date.now()
+  const expired = claim.validUntil !== null && claim.validUntil <= now
+  const future = claim.validFrom !== null && claim.validFrom > now
+  const label = expired ? '已到期 · 不参与当前对话' : future ? '尚未生效 · 不参与当前对话' : '当前有效'
+  const period = claim.validFrom === null && claim.validUntil === null ? '长期' : `${claim.validFrom === null ? '不限起始时间' : claimDate(claim.validFrom)} 至 ${claim.validUntil === null ? '不限结束时间' : claimDate(claim.validUntil)+'（该时刻起失效）'}`
+  return `<div class="memory-claim"><div class="card-meta"><span class="tag${expired || future ? ' inactive' : ''}">${escape(label)}</span><span>主体：${escape(claim.subject)}</span><span>${escape(attributionNames[claim.attribution] ?? claim.attribution)}</span></div><p>有效期：${escape(period)}</p></div>`
+}
+function renderMemoryReviewHeader() {
+  const settingsDisabled = !memoryReviewAuto.loaded || memoryReviewAuto.saving || state?.sealed
+  for (const id of ['#memory-review-auto-save','#memory-review-auto-enabled','#memory-review-auto-limit']) $(id).disabled = settingsDisabled
+  const ui = memoryReviewUI, tasks = state?.tasks ?? [], selected = tasks.find(task => task.id === ui.taskId)
+  const signature = JSON.stringify(tasks.map(task => [task.id,task.title,task.scope,task.status]))
+  if (signature !== ui.tasksSignature) {
+    ui.tasksSignature = signature
+    $('#memory-review-task').innerHTML = '<option value="">选择一段已结束的对话</option>' + tasks.map(task => `<option value="${escape(task.id)}">${escape(task.title)} · ${escape(task.scope)} · ${escape(statusNames[task.status] ?? task.status)}</option>`).join('')
+    $('#memory-review-task').value = ui.taskId
+  }
+  const running = ui.data?.batches.some(batch => batch.status === 'running') ?? false
+  const busy = ui.starting || !!ui.operation
+  $('#memory-review-task').disabled = busy
+  $('#memory-review-model').disabled = busy
+  $('#memory-review-start').disabled = !selected || !ui.data || state?.sealed || !!state?.busy.length || ['running','waiting'].includes(selected?.status) || running || busy || ui.loading
+  $('#memory-review-start').textContent = ui.starting ? '提交提取…' : running ? '正在提取…' : '开始提取'
+  $('#memory-review-refresh').disabled = !selected || busy || ui.loading
+  $('#memory-review-refresh').textContent = ui.loading ? '正在刷新…' : '刷新状态与依据'
+  const pending = ui.data?.candidates.filter(candidate => candidate.status === 'pending').length ?? 0
+  $('#memory-review-count').textContent = selected ? `${pending} 条待审阅` : '尚未选择对话'
+  const status = state?.sealed ? '已封存：暂停提取与采纳。可以查看已有候选，或决定不保存。' : ui.message || (!selected ? '先选择一段对话。' : running ? '模型正在提取，完成后会显示候选。你可以继续查看其他页面。' : ui.loading && !ui.data ? '正在读取已有提取记录…' : ['running','waiting'].includes(selected.status) ? '请等待这段对话结束，并核实执行结果后提取。' : '逐条核对来源与有效期，确认后才保存为记忆。')
+  $('#memory-review-status').textContent = status
+  for (const draft of ui.drafts.values()) updateReviewDraftControls(draft)
+}
+async function refreshMemoryReview({review = false,force = false} = {}) {
+  await loadMemoryReviewSettings()
+  const ui = memoryReviewUI
+  renderMemoryReviewHeader()
+  if (!ui.taskId || ui.loading && !review && !force) return
+  const taskId = ui.taskId, request = ++ui.request
+  ui.loading = true; renderMemoryReviewHeader()
+  try {
+    const data = await api(`/memory-review?taskId=${encodeURIComponent(taskId)}`)
+    if (request !== ui.request || taskId !== ui.taskId) return
+    ui.data = data
+    const submitted = data.batches.find(batch => batch.id === ui.submittedBatch)
+    if (submitted && submitted.status !== 'running') {
+      ui.message = submitted.status === 'completed' ? '提取已完成。请逐条核对候选；没有候选时，本次不会新增记忆。' : `${reviewBatchNames[submitted.status] ?? '提取已结束'}${submitted.error ? `：${submitted.error}` : ''}。请检查提取记录。`
+      ui.submittedBatch = null
+    }
+    if (review) ui.message = '依据已刷新，编辑稿已保留。请重新核对引用、替代关系与有效期，再勾选确认。'
+    renderMemoryReview(data,review)
+  } catch (error) {
+    if (request === ui.request) { ui.message = `读取失败：${error.message}。当前编辑稿仍保留，请刷新重试。`; renderMemoryReviewHeader() }
+  } finally { if (request === ui.request) { ui.loading = false; renderMemoryReviewHeader() } }
+}
+function renderMemoryReview(data,review) {
+  const ui = memoryReviewUI
+  const signature = JSON.stringify(data.batches)
+  if (signature !== ui.batchSignature) {
+    ui.batchSignature = signature
+    $('#memory-review-batches').innerHTML = data.batches.length ? `<details ${data.batches.some(batch => ['running','failed','interrupted'].includes(batch.status)) ? 'open' : ''}><summary>提取记录 · ${data.batches.length} 次</summary>${data.batches.map(batch => `<div class="memory-review-batch"><div class="card-meta"><span class="tag">${escape(reviewBatchNames[batch.status] ?? batch.status)}</span><span>${date(batch.createdAt)}</span><span>${batch.sourceIds.length} 条来源</span>${batch.cleanup === 'pending' ? '<span class="tag">临时会话待清理 · 空闲时重试</span>' : ''}</div>${batch.error ? `<p>${escape(batch.error)}</p>` : ''}</div>`).join('')}</details>` : ''
+  }
+  const host = $('#memory-review-candidates'), wanted = new Set(data.candidates.map(candidate => candidate.id))
+  for (const child of [...host.children]) if (!wanted.has(child.dataset.candidateId)) child.remove()
+  for (const candidate of data.candidates) {
+    let draft = ui.drafts.get(candidate.id)
+    if (candidate.status !== 'pending') {
+      if (draft) { draft.card.remove(); ui.drafts.delete(candidate.id) }
+      let card = [...host.children].find(child => child.dataset.candidateId === candidate.id)
+      if (!card) { card = document.createElement('article'); card.className = 'memory-review-result'; card.dataset.candidateId = candidate.id; host.append(card) }
+      card.innerHTML = `<span class="tag">${escape(reviewCandidateNames[candidate.status] ?? candidate.status)}</span>${candidate.status === 'erased' ? '' : `<p>${candidate.status === 'accepted' ? '原候选：' : ''}${escape(candidate.text)}</p>`}${candidate.status === 'accepted' ? '<button type="button" class="secondary" data-view="memory">查看审阅后保存的记忆</button>' : ''}`
+      continue
+    }
+    if (!draft) {
+      draft = makeReviewDraft(candidate,data)
+      ui.drafts.set(candidate.id,draft)
+    } else if (review) {
+      draft.candidate = candidate; draft.reviewRevision = data.revision; draft.needsRefresh = false; draft.error = ''
+      draft.card.querySelector('[name="confirmed"]').checked = false
+      updateReviewEvidence(draft)
+      updateReplacementOptions(draft,data.memories)
+    } else if (draft.reviewRevision !== data.revision || draft.candidate.revision !== candidate.revision) draft.needsRefresh = true
+    if (draft.card.parentElement !== host) host.append(draft.card)
+    updateReviewDraftControls(draft)
+  }
+  if (!data.candidates.length) {
+    const empty = document.createElement('p'); empty.className = 'empty'
+    empty.textContent = data.batches.some(batch => batch.status === 'running') ? '正在等待模型返回候选…' : data.batches.some(batch => batch.status === 'completed') ? '本段对话没有新的待审阅候选。之后有新的对话内容时，可以再次提取。' : '开始提取后，在这里逐条审阅来源、归属与有效期。'
+    host.replaceChildren(empty)
+  }
+}
+function makeReviewDraft(candidate,data) {
+  const card = document.createElement('article'); card.className = 'memory-review-card'; card.dataset.candidateId = candidate.id
+  card.innerHTML = `<div class="memory-review-card-heading"><h4>审阅一条候选</h4><span class="tag">等待审阅</span></div><div class="memory-review-evidence"></div><form class="memory-review-form"><fieldset class="memory-review-fields"><legend class="sr-only">编辑记忆候选</legend><label>准备保存的记忆<textarea name="text" maxlength="2000" rows="3" required></textarea></label><div class="form-row"><label>主体：关于谁或哪个项目<input name="subject" maxlength="200" required></label><label>记忆类型<select name="kind">${Object.entries(kindNames).map(([value,label]) => `<option value="${value}">${label}</option>`).join('')}</select></label></div><label>这条认识的归属<select name="attribution">${Object.entries(attributionNames).map(([value,label]) => `<option value="${value}">${label}</option>`).join('')}</select></label><div class="memory-review-period"><label>明确有效期<select name="validity" required><option value="">请选择有效期</option><option value="long">长期</option><option value="range">日期范围</option></select></label><div class="memory-review-dates hidden"><div class="form-row"><label>从哪一天开始<input type="date" name="validFrom" min="1970-01-01"></label><label>到哪一天结束<input type="date" name="validUntil" min="1970-01-01"></label></div><p class="memory-review-help">起止日期均包含当天，按本机时区。模型的时间提示不会自动填入日期。</p></div></div><label>与已有记忆的关系<select name="resolution" required><option value="">请选择处理方式</option><option value="add">新增并存，保留已有记忆</option><option value="replace">替代同一范围的一条记忆</option></select></label><div class="memory-review-replacement hidden"><label>选择要替代的记忆<select name="replacement"><option value="">请选择已有记忆</option></select></label><div class="memory-review-existing"></div><p class="memory-review-help">替代后，旧记忆保留为历史记录。范围必须一致，请核对旧内容是否确实已改变。</p></div><div class="memory-review-privacy"><label class="check"><input name="private" type="checkbox">私密，仅在记忆管理中查看</label><label class="check"><input name="pinned" type="checkbox">固定保留</label></div><label class="check memory-review-confirm"><input name="confirmed" type="checkbox" required>我已核对原话、主体归属、有效期及与已有记忆的关系</label></fieldset><div class="memory-review-draft-status" role="status" aria-live="polite"></div><div class="memory-review-actions"><button type="submit" data-review-accept>确认保存记忆</button><button type="button" class="secondary" data-review-reject>不保存这条</button><button type="button" class="secondary" data-review-rebase>刷新依据，保留编辑</button></div></form>`
+  const draft = {card,candidate,reviewRevision:data.revision,memories:[],needsRefresh:false,error:'',dirty:false,busy:false}
+  const form = card.querySelector('form')
+  form.elements.text.value = candidate.text
+  form.elements.subject.value = candidate.subject
+  form.elements.kind.value = candidate.kind
+  form.elements.attribution.value = candidate.attribution
+  updateReviewEvidence(draft); updateReplacementOptions(draft,data.memories)
+  form.addEventListener('input',event => {
+    draft.dirty = true; draft.error = ''
+    if (event.target.name !== 'confirmed') form.elements.confirmed.checked = false
+    if (event.target.name === 'attribution' && form.elements.attribution.value === 'inference') form.elements.kind.value = 'inference'
+    syncReviewForm(draft); updateReviewDraftControls(draft)
+  })
+  form.addEventListener('change',() => syncReviewForm(draft))
+  form.onsubmit = event => { event.preventDefault(); action(() => acceptReviewDraft(draft)) }
+  card.querySelector('[data-review-reject]').onclick = () => action(() => rejectReviewDraft(draft))
+  card.querySelector('[data-review-rebase]').onclick = () => action(() => refreshMemoryReview({review:true}))
+  syncReviewForm(draft)
+  return draft
+}
+function updateReviewEvidence(draft) {
+  const candidate = draft.candidate
+  draft.card.querySelector('.memory-review-evidence').innerHTML = `<div class="card-meta"><span>范围：${escape(candidate.scope)}</span><span>原候选主体：${escape(candidate.subject)}</span><span>${escape(attributionNames[candidate.attribution] ?? candidate.attribution)}</span><span>${escape(kindNames[candidate.kind] ?? candidate.kind)}</span></div><div class="memory-review-quotes"><strong>引用的原话</strong>${candidate.evidence.map(source => `<figure><figcaption>来源 #${escape(source.sourceId)}</figcaption><blockquote>${escape(source.quote)}</blockquote></figure>`).join('')}</div><p class="memory-review-time-note"><strong>原文时间提示：</strong>${escape(candidate.timeNote || '没有明确时间提示，请自行确认有效期。')}</p>`
+}
+function updateReplacementOptions(draft,memories) {
+  const select = draft.card.querySelector('[name="replacement"]'), previous = select.value
+  draft.memories = memories.filter(memory => memory.scope === draft.candidate.scope && memory.status === 'active')
+  select.innerHTML = '<option value="">请选择已有记忆</option>' + draft.memories.map(memory => `<option value="${escape(memory.id)}">${draft.candidate.relatedMemoryIds.includes(memory.id) ? '候选关联 · ' : ''}${escape(memory.text.slice(0,90))} · 修订 ${memory.revision}</option>`).join('')
+  if (draft.memories.some(memory => memory.id === previous)) select.value = previous
+  else if (previous) draft.error = '之前选择的替代记忆已不可用，请重新选择处理方式。'
+  syncReviewForm(draft)
+}
+function syncReviewForm(draft) {
+  const form = draft.card.querySelector('form'), range = form.elements.validity.value === 'range', replace = form.elements.resolution.value === 'replace'
+  draft.card.querySelector('.memory-review-dates').classList.toggle('hidden',!range)
+  for (const name of ['validFrom','validUntil']) { form.elements[name].required = range; form.elements[name].disabled = !range }
+  draft.card.querySelector('.memory-review-replacement').classList.toggle('hidden',!replace)
+  form.elements.replacement.required = replace; form.elements.replacement.disabled = !replace
+  const memory = draft.memories.find(item => item.id === form.elements.replacement.value)
+  draft.card.querySelector('.memory-review-existing').innerHTML = memory ? `<p>${escape(memory.text)}</p><div class="card-meta">${escape(memory.scope)} · ${escape(kindNames[memory.kind])} · 修订 ${memory.revision}${memory.private ? ' · 私密' : ''}</div>${memoryClaimMarkup(memory)}` : '<p class="memory-review-help">请选择同一范围内的记忆。</p>'
+}
+function updateReviewDraftControls(draft) {
+  const disabled = draft.busy || !!memoryReviewUI.operation
+  draft.card.querySelector('fieldset').disabled = disabled
+  draft.card.querySelector('[data-review-accept]').disabled = disabled || state?.sealed || draft.needsRefresh
+  draft.card.querySelector('[data-review-reject]').disabled = disabled
+  draft.card.querySelector('[data-review-rebase]').disabled = disabled || memoryReviewUI.loading
+  const status = draft.card.querySelector('.memory-review-draft-status')
+  status.textContent = draft.error || (draft.busy ? '正在提交审阅…' : draft.needsRefresh ? '后台候选或记忆已有变化。编辑稿已保留，请刷新依据并重新核对。' : state?.sealed ? '记忆已封存，暂不能采纳。' : draft.dirty ? '本页编辑稿尚未保存为记忆。' : '请明确选择有效期和处理方式，核对后确认。')
+  status.classList.toggle('warning',!!draft.error || draft.needsRefresh)
+}
+function reviewPeriod(form) {
+  if (form.elements.validity.value === 'long') return {validFrom:null,validUntil:null}
+  if (form.elements.validity.value !== 'range') throw new Error('请明确选择长期或日期范围。')
+  const from = new Date(`${form.elements.validFrom.value}T00:00:00`), until = new Date(`${form.elements.validUntil.value}T00:00:00`)
+  if (!Number.isFinite(from.getTime()) || !Number.isFinite(until.getTime()) || from.getTime() < 0 || until < from) throw new Error('请填写有效的起止日期，结束日期不能早于开始日期。')
+  until.setDate(until.getDate()+1)
+  if (!Number.isSafeInteger(until.getTime()) || until <= from) throw new Error('结束日期超出支持范围，请选择较早日期。')
+  return {validFrom:from.getTime(),validUntil:until.getTime()}
+}
+async function acceptReviewDraft(draft) {
+  if (draft.busy || memoryReviewUI.operation) return
+  if (state?.sealed) throw new Error('记忆已封存，解除封存后才能采纳。')
+  if (draft.needsRefresh) throw new Error('请刷新依据并重新审阅，编辑稿会保留。')
+  const form = draft.card.querySelector('form')
+  if (!form.reportValidity()) return
+  const period = reviewPeriod(form)
+  const replacement = draft.memories.find(memory => memory.id === form.elements.replacement.value)
+  const resolution = form.elements.resolution.value === 'add' ? {type:'add'} : form.elements.resolution.value === 'replace' && replacement ? {type:'replace',memoryId:replacement.id,revision:replacement.revision} : null
+  if (!resolution) throw new Error('请选择新增并存，或选择要替代的已有记忆。')
+  if (form.elements.attribution.value === 'inference' && form.elements.kind.value !== 'inference') throw new Error('推断应保留为待验证认识，请调整类型。')
+  const input = {revision:draft.candidate.revision,reviewRevision:draft.reviewRevision,text:form.elements.text.value,subject:form.elements.subject.value,kind:form.elements.kind.value,attribution:form.elements.attribution.value,...period,private:form.elements.private.checked,pinned:form.elements.pinned.checked,resolution}
+  await submitReviewDraft(draft,'accept',input)
+}
+async function rejectReviewDraft(draft) {
+  if (draft.busy || memoryReviewUI.operation) return
+  if (draft.dirty && !confirm('决定不保存这条候选？本页对它的编辑稿也会关闭。')) return
+  await submitReviewDraft(draft,'reject',{revision:draft.candidate.revision})
+}
+async function submitReviewDraft(draft,operation,input) {
+  draft.busy = true; draft.error = ''; memoryReviewUI.operation = draft.candidate.id; renderMemoryReviewHeader()
+  try {
+    await api(`/memory-review/${encodeURIComponent(draft.candidate.id)}/${operation}`,input)
+    draft.dirty = false
+    memoryReviewUI.message = operation === 'accept' ? '这条记忆已保存，并保留审阅结果与来源。' : '已决定不保存这条候选。'
+    await refreshMemoryReview({force:true})
+    await refresh()
+  } catch (error) {
+    if (error.status === 409) { draft.needsRefresh = true; draft.card.querySelector('[name="confirmed"]').checked = false }
+    draft.error = error.status === 409 ? `${error.message}。编辑稿已保留，请刷新依据并重新审阅。` : `${error.message}。未确认保存成功，编辑稿仍保留。`
+    updateReviewDraftControls(draft)
+  } finally { draft.busy = false; memoryReviewUI.operation = null; renderMemoryReviewHeader() }
+}
+$('#memory-review-task').onchange = () => action(async () => {
+  memoryReviewUI.taskId = $('#memory-review-task').value; memoryReviewUI.data = null; memoryReviewUI.request++; memoryReviewUI.loading = false; memoryReviewUI.message = ''; memoryReviewUI.batchSignature = ''; memoryReviewUI.requestKey = null; memoryReviewUI.submittedBatch = null
+  $('#memory-review-candidates').replaceChildren(); $('#memory-review-batches').replaceChildren()
+  await refreshMemoryReview()
+})
+$('#memory-review-refresh').onclick = () => action(() => refreshMemoryReview({review:true}))
+$('#memory-review-start-form').onsubmit = event => { event.preventDefault(); action(async () => {
+  const ui = memoryReviewUI
+  if ($('#memory-review-start').disabled) return
+  const model = $('#memory-review-model').value ? JSON.parse($('#memory-review-model').value) : undefined
+  const signature = JSON.stringify([ui.taskId,model])
+  if (ui.requestKey?.signature !== signature) ui.requestKey = {signature,key:uuid()}
+  ui.starting = true; ui.message = ''; renderMemoryReviewHeader()
+  try {
+    const result = await api('/memory-review',{taskId:ui.taskId,key:ui.requestKey.key,...(model ? {model} : {})})
+    if (!result.batchId) throw new Error('提取返回缺少批次，请刷新状态核实。')
+    ui.requestKey = null; ui.submittedBatch = result.batchId; ui.message = '提取请求已提交。候选返回后，请逐条审阅。'
+    await refreshMemoryReview({force:true})
+  } catch (error) { ui.message = `${error.message}。可刷新核实状态后重试。` }
+  finally { ui.starting = false; renderMemoryReviewHeader() }
+}) }
+window.addEventListener('beforeunload',event => { if (memoryReviewUI.operation || [...memoryReviewUI.drafts.values()].some(draft => draft.dirty)) { event.preventDefault(); event.returnValue = '' } })
 
 async function refreshFiles() {
   const plans = await api('/files')
@@ -678,6 +920,9 @@ async function loadEngine() {
   const previous = $('#model').value
   $('#model').innerHTML = '<option value="">使用引擎默认模型</option>' + providers.all.filter(item => providers.connected.includes(item.id)).flatMap(provider => provider.models.map(model => `<option value="${escape(JSON.stringify({providerID:provider.id,modelID:model.id}))}">${escape(provider.name)} / ${escape(model.name)}</option>`)).join('')
   if ([...$('#model').options].some(option => option.value === previous)) $('#model').value = previous
+  const reviewModel = $('#memory-review-model'), previousReviewModel = reviewModel.value
+  reviewModel.replaceChildren(...[...$('#model').options].map(option => option.cloneNode(true)))
+  reviewModel.value = [...reviewModel.options].some(option => option.value === previousReviewModel) ? previousReviewModel : ''
   $('#engine-config').innerHTML = `<p>${providers.connected.length ? `已配置：${escape(providers.connected.join('、'))}。发送一个简短任务，可验证模型服务是否可用。` : '还没有配置模型。请在上方填写服务商提供的接口地址、模型名称和密钥。'}</p><p>配置只保存在这台电脑；更换电脑后需要重新设置。</p>`
   if (!engineHealth.ok) notice(`执行引擎暂不可用：${engineHealth.reason}`, true)
   if (view === 'system') await renderSystem()

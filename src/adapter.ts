@@ -8,6 +8,9 @@ export type AdapterOptions = {
   username?: string
   password?: string
   timeoutMs?: number
+  /** Independent background budgets; never lengthen foreground requests. */
+  memoryExtractionTimeoutMs?: number
+  memoryCleanupTimeoutMs?: number
 }
 
 export type AdapterCapabilities = {
@@ -70,6 +73,8 @@ export class OpenCodeAdapter {
   readonly #headers: Headers
   readonly #directory?: string
   readonly #timeout: number
+  readonly #memoryTimeout: number
+  readonly #memoryCleanupTimeout: number
 
   constructor(options: AdapterOptions) {
     const url = new URL(options.baseURL)
@@ -87,6 +92,8 @@ export class OpenCodeAdapter {
     if (!Number.isFinite(this.#timeout) || this.#timeout <= 0 || this.#timeout > 2_147_483_647) {
       throw new Error("timeoutMs must be a positive finite timer duration")
     }
+    this.#memoryTimeout = boundedTimeout(options.memoryExtractionTimeoutMs ?? Math.min(this.#timeout, 60_000), 60_000)
+    this.#memoryCleanupTimeout = boundedTimeout(options.memoryCleanupTimeoutMs ?? Math.min(this.#timeout, 10_000), 10_000)
     this.#headers = new Headers({ accept: "application/json" })
     if (options.password !== undefined) {
       this.#headers.set("authorization", `Basic ${Buffer.from(`${options.username ?? "opencode"}:${options.password}`, "utf8").toString("base64")}`)
@@ -122,6 +129,97 @@ export class OpenCodeAdapter {
   async createSession(title?: string): Promise<{ id: string; title?: string }> {
     const result = record(await this.#request("POST", "/session", title === undefined ? {} : { title }), "session")
     return { id: string(result.id, "session.id"), ...(typeof result.title === "string" ? { title: result.title } : {}) }
+  }
+
+  /** The caller persists this ID on its background job before prompting. These
+   * sessions are never task sessions and their messages are not experiences. */
+  async createMemoryExtractionSession(jobID: string): Promise<{ id: string }> {
+    extractionJobID(jobID)
+    const result = await this.#request("POST", "/session", {
+      title: extractionTitle(jobID), agent: "build",
+      metadata: { xingyao: { kind: "memory-extraction", jobID } },
+      permission: extractionPermission,
+    }, { timeoutMs: this.#memoryCleanupTimeout, maxBytes: EXTRACTION_RESPONSE_BYTES })
+    const id = string(record(result, "extraction session").id, "extraction session id")
+    extractionSession(result, id, jobID, true)
+    return { id }
+  }
+
+  /** Plain JSON text transport: the qualified engine's native format field
+   * breaks full-history reads and does not validate JSON Schema. The domain
+   * must separately validate candidate JSON and its exact source revisions.
+   * Failures throw; a failed or uncertain request is never silently retried. */
+  async promptMemoryExtraction(sessionID: string, input: string, options: { system: string; model?: { providerID: string; modelID: string }; jobID?: string }): Promise<PromptResult> {
+    extractionText(input, 65_536, "input")
+    extractionText(options.system, 32_768, "system")
+    if (options.model) { extractionText(options.model.providerID, 200, "provider ID"); extractionText(options.model.modelID, 300, "model ID") }
+    const endpoint = `/session/${segment(sessionID)}`
+    const deadline = Date.now() + this.#memoryTimeout
+    const read = (path: string, history = false) => this.#request("GET", path, undefined, {
+      timeoutMs: remaining(deadline), maxBytes: EXTRACTION_RESPONSE_BYTES, completeHistory: history,
+    })
+    if (options.jobID !== undefined) extractionJobID(options.jobID)
+    const jobID = extractionSession(await read(endpoint), sessionID, options.jobID, true)
+    const before = await read(`${endpoint}/message`, true)
+    if (!Array.isArray(before) || before.length !== 0) throw protocol("Extraction session already contains a request; reconcile instead of resending")
+    // Do not forward arbitrary caller fields, format, tools or non-text parts.
+    const raw = await this.#request("POST", `${endpoint}/message`, {
+      agent: "build", parts: [{ type: "text", text: input }], system: options.system,
+      ...(options.model ? { model: { providerID: options.model.providerID, modelID: options.model.modelID } } : {}),
+    }, { timeoutMs: remaining(deadline), maxBytes: EXTRACTION_RESPONSE_BYTES })
+    const response = extractionMessage(raw, sessionID)
+    if (response.role !== "assistant" || response.status !== "completed" || record(record(raw, "extraction response").info, "extraction info").finish !== "stop") {
+      throw protocol("Extraction did not return a completed assistant response")
+    }
+    const history = await read(`${endpoint}/message`, true)
+    if (!Array.isArray(history)) throw protocol("Expected complete extraction history")
+    const messages = history.map(item => extractionMessage(item, sessionID))
+    if (messages.some(message => message.parts.some(part => part.type === "tool"))) throw protocol("Extraction session attempted a tool; candidate batch rejected")
+    if (messages.length !== 2 || messages[0]!.role !== "user" || messages[1]!.role !== "assistant"
+      || messages[0]!.messageID === messages[1]!.messageID || messages[0]!.text !== input
+      || messages[0]!.parts.length !== 1 || messages[0]!.parts[0]!.type !== "text") throw protocol("Extraction history does not match the single admitted request")
+    const user = record(record(history[0], "extraction user").info, "extraction user info")
+    const assistant = record(record(history[1], "extraction assistant").info, "extraction assistant info")
+    if (user.system !== options.system || user.agent !== "build" || user.format !== undefined || user.tools !== undefined
+      || assistant.parentID !== messages[0]!.messageID || assistant.finish !== "stop"
+      || canonicalJSON(messages[1]) !== canonicalJSON(response)) throw protocol("Extraction response differs from its persisted request or result")
+    extractionText(response.text, 65_536, "output")
+    extractionSession(await read(endpoint), sessionID, jobID, true)
+    const permissions = await read("/permission")
+    if (!Array.isArray(permissions) || permissions.some(item => record(item, "extraction permission").sessionID === sessionID)) throw protocol("Extraction has an unexpected permission request")
+    return { messageID: response.messageID, text: response.text, parts: response.parts, status: "completed" }
+  }
+
+  /** Cleanup is scoped to a job-owned session. Deletion can recurse upstream,
+   * so sessions with children are preserved for explicit investigation. */
+  async deleteMemoryExtractionSession(sessionID: string, jobID: string): Promise<boolean> {
+    extractionJobID(jobID)
+    const endpoint = `/session/${segment(sessionID)}`
+    const deadline = Date.now() + this.#memoryCleanupTimeout
+    const call = (method: "GET" | "POST" | "DELETE", path: string) => this.#request(method, path, undefined, {
+      timeoutMs: remaining(deadline), maxBytes: EXTRACTION_RESPONSE_BYTES,
+    })
+    const absent = async (path: string): Promise<boolean> => {
+      try { await call("GET", path); return false }
+      catch (error) { if (error instanceof OpenCodeAdapterError && error.kind === "http" && error.status === 404) return true; throw error }
+    }
+    let session: unknown
+    try { session = await call("GET", endpoint) }
+    catch (error) {
+      if (!(error instanceof OpenCodeAdapterError && error.kind === "http" && error.status === 404)) throw error
+      if (!await absent(`${endpoint}/message`)) throw protocol("Deleted extraction session still exposes messages")
+      return true
+    }
+    extractionSession(session, sessionID, jobID, false)
+    if (await call("POST", `${endpoint}/abort`) !== true) throw protocol("Extraction abort was not acknowledged")
+    extractionSession(await call("GET", endpoint), sessionID, jobID, false)
+    const children = await call("GET", `${endpoint}/children`)
+    if (!Array.isArray(children) || children.length) throw protocol("Extraction session has unexpected children; refusing recursive deletion")
+    if (await call("DELETE", endpoint) !== true) throw protocol("Extraction deletion was not acknowledged")
+    const sessionAbsent = await absent(endpoint)
+    const messagesAbsent = await absent(`${endpoint}/message`)
+    if (!sessionAbsent || !messagesAbsent) throw protocol("Extraction deletion could not be verified")
+    return true
   }
 
   async prompt(sessionID: string, text: string, options: { system?: string; model?: { providerID: string; modelID: string } } = {}): Promise<PromptResult> {
@@ -182,7 +280,7 @@ export class OpenCodeAdapter {
   }
 
   async abort(sessionID: string): Promise<boolean> {
-    const result = await this.#request("POST", `/session/${segment(sessionID)}/abort`)
+    const result = await this.#request("POST", `/session/${segment(sessionID)}/abort`, undefined, { timeoutMs: Math.min(this.#timeout, 10_000), maxBytes: EXTRACTION_RESPONSE_BYTES })
     if (typeof result !== "boolean") throw protocol("Invalid abort acknowledgement")
     return result
   }
@@ -229,13 +327,13 @@ export class OpenCodeAdapter {
     return result
   }
 
-  async #request(method: "GET" | "POST", path: string, body?: unknown): Promise<unknown> {
+  async #request(method: "GET" | "POST" | "DELETE", path: string, body?: unknown, policy: { timeoutMs?: number; maxBytes?: number; completeHistory?: boolean } = {}): Promise<unknown> {
     const url = new URL(path, this.#url)
     if (this.#directory !== undefined) url.searchParams.set("directory", this.#directory)
     const headers = new Headers(this.#headers)
     if (body !== undefined) headers.set("content-type", "application/json")
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), this.#timeout)
+    const timeout = setTimeout(() => controller.abort(), policy.timeoutMs ?? this.#timeout)
     try {
       const response = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), redirect: "manual", signal: controller.signal })
       if (!response.ok) {
@@ -246,7 +344,11 @@ export class OpenCodeAdapter {
         await response.body?.cancel()
         throw protocol("Expected an OpenCode JSON response")
       }
-      const raw = await response.text()
+      if (policy.completeHistory && (response.headers.get("x-next-cursor") || /\brel\s*=\s*"?next\b/i.test(response.headers.get("link") ?? ""))) {
+        await response.body?.cancel()
+        throw protocol("Paginated extraction history is unsupported")
+      }
+      const raw = policy.maxBytes === undefined ? await response.text() : await boundedResponse(response, policy.maxBytes)
       try { return JSON.parse(raw) as unknown }
       catch { throw protocol("Invalid OpenCode JSON response") }
     } catch (error) {
@@ -256,6 +358,61 @@ export class OpenCodeAdapter {
       throw new OpenCodeAdapterError("network", "OpenCode connection failed")
     } finally { clearTimeout(timeout) }
   }
+}
+
+const EXTRACTION_RESPONSE_BYTES = 1_048_576
+const extractionPermission = [{ permission: "*", pattern: "*", action: "deny" }]
+function extractionTitle(jobID: string) { return `Xingyao memory extraction ${jobID}` }
+function extractionJobID(value: string) {
+  if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) throw new Error("Invalid memory extraction job ID")
+}
+function extractionText(value: string, maximum: number, field: string) {
+  if (typeof value !== "string" || !value.trim() || value.length > maximum || value.includes("\0")) throw protocol(`Invalid memory extraction ${field}`)
+}
+function extractionSession(value: unknown, sessionID: string, expectedJobID: string | undefined, restricted: boolean): string {
+  const session = record(value, "memory extraction session")
+  const owner = record(record(session.metadata, "memory extraction metadata").xingyao, "memory extraction ownership")
+  const jobID = string(owner.jobID, "memory extraction job ID")
+  extractionJobID(jobID)
+  if (session.id !== sessionID || owner.kind !== "memory-extraction" || expectedJobID !== undefined && jobID !== expectedJobID
+    || session.title !== extractionTitle(jobID) || session.parentID !== undefined && session.parentID !== null) throw protocol("Memory extraction session ownership mismatch")
+  if (restricted && (!Array.isArray(session.permission) || canonicalJSON(session.permission) !== canonicalJSON(extractionPermission))) throw protocol("Memory extraction session must deny all tools")
+  return jobID
+}
+function extractionMessage(raw: unknown, sessionID: string): NormalizedMessage {
+  const message = normalizeMessage(raw, sessionID)
+  if (message.parts.some(part => part.type === "text" && (part.ignored || part.synthetic)
+    || part.type === "other" && !["reasoning", "step-start", "step-finish"].includes(part.kind))) throw protocol("Unexpected extraction message part")
+  if (!timestamp(message.time.created) || message.time.completed !== undefined && (!timestamp(message.time.completed) || message.time.completed < message.time.created)) throw protocol("Invalid extraction message timestamps")
+  return message
+}
+function boundedTimeout(value: number, maximum: number): number {
+  if (!Number.isFinite(value) || value <= 0 || value > maximum) throw new Error(`Memory request timeout must be positive and at most ${maximum} ms`)
+  return value
+}
+function remaining(deadline: number): number {
+  const value = deadline - Date.now()
+  if (value <= 0) throw new OpenCodeAdapterError("timeout", "OpenCode memory operation timed out; reconcile before retrying")
+  return value
+}
+async function boundedResponse(response: Response, maximum: number): Promise<string> {
+  if (Number(response.headers.get("content-length")) > maximum) {
+    await response.body?.cancel()
+    throw protocol("OpenCode memory response exceeds the size limit")
+  }
+  if (!response.body) throw protocol("Missing OpenCode JSON response body")
+  const reader = response.body.getReader()
+  let bytes = 0, text = ""
+  const decoder = new TextDecoder("utf-8", { fatal: true })
+  try {
+    while (true) {
+      const chunk = await reader.read()
+      if (chunk.done) return text + decoder.decode()
+      bytes += chunk.value.byteLength
+      if (bytes > maximum) { await reader.cancel(); throw protocol("OpenCode memory response exceeds the size limit") }
+      text += decoder.decode(chunk.value, { stream: true })
+    }
+  } finally { reader.releaseLock() }
 }
 
 function normalizeMessage(value: unknown, sessionID: string): NormalizedMessage {

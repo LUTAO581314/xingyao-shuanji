@@ -152,6 +152,13 @@ describe("memory activation", () => {
     expect(memoryActivation(memory(), "3.11", START)).toBe(0)
   })
 
+  test("a standalone Han query term matches inside a sentence without weakening longer terms", () => {
+    const item = memory({ text: "主人现在改喝茶。" })
+    expect(memoryActivation(item, "咖啡 茶", START)).toBeGreaterThan(0)
+    expect(memoryActivation(item, "咖啡 酒", START)).toBe(0)
+    expect(memoryActivation(item, "茶叶", START)).toBe(0)
+  })
+
   test("fourteen-day recency half-life lowers ranking without rewriting truth", () => {
     const item = memory()
     expect(memoryActivation(item, "", START + 14 * DAY)).toBeCloseTo(0.5, 12)

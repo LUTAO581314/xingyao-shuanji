@@ -1,8 +1,8 @@
 export const PROTOCOL_VERSION = 1
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 /** Versions with an explicit, tested forward migration into this runtime. */
-export function isSupportedSchema(version: unknown): version is number { return version === 1 || version === SCHEMA_VERSION }
-export const PRODUCT_VERSION = "0.1.0-dev.7"
+export function isSupportedSchema(version: unknown): version is number { return version === 1 || version === 2 || version === SCHEMA_VERSION }
+export const PRODUCT_VERSION = "0.1.0-dev.8"
 
 export type Ownership = "experienced" | "told" | "observed"
 export type ExperienceKind = "user_message" | "assistant_message" | "tool_success" | "tool_failure" | "tool_unknown" | "preference" | "correction" | "observation"
@@ -18,6 +18,14 @@ export type ExperienceInput = {
 }
 export type Experience = ExperienceInput & { id: number; observedAt: number; recordedAt: number; retracted: boolean }
 export type MemoryKind = "preference" | "fact" | "inference" | "episode" | "commitment"
+export type MemoryClaim = {
+  subject: string
+  attribution: "user_statement" | "reported" | "inference"
+  validFrom: number | null
+  validUntil: number | null
+  reviewedAt: number
+  extractionId: string
+}
 export type Memory = {
   id: string
   revision: number
@@ -33,6 +41,7 @@ export type Memory = {
   sourceObservedAt?: number
   updatedAt: number
   supersedes: string | null
+  claim?: MemoryClaim
 }
 export type Affect = { emotion: number[]; mood: number[]; updatedAt: number; lastSourceId: number | null; reason: string }
 export type TaskStatus = "ready" | "running" | "waiting" | "verifying" | "completed" | "failed" | "cancelled"

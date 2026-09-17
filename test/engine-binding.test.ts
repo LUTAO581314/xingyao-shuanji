@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { dirname, join, resolve } from "node:path"
 import { tmpdir } from "node:os"
 import { main } from "../src/main"
+import { SCHEMA_VERSION } from "../src/contracts"
 import { SoulStore } from "../src/store"
 
 const executable = process.env.XINGYAO_TEST_OPENCODE ?? resolve(import.meta.dir, "../dist/engines/0.0.0-product-dev-20260918-engine.6-source/opencode.exe")
@@ -132,7 +133,7 @@ real("offline startup can inspect a differently bound identity without starting 
   const engineDb = syntheticEngineDatabase(f), engineBytes = hash(engineDb), identity = inspect(f.database).identity
   const { runtime, api } = await start(f, { offline: true })
   expect((await api<{ ok: boolean }>("/api/engine")).ok).toBe(false)
-  expect(inspect(f.database)).toMatchObject({ identity, version: oldVersion, sha256: oldHash, schema: 2 })
+  expect(inspect(f.database)).toMatchObject({ identity, version: oldVersion, sha256: oldHash, schema: SCHEMA_VERSION })
   expect(hash(engineDb)).toBe(engineBytes)
   expect(existsSync(join(f.host, "opencode", "home"))).toBe(false)
   await runtime.stop(); await runtime.closed

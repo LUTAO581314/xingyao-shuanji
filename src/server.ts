@@ -8,6 +8,8 @@ import { FileOrganizer } from "./files"
 import { WorkspaceFiles, WorkspaceFileError, MAX_WORKSPACE_FILE_BYTES, type WorkspaceFile } from "./workspace-files"
 import { dirname, resolve } from "node:path"
 import { LearningStore } from "./learning"
+import { MemoryReviewRunner, type MemoryReviewSettings } from "./memory-review-runner"
+import type { AcceptMemoryCandidate } from "./memory-review-contracts"
 import { PRODUCT_VERSION, PROTOCOL_VERSION } from "./contracts"
 import type { MemoryKind } from "./contracts"
 import html from "./web/index.html" with { type: "text" }
@@ -50,6 +52,8 @@ export function startServer(options: ServerOptions) {
     catch (error) { workspaceError = error instanceof Error ? error.message : "默认项目目录不可用，请选择其他目录" }
   }
   const learning = new LearningStore(store.db)
+  const memoryReview = new MemoryReviewRunner(store, () => options.adapter)
+  const reviewJobs = memoryReview.jobs
   const jobs = new Map<string, Promise<void>>()
   const cancelled = new Set<string>()
   const reconciling = new Set<string>()
@@ -71,7 +75,7 @@ export function startServer(options: ServerOptions) {
 
   const createSnapshot = async (ownRequest: boolean) => {
     if (checkpointing) throw new ConflictError("正在同步，请等待完成")
-    if (jobs.size || reconciling.size || mutations > Number(ownRequest)) throw new ConflictError("请等待当前执行和文件操作结束后同步")
+    if (jobs.size || reviewJobs.size || reconciling.size || mutations > Number(ownRequest)) throw new ConflictError("请等待当前执行、记忆整理和文件操作结束后同步")
     checkpointing = true
     try {
       const result = await createCheckpoint(store.db, options.vaultDir, store.identityId, store.revision, store.meta("checkpoint_generation") || null, options.checkpointExtensions)
@@ -96,6 +100,7 @@ export function startServer(options: ServerOptions) {
     shuttingDown = true
     shutdownPromise = (async () => {
       while (mutations > Number(ownRequest) || configuring) await Bun.sleep(10)
+      await memoryReview.cancel("应用退出，记忆提取已中断；未自动重发")
       if (force) {
         for (const id of jobs.keys()) cancelled.add(id)
         await options.stopExecution?.()
@@ -139,6 +144,7 @@ export function startServer(options: ServerOptions) {
 
   async function runPrompt(taskId: string, text: string, model?: { providerID: string; modelID: string }) {
     try {
+      await memoryReview.cancel("前台对话优先，本次后台记忆提取已中断")
       const health = await options.adapter.health()
       if (cancelled.has(taskId)) return
       if (!health.ok) throw new Error(health.reason ?? "执行引擎尚未通过接口检查")
@@ -199,11 +205,11 @@ export function startServer(options: ServerOptions) {
           if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("请求格式无效")
           return value as Record<string, unknown>
         }
-        if (method === "GET" && path === "/api/state") return json({ version: PRODUCT_VERSION, protocol: PROTOCOL_VERSION, identityId: store.identityId, identity: JSON.parse(store.meta("identity")), affect: store.affect(), sealed: store.sealed, revision: store.revision, checkpointGeneration: store.meta("checkpoint_generation") || null, checkpointRevision: Number(store.meta("checkpoint_revision") || -1), unsynced: store.revision !== Number(store.meta("checkpoint_revision") || -1), checkpointing, checkpointError, tasks: store.tasks(), sleep: store.sleepReports(), busy: [...jobs.keys()] })
+        if (method === "GET" && path === "/api/state") return json({ version: PRODUCT_VERSION, protocol: PROTOCOL_VERSION, identityId: store.identityId, identity: JSON.parse(store.meta("identity")), affect: store.affect(), sealed: store.sealed, revision: store.revision, checkpointGeneration: store.meta("checkpoint_generation") || null, checkpointRevision: Number(store.meta("checkpoint_revision") || -1), unsynced: store.revision !== Number(store.meta("checkpoint_revision") || -1), checkpointing, checkpointError, tasks: store.tasks(), sleep: store.sleepReports(), busy: [...jobs.keys()], memoryReviewBusy: [...reviewJobs.keys()] })
         if (method === "GET" && path === "/api/engine") return json(await options.adapter.health())
         if (method === "GET" && path === "/api/settings") return json({ configPath: options.configPath ?? "未配置" })
         if (method === "POST" && path === "/api/settings/model") {
-          if (jobs.size || reconciling.size || mutations > 1) throw new ConflictError("请等待当前任务完成后更换模型连接")
+          if (jobs.size || reviewJobs.size || reconciling.size || mutations > 1) throw new ConflictError("请等待当前任务及记忆整理完成后更换模型连接")
           if (!options.configureModel) throw new Error("当前启动方式不支持修改模型配置")
           configuring = true
           try {
@@ -217,6 +223,26 @@ export function startServer(options: ServerOptions) {
           finally { configuring = false }
         }
         if (method === "GET" && path === "/api/providers") return json(await options.adapter.providers())
+        if (method === "GET" && path === "/api/memory-review/settings") return json(memoryReview.settings())
+        if (method === "POST" && path === "/api/memory-review/settings") {
+          const input = await body()
+          if (store.sealed) throw new SealedError("封存期间不修改自动记忆整理设置")
+          return json(memoryReview.configure(input as MemoryReviewSettings))
+        }
+        if (method === "GET" && path === "/api/memory-review") return json(memoryReview.review.view(url.searchParams.get("taskId") ?? undefined))
+        if (method === "POST" && path === "/api/memory-review") {
+          const input = await body()
+          const taskId = text(input.taskId, 200), key = text(input.key, 200)
+          const model = input.model === undefined ? undefined : modelSelection(input.model)
+          // The durable key remains repeatable even after its batch completes.
+          if (jobs.size || reconciling.size || mutations > 1) throw new ConflictError("前台正在工作，请稍后提取记忆")
+          return json(memoryReview.start(taskId, key, model), 202)
+        }
+        const reviewRoute = /^\/api\/memory-review\/([^/]+)\/(accept|reject)$/.exec(path)
+        if (reviewRoute && method === "POST") {
+          const input = await body()
+          return json(reviewRoute[2] === "accept" ? memoryReview.review.accept(reviewRoute[1], input as AcceptMemoryCandidate) : memoryReview.review.reject(reviewRoute[1], positiveInteger(input.revision)))
+        }
         if (method === "GET" && path === "/api/permissions") return json(await options.adapter.permissions())
         if (method === "POST" && path === "/api/permissions/reply") {
           const input = await body()
@@ -241,8 +267,8 @@ export function startServer(options: ServerOptions) {
           store.forgetMemory(memoryRoute[1], revision)
           return json({ ok: true, backupNotice: "活动记忆及派生记录已清除。已有检查点、OpenCode 会话及原始文件需分别处理。" })
         }
-        if (method === "POST" && path === "/api/seal") { const input = await body(); if (typeof input.sealed !== "boolean") throw new Error("需要明确封存状态"); store.setSealed(input.sealed); return json({ sealed: store.sealed }) }
-        if (method === "POST" && path === "/api/sleep") { if (jobs.size) throw new ConflictError("前台正在工作，整理暂缓"); return json(store.sleep()) }
+        if (method === "POST" && path === "/api/seal") { const input = await body(); if (typeof input.sealed !== "boolean") throw new Error("需要明确封存状态"); store.setSealed(input.sealed); if (input.sealed) void memoryReview.cancel("记忆已封存，本次提取已中断"); return json({ sealed: store.sealed }) }
+        if (method === "POST" && path === "/api/sleep") { if (jobs.size || reviewJobs.size) throw new ConflictError("当前正在工作，整理暂缓"); return json(store.sleep()) }
         if (method === "POST" && path === "/api/checkpoint") return json(await checkpoint(true))
         if (method === "GET" && path === "/api/checkpoints") return json(await listCheckpoints(options.vaultDir))
         if (method === "GET" && path === "/api/workspace/roots") return json({ roots: workspace.roots(), defaultRootId, error: workspaceError })
@@ -371,11 +397,18 @@ export function startServer(options: ServerOptions) {
     },
   })
   const maintenance = async () => {
-    if (shuttingDown || checkpointing || jobs.size || reconciling.size || mutations || Date.now() - lastActivity < 5 * 60_000) return
+    if (shuttingDown || configuring || checkpointing || jobs.size || reviewJobs.size || reconciling.size || mutations || Date.now() - lastActivity < 5 * 60_000) return
     if (!store.sealed && store.experiencesAfter(Number(store.meta("sleep_cursor")), 1).length) store.sleep()
+    memoryReview.cleanup()
+    if (reviewJobs.size) {
+      await Promise.allSettled([...reviewJobs.values()])
+      if (shuttingDown || configuring || checkpointing || jobs.size || reconciling.size || mutations || Date.now() - lastActivity < 5 * 60_000) return
+    }
+    memoryReview.automatic()
+    if (reviewJobs.size) return
     if (store.revision !== Number(store.meta("checkpoint_revision") || -1)) await checkpoint()
   }
-  return { server, checkpoint, jobs, maintenance, shutdown, closed: closed.promise }
+  return { server, checkpoint, jobs, reviewJobs, maintenance, shutdown, closed: closed.promise }
 }
 
 function text(value: unknown, max: number): string {
@@ -383,6 +416,10 @@ function text(value: unknown, max: number): string {
   return value.trim()
 }
 function positiveInteger(value: unknown) { if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) throw new Error("版本必须为正整数"); return value }
+function modelSelection(value: unknown): { providerID: string; modelID: string } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("模型选择无效")
+  return { providerID: text((value as Record<string, unknown>).providerID, 200), modelID: text((value as Record<string, unknown>).modelID, 200) }
+}
 function lines(value: unknown, allowEmpty = false): string[] {
   if (allowEmpty && (value === "" || value === undefined)) return []
   return text(value, 12000).split(/\r?\n/).map(line => line.trim()).filter(Boolean)
