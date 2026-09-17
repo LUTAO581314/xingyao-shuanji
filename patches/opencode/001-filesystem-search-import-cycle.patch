@@ -1,0 +1,118 @@
+diff --git a/packages/core/src/filesystem/search.ts b/packages/core/src/filesystem/search.ts
+index c7738388bc..03ca875e5b 100644
+--- a/packages/core/src/filesystem/search.ts
++++ b/packages/core/src/filesystem/search.ts
+@@ -5,7 +5,8 @@ import path from "path"
+ import { Context, Effect, Layer, Scope } from "effect"
+ import { Fff } from "#fff"
+ import fuzzysort from "fuzzysort"
+-import { FileSystem } from "../filesystem"
++import type { FileSystem } from "../filesystem"
++import { Entry, Match } from "@opencode-ai/schema/filesystem"
+ import { FSUtil } from "../fs-util"
+ import { Location } from "../location"
+ import { Ripgrep } from "../ripgrep"
+@@ -61,7 +62,7 @@ export const ripgrepLayer = Layer.effect(
+             .pipe(
+               Effect.map((result) =>
+                 result.map((entry) =>
+-                  FileSystem.Entry.make({
++                  Entry.make({
+                     ...entry,
+                     path: RelativePath.make(path.relative(location.directory, path.resolve(cwd, entry.path))),
+                   }),
+@@ -86,9 +87,9 @@ export const ripgrepLayer = Layer.effect(
+             .pipe(
+               Effect.map((result) =>
+                 result.map((match) =>
+-                  FileSystem.Match.make({
++                  Match.make({
+                     ...match,
+-                    entry: FileSystem.Entry.make({
++                    entry: Entry.make({
+                       ...match.entry,
+                       path: RelativePath.make(path.relative(location.directory, path.resolve(cwd, match.entry.path))),
+                     }),
+@@ -109,7 +110,7 @@ export const ripgrepLayer = Layer.effect(
+           return fuzzysort.go(input.query, items, { limit: input.limit ?? 50 }).map((item) => {
+             const relative = item.target
+             const type = relative.endsWith(path.sep) ? ("directory" as const) : ("file" as const)
+-            return FileSystem.Entry.make({
++            return Entry.make({
+               path: RelativePath.make(relative),
+               type,
+             })
+@@ -154,7 +155,7 @@ export const fffLayer = Layer.effect(
+           })
+           if (!found.ok) throw found.error
+           return found.value.items.map((item) =>
+-            FileSystem.Entry.make({
++            Entry.make({
+               path: RelativePath.make(item.relativePath.replaceAll("\\", "/")),
+               type: "file",
+             }),
+@@ -172,8 +173,8 @@ export const fffLayer = Layer.effect(
+           if (!found.ok) throw found.error
+           return found.value.items.map((match) => {
+             const bytes = Buffer.from(match.lineContent)
+-            return FileSystem.Match.make({
+-              entry: FileSystem.Entry.make({
++            return Match.make({
++              entry: Entry.make({
+                 path: RelativePath.make(match.relativePath.replaceAll("\\", "/")),
+                 type: "file",
+               }),
+@@ -222,7 +223,7 @@ export const fffLayer = Layer.effect(
+             .sort((a, b) => b.score - a.score || a.path.length - b.path.length)
+             .map((item) => {
+               const relative = item.path.replaceAll("\\", "/").replace(/\/$/, "")
+-              return FileSystem.Entry.make({
++              return Entry.make({
+                 path: RelativePath.make(relative + (item.type === "directory" ? path.sep : "")),
+                 type: item.type,
+               })
+diff --git a/packages/core/test/filesystem-search-import.test.ts b/packages/core/test/filesystem-search-import.test.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/test/filesystem-search-import.test.ts
+@@ -0,0 +1,40 @@
++import { expect, test } from "bun:test"
++import path from "path"
++import { pathToFileURL } from "url"
++import { tmpdir } from "./fixture/tmpdir"
++
++test("search-first imports leave the FileSystem layer graph fully initialized", async () => {
++  await using tmp = await tmpdir()
++  const core = path.resolve(import.meta.dir, "../src")
++  const source = `
++    await import(${JSON.stringify(pathToFileURL(path.join(core, "filesystem/search.ts")).href)});
++    const { FileSystem } = await import(${JSON.stringify(pathToFileURL(path.join(core, "filesystem.ts")).href)});
++    const seen = new Set();
++    function visit(node, parent) {
++      if (!node) throw new Error("Uninitialized dependency of " + parent);
++      if (seen.has(node)) return;
++      seen.add(node);
++      for (const child of node.dependencies) visit(child, node.name);
++    }
++    visit(FileSystem.node, "root");
++    console.log("complete");
++  `
++  const result = Bun.spawn([process.execPath, "--eval", source], {
++    cwd: path.resolve(import.meta.dir, ".."),
++    env: {
++      ...process.env,
++      XDG_DATA_HOME: path.join(tmp.path, "data"),
++      XDG_CONFIG_HOME: path.join(tmp.path, "config"),
++      XDG_CACHE_HOME: path.join(tmp.path, "cache"),
++      XDG_STATE_HOME: path.join(tmp.path, "state"),
++      OPENCODE_TEST_HOME: tmp.path,
++      OPENCODE_DISABLE_MODELS_FETCH: "1",
++    },
++    stdout: "pipe", stderr: "pipe",
++  })
++  const [out, error, status] = await Promise.all([
++    new Response(result.stdout).text(), new Response(result.stderr).text(), result.exited,
++  ])
++  expect({ status, error }).toEqual({ status: 0, error: "" })
++  expect(out.trim()).toBe("complete")
++})

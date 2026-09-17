@@ -1,0 +1,129 @@
+diff --git a/packages/core/src/fs-util.ts b/packages/core/src/fs-util.ts
+index 93a551c9b0..7510394314 100644
+--- a/packages/core/src/fs-util.ts
++++ b/packages/core/src/fs-util.ts
+@@ -95,6 +95,7 @@ export namespace FSUtil {
+         const resolved = pathResolve(windowsPath(path))
+         return yield* fs.realPath(resolved).pipe(
+           Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(resolved)),
++          Effect.map(portablePath),
+           Effect.orDie,
+         )
+       })
+@@ -228,11 +229,11 @@ export namespace FSUtil {
+   export function normalizePath(p: string): string {
+     if (process.platform !== "win32") return p
+     const resolved = pathResolve(windowsPath(p))
++    let canonical = resolved
+     try {
+-      return realpathSync.native(resolved)
+-    } catch {
+-      return resolved
+-    }
++      canonical = realpathSync.native(resolved)
++    } catch {}
++    return portablePath(canonical)
+   }
+ 
+   export function normalizePathPattern(p: string): string {
+@@ -271,4 +272,15 @@ export namespace FSUtil {
+     const result = relative(parent, child)
+     return result === "" || (!isAbsolute(result) && result !== ".." && !result.startsWith(`..${sep}`))
+   }
++
++  // A portable launcher may bind a fixed drive letter to a different physical root
++  // on each host. Call after canonicalization so outside symlink targets stay outside.
++  export function portablePath(p: string): string {
++    const root = process.env.OPENCODE_PORTABLE_ROOT
++    if (process.platform !== "win32" || !root) return p
++    if (!/^[D-Z]:[\\/]$/i.test(root)) throw new Error("OPENCODE_PORTABLE_ROOT must be an absolute drive root")
++    const physical = realpathSync.native(root)
++    if (!contains(physical, p)) return p
++    return join(root[0].toUpperCase() + ":\\", relative(physical, p))
++  }
+ }
+diff --git a/packages/core/src/git.ts b/packages/core/src/git.ts
+index 19dcde8961..c2d0451768 100644
+--- a/packages/core/src/git.ts
++++ b/packages/core/src/git.ts
+@@ -982,6 +982,5 @@ function resolvePath(cwd: string, value: string) {
+   const trimmed = value.replace(/[\r\n]+$/, "")
+   if (!trimmed) return cwd
+   const normalized = FSUtil.windowsPath(trimmed)
+-  if (path.isAbsolute(normalized)) return path.normalize(normalized)
+-  return path.resolve(cwd, normalized)
++  return FSUtil.portablePath(path.isAbsolute(normalized) ? path.normalize(normalized) : path.resolve(cwd, normalized))
+ }
+diff --git a/packages/core/test/portable-path.test.ts b/packages/core/test/portable-path.test.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/test/portable-path.test.ts
+@@ -0,0 +1,68 @@
++import { expect, test } from "bun:test"
++import { existsSync } from "fs"
++import fs from "fs/promises"
++import path from "path"
++import { pathToFileURL } from "url"
++import { tmpdir } from "./fixture/tmpdir"
++
++const windows = process.platform === "win32" ? test : test.skip
++
++windows("portable canonical paths preserve a mount without hiding outside symlink targets", async () => {
++  await using tmp = await tmpdir()
++  const target = path.join(tmp.path, "portable")
++  const outside = path.join(tmp.path, "portable-other")
++  await fs.mkdir(path.join(target, "project"), { recursive: true })
++  await fs.mkdir(outside)
++  await fs.symlink(outside, path.join(target, "outside"), "junction")
++  expect(Bun.spawnSync(["git", "-c", "init.templateDir=", "init", "--initial-branch=main"], {
++    cwd: path.join(target, "project"), stdout: "pipe", stderr: "pipe",
++    env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: path.join(tmp.path, "absent-git-config") },
++  }).exitCode).toBe(0)
++  const letter = ["X", "Y", "Z", "R", "Q", "P", "N", "M"].find((letter) => {
++    if (existsSync(`${letter}:\\`)) return false
++    return Bun.spawnSync(["subst.exe", `${letter}:`, target], { stdout: "pipe", stderr: "pipe" }).exitCode === 0
++  })
++  if (!letter) throw new Error("No free drive letter for isolated portable-path test")
++  const root = `${letter}:\\`
++  try {
++    const run = async (enabled: boolean) => {
++      const src = path.resolve(import.meta.dir, "../src")
++      const source = `
++        const { FSUtil } = await import(${JSON.stringify(pathToFileURL(path.join(src, "fs-util.ts")).href)});
++        const { Effect } = await import("effect");
++        const { AppNodeBuilder } = await import(${JSON.stringify(pathToFileURL(path.join(src, "effect/app-node-builder.ts")).href)});
++        const { Git } = await import(${JSON.stringify(pathToFileURL(path.join(src, "git.ts")).href)});
++        const { AbsolutePath } = await import(${JSON.stringify(pathToFileURL(path.join(src, "schema.ts")).href)});
++        const input = ${JSON.stringify(path.join(root, "project"))};
++        const asynchronous = await Effect.runPromise(FSUtil.Service.use((fs) => fs.resolve(input)).pipe(Effect.provide(AppNodeBuilder.build(FSUtil.node))));
++        const git = await Effect.runPromise(Git.Service.use((git) => git.repo.discover(AbsolutePath.make(input))).pipe(Effect.provide(AppNodeBuilder.build(Git.node))));
++        console.log(JSON.stringify({
++          normal: FSUtil.resolve(input),
++          physical: FSUtil.resolve(${JSON.stringify(path.join(target, "project"))}),
++          outside: FSUtil.resolve(${JSON.stringify(path.join(root, "outside"))}),
++          sibling: FSUtil.resolve(${JSON.stringify(outside)}),
++          asynchronous,
++          git: { worktree: git.worktree, gitDirectory: git.gitDirectory, commonDirectory: git.commonDirectory },
++        }));
++      `
++      const child = Bun.spawn([process.execPath, "--eval", source], {
++        cwd: path.resolve(import.meta.dir, ".."),
++        env: { ...process.env, OPENCODE_PORTABLE_ROOT: enabled ? root : "" },
++        stdout: "pipe", stderr: "pipe",
++      })
++      const [out, error, status] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited])
++      expect({ status, error }).toEqual({ status: 0, error: "" })
++      return JSON.parse(out)
++    }
++    const canonical = await fs.realpath(path.join(target, "project"))
++    const external = await fs.realpath(outside)
++    const logical = path.join(root, "project")
++    expect(await run(false)).toEqual({ normal: canonical, physical: canonical, outside: external, sibling: external, asynchronous: logical, git: { worktree: canonical, gitDirectory: path.join(logical, ".git"), commonDirectory: path.join(logical, ".git") } })
++    expect(await run(true)).toEqual({ normal: logical, physical: logical, outside: external, sibling: external, asynchronous: logical, git: { worktree: logical, gitDirectory: path.join(logical, ".git"), commonDirectory: path.join(logical, ".git") } })
++  } finally {
++    // Only this test's explicitly created mapping is removed.
++    if ((await fs.realpath(root)).toLowerCase() === (await fs.realpath(target)).toLowerCase()) {
++      expect(Bun.spawnSync(["subst.exe", `${letter}:`, "/D"], { stdout: "pipe", stderr: "pipe" }).exitCode).toBe(0)
++    }
++  }
++})

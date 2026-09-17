@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "baseline": "d0a9b965ac3cfbd8a80c636508ab225c3c91f740",
+  "verifiedEngine": {
+    "version": "0.0.0-product-dev-20260917-engine.5",
+    "sha256": "528277b2ea4178093a192da0fe33ef4768e7ae5514a7b21de006d07212c6df83"
+  },
+  "replayVerified": true,
+  "scope": "These two patches only; earlier product working-tree changes are not included.",
+  "patches": [
+    {
+      "file": "001-filesystem-search-import-cycle.patch",
+      "sha256": "f9a8b233c08e5db0d46acd9edc834068bc4aae48b96f0a2419fa47b103462662",
+      "files": [
+        "packages/core/src/filesystem/search.ts",
+        "packages/core/test/filesystem-search-import.test.ts"
+      ]
+    },
+    {
+      "file": "002-portable-workspace-paths.patch",
+      "sha256": "b9118f91ad6932b0eadc594850aed1685fa3af4fd8f3a888a5d8622b76eb6338",
+      "files": [
+        "packages/core/src/fs-util.ts",
+        "packages/core/src/git.ts",
+        "packages/core/test/portable-path.test.ts"
+      ]
+    }
+  ]
+}
