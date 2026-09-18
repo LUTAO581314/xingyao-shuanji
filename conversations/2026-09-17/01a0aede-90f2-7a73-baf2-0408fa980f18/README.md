@@ -2,7 +2,7 @@
 
 任务：检测 F 盘健康状态
 
-本次快照时间：2026-09-17T19:13:59.440Z。共 7 个任务身份、11 个历史片段、3817 条可见消息与工具记录。
+本次快照时间：2026-09-18T01:40:24.136Z。共 7 个任务身份、11 个历史片段、4212 条可见消息与工具记录。
 
 此档案应用户要求上传到公开仓库。保留用户与助理对话、子智能体之间的协作消息、工具调用及结果；密钥、访问令牌等凭据值已脱敏。系统和开发者指令、隐藏推理与内部运行上下文不在导出范围内。原始日志没有保存或已经截断的内容无法补回。
 
@@ -14,13 +14,13 @@
 | 2 | /root | 1 | 0/0 | [阅读](02-root.md) · [JSONL](02-root.jsonl) |
 | 3 | /root | 1 | 0/0 | [阅读](03-root.md) · [JSONL](03-root.jsonl) |
 | 4 | /root | 2 | 1/1 | [阅读](04-root.md) · [JSONL](04-root.jsonl) |
-| 5 | /root | 335 | 721/720 | [阅读](05-root.md) · [JSONL](05-root.jsonl) |
+| 5 | /root | 360 | 827/826 | [阅读](05-root.md) · [JSONL](05-root.jsonl) |
 | 6 | /root/soul_dynamics | 59 | 134/134 | [阅读](06-root--soul_dynamics.md) · [JSONL](06-root--soul_dynamics.jsonl) |
 | 7 | /root/soul_stability | 38 | 92/92 | [阅读](07-root--soul_stability.md) · [JSONL](07-root--soul_stability.jsonl) |
-| 8 | /root/upstream_compat | 145 | 366/366 | [阅读](08-root--upstream_compat.md) · [JSONL](08-root--upstream_compat.jsonl) |
+| 8 | /root/upstream_compat | 155 | 407/407 | [阅读](08-root--upstream_compat.md) · [JSONL](08-root--upstream_compat.jsonl) |
 | 9 | /root/upstream_compat/launcher_entry_review | 7 | 12/12 | [阅读](09-root--upstream_compat--launcher_entry_review.md) · [JSONL](09-root--upstream_compat--launcher_entry_review.jsonl) |
-| 10 | /root/canvas_research | 47 | 168/168 | [阅读](10-root--canvas_research.md) · [JSONL](10-root--canvas_research.jsonl) |
-| 11 | /root/memory_review_validation | 6 | 38/38 | [阅读](11-root--memory_review_validation.md) · [JSONL](11-root--memory_review_validation.jsonl) |
+| 10 | /root/canvas_research | 53 | 182/182 | [阅读](10-root--canvas_research.md) · [JSONL](10-root--canvas_research.jsonl) |
+| 11 | /root/memory_review_validation | 8 | 53/53 | [阅读](11-root--memory_review_validation.md) · [JSONL](11-root--memory_review_validation.jsonl) |
 
 [导出清单与文件校验](manifest.json)记录来源、排除类别、脱敏计数和 SHA-256。JSONL 包含对应片段的完整可导出工具记录。
 

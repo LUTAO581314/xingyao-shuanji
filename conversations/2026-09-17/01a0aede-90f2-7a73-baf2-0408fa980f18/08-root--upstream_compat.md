@@ -1,6 +1,6 @@
 # /root/upstream_compat
 
-导出时间：2026-09-17T19:13:59.440Z
+导出时间：2026-09-18T01:40:24.136Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T19-09-35-01a0af0e-c4fc-7720-9f82-68bf4038f0f8.jsonl`
 
@@ -3426,3 +3426,344 @@ memoryCleanupTimeoutMs?: number    // 创建、整次清理，最大 10 秒
 | 真实引擎＋本地确定性模型 | 无工具、伪造 write 被阻止且整批拒绝、前台历史不变、真实中断、确认删除均通过 |
 
 边界仍由上层负责：这里返回经过会话合同核实的文本，**候选 JSON 的严格 Schema、来源版本和引用真实性仍由领域层验证**；调度层须在 prompt 前持久化 sessionID。没有实现可选的丢失创建响应搜索方法，因此创建请求结果不明时不能直接重试创建并假定没有遗留会话。
+
+## 2026-09-17T19:19:20.726Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T19:19:53.205Z · 助理
+
+我先读现有保存协议和恢复日志，确认每个中断点留下哪些可核实证据，再定公开恢复接口。实现会同时覆盖 NTFS 和 F 盘 exFAT，用独立临时夹具验证真实进程退出后的恢复及冲突保全。
+
+## 2026-09-17T19:21:51.622Z · 助理
+
+## Identity and active assignment
+
+You are subagent `/root/upstream_compat`, parent `/root`, in `F:/codex/xingyao` (Windows PowerShell).
+
+**New active task from parent (not implemented yet):**
+
+> 补项目文件保存中断恢复。独立负责 `src/workspace-files.ts` 和新增 `test/workspace-recovery.test.ts`，可改现有 workspace-files tests，勿碰 server/store/web。先读现有 save 和日志；设计并实现基于所选根目录的 `recover(rootId)` / recovery listing API，具体签名尽早发 parent。要求真实进程突然退出后的恢复，不只是 catch 异常。只恢复可证明属于该次写入的内容；外部修改/替换、链接、父目录更换、不可信或旧日志、并发写入不得被覆盖；原/拟写/冲突版本全保留。支持本机 F 盘 exFAT，不能只依赖 linkSync。复制中断可再次恢复或明确保留冲突。可用 v2 日志保存 root/parent/installed identity；旧日志须保守标人工核对。用临时 NTFS + F 盘临时 exFAT 夹具，不触碰生产。另提供只读授权根/文件证明接口给 root 的持久草稿模块，用于识别目录替换、保存前基线验证。**先沟通公开签名**，避免 parent 依赖 private。
+>
+> Root 在做独立持久草稿模块与 server，另一 agent 做 UI。
+
+**Progress:** Only read files and confirmed filesystem. No edits or API design sent yet. Last commentary:
+> 我先读现有保存协议和恢复日志，确认每个中断点留下哪些可核实证据，再定公开恢复接口。实现会同时覆盖 NTFS 和 F 盘 exFAT，用独立临时夹具验证真实进程退出后的恢复及冲突保全。
+
+Last `git status --short` was empty: parent committed previous work.
+
+## Workspace / constraints
+
+- `F:` is **exFAT**, size 123042922496, free ~115645743104.
+- Normal Windows temp (`C:/Users/LT/AppData/Local/Temp`) is NTFS.
+- Only synthetic newly-created test roots, never production identity/user original OpenCode.
+- Ownership exclusive new task: `src/workspace-files.ts`, new `test/workspace-recovery.test.ts`; existing `test/workspace-files.test.ts` may change. Do not modify server/store/web/draft module.
+- AGENTS.md:
+  - Independent runtime; OpenCode coupling only adapter.
+  - Bun + strict TS + bun:sqlite.
+  - Preserve provenance, scope, revisions.
+  - `bun test`, `bun run typecheck`; temporary identities/dirs.
+  - Don’t read/print credentials or modify user existing OpenCode state.
+- Chinese concise commentary about every 60 seconds.
+- Use `rg`, batch independent reads via Promise.allSettled.
+- Parent needs **early exact public signatures** for recovery and proof APIs.
+- Communication tools can receive parent messages. Earlier sessions `functions.send_message` worked, but tool discovery via `ALL_TOOLS` does not list collaboration tools (they’re not inside exec); use direct collaboration send if available. Parent complained once about not knowing status; prioritize communicating signatures promptly.
+
+## Existing `src/workspace-files.ts` design
+
+Read most of file, tool output was truncated after save; **must read rest (`private root/target/checkDirectory`, standalone helpers)** before implementation.
+
+Exports:
+```ts
+MAX_WORKSPACE_FILE_BYTES = 2*1024*1024
+WorkspaceRoot = {id,path,label}
+WorkspaceEntry = {name,path,kind:"directory"|"file",size?,editable}
+WorkspaceListing = {rootId,path,entries,truncated}
+WorkspaceFile = {
+ rootId,path,absolutePath,text,sha256,bytes,bom,
+ lineEnding:"lf"|"crlf"|"mixed"|"none"
+}
+WorkspaceSave = WorkspaceFile & {backupPath:string|null,changed:boolean}
+WorkspaceSaveBoundary =
+ "recovery-created"|"backup-verified"|"proposed-verified"|
+ "before-archive"|"source-archived"|"destination-created"|
+ "destination-written"|"destination-verified"
+WorkspaceFilesOptions = {
+ protectedDirectories?: string[],
+ afterBoundary?: (phase, {
+  absolutePath,recoveryDirectory,backupPath,proposedPath
+ })=>void
+}
+WorkspaceFileError(kind:"invalid"|"denied"|"conflict"|"recovery",
+ message,recoveryDirectory?,backupPath?)
+```
+
+Private structures:
+```ts
+Identity = {dev:number,ino:number,birthtimeMs:number}
+AuthorizedRoot = WorkspaceRoot & {identity:Identity}
+Snapshot = {bytes:Buffer,sha256,identity,stat:Stats}
+DirectoryProof = {path:string,identity:Identity}
+Baseline = {identity,sha256,directories:DirectoryProof[]}
+```
+`same` compares dev+ino+birthtime; Windows `key(path)` lowercases resolved path. Global `inProgress:Set<string>`.
+
+Class:
+- selected roots are process-local capabilities; `open(absDirectory)` checks all dirs/links/protected paths, canonicalizes realpath, stores root identity.
+- Reopening same selected path with changed identity rejects.
+- `roots()` returns public info.
+- `list()` bounded max500 entries /5000 scanned, filters blocked recovery dirs, links, sensitive names; only nlink1 editable files.
+- `read()` resolves target, readSnapshot, rechecks root/parent identities, returns decoded UTF8 description, records baseline.
+- `save()` requires a prior read baseline plus matching SHA, optimistic identity and parent checks.
+
+Save protocol currently **format 1**:
+1. Validate text/size/SHA; find baseline.
+2. Global inProgress guard.
+3. Shared per-file lock dir beside file:
+   `.xingyao-edit-lock-${sha256(key(absolutePath)).slice(0,32)}`
+   Verify lock directory identity; `acquireHostLock()` from checkpoint provides cross-process dead-owner recovery.
+4. Recheck parents, read original with baseline identity and hash.
+5. Preserve original BOM/line endings; UTF8 proposal <=2MiB.
+6. If identical return changed:false.
+7. Recovery directory directly under selected root:
+   `.xingyao-edit-${randomUUID()}`
+8. Paths:
+   - `before`: independently copied original
+   - `original`: actual original entry moved here
+   - `proposed`: complete proposed bytes
+   - optionally `interrupted-proposal`
+9. Journal immutable numbered `<0001>-<phase>.json` through `writeExclusive`, flush dir.
+   Each event:
+   ```ts
+   {
+    format:1, operation:"workspace-edit", phase, at,
+    root:root.path, relativePath, absolutePath,
+    beforeSha256, proposedSha256, sourceIdentity,
+    beforePath,backupPath,proposedPath
+   }
+   ```
+   **No root identity/parent proofs/installed identity currently journaled.**
+10. Phases/boundaries:
+    - journal prepared → recovery-created callback
+    - write before + hash verify → journal backed-up → backup-verified
+    - write proposed + hash verify → journal proposed → proposed-verified
+    - verify original → journal archiving → before-archive → reverify
+    - `renameSync(source,original)` → archived=true → flush both dirs
+      → journal archived → source-archived
+    - verify original archive identity/hash
+    - journal publishing
+    - O_RDWR|O_CREAT|O_EXCL|O_NOFOLLOW new destination, capture fstat identity
+      → destination-created **identity currently only in memory**
+    - verify destination named identity and size0
+    - writeAll proposal + fsync → destination-written
+    - recheck fd identity, close, flush parent
+    - hash+identity verify installed → destination-verified
+    - reverify after callback → journal committed → update baseline → success.
+11. Catch rollback:
+    - Before archived: preserves before/proposed if present.
+    - After archived:
+      - If destination exists, only consider it owned if same in-memory installed identity.
+      - Bytes must equal proposal prefix (handles partial writes).
+      - Move to `interrupted-proposal`, verify captured identity/content.
+      - If race captured differing contents, restore via `linkSync`/unlink if free and stop.
+      - Restore `original` via `linkSync(original,target)` + unlink original (no-replace publication), verify identity/hash.
+      - **Fails on exFAT**, leaves copies; catch swallows recovery failure, marks review.
+    - Write `failure-${uuid}.json` with only `{format:1, phase:"original-restored"|"requires-review",at}`.
+    - Throw WorkspaceFileError with copies info.
+12. Finally release lock only if parents/lockidentity still trusted, clear inProgress.
+
+Current class comment explicitly says abrupt exit/manual recovery, no journal replay, rollback relies hardlink.
+
+Imports include node fs sync functions: close/constants/fstat/fsync/link/lstat/mkdir/open/opendir/read/realpath/rename/unlink/write; path; acquireHostLock.
+
+### Existing test suite important expectations
+
+`test/workspace-files.test.ts` (~24 tests), already read; can reread selected parts.
+
+- Temporary NTFS fixture creates `project/note.md` `"original\n"`.
+- Root auth/protected/sensitive/link/hardlink restrictions.
+- Bound UTF8, empty edits, max size, BOM+CRLF.
+- Successful save verifies original/before/proposed and `-committed.json`.
+- Optimistic baseline identity/content and parent identity changes.
+- Each existing `WorkspaceSaveBoundary`: injected **caught exception** should restore original and keep proposal; after source-archived expects message contains 原件已恢复 and backup original. Subsequent independent save works.
+- External modification at before-archive/source-archived/destination-created/written/verified must remain unchanged; before/proposed/original retained.
+- Real junction parent swap cannot write outside.
+- Overlapping roots and independent instances use same lock.
+- Actual separate Bun process observes current save lock.
+- Recovery directory junction swap rejected, outside untouched.
+- Existing abrupt-exit test: subprocess exits42 at source-archived; asserts source absent, original/before/proposed retained; manually restores original with hardlink, then new save reclaims stale lock. New tests should exercise recovery API instead.
+- Existing HTTP tests `test/workspace-api.test.ts` depend current `read/save` public shapes, root IDs; root handles new integration.
+
+Useful subprocess pattern from tests:
+```ts
+const code = `import { WorkspaceFiles } from ${JSON.stringify(absModule)};
+const w=new WorkspaceFiles({afterBoundary(p,c){
+ if(p==='source-archived'){console.log(c.recoveryDirectory);process.exit(42)}
+}});
+const r=w.open(process.env.XINGYAO_TEST_PROJECT);
+const b=w.read(r.id,'note.md');
+w.save(r.id,'note.md',{expectedSha256:b.sha256,text:'proposal\\n'});`
+Bun.spawnSync([process.execPath,"-e",code],{
+ env:{...process.env,XINGYAO_TEST_PROJECT:project},
+ stdout:"pipe",stderr:"pipe",windowsHide:true,timeout:5000
+})
+```
+
+## Next steps
+
+1. Read remaining `workspace-files.ts` helpers and root/target validation, relevant lock helper.
+2. Design conservative v2 recovery protocol and **send parent exact signatures immediately**:
+   - listing and `recover(rootId)` or per-operation selection shape.
+   - read-only root/file proof APIs that parent can store and later validate; don’t leak mutable internals.
+3. Need durability ownership:
+   - root + full parent chain + recovery dir identity, original identity/hash, proposed identity/hash.
+   - installed destination identity must be persisted **before injectable destination-created crash**; don’t infer ownership from same bytes alone.
+   - v1 logs/manual/unknown files never auto-own.
+   - copied recovery destination (exFAT) needs create-exclusive, persisted identity, phases so crash during copy can resume safely or mark conflict; preserve all versions.
+   - preserve external changes/replacement identity/parent changes/link paths.
+   - shared save/recovery locks and same-process inProgress.
+4. Implement only owned files and tests.
+5. Actual abrupt subprocess exits at all meaningful save/recovery boundaries; test NTFS plus newly-created unique temp directory on actual F exFAT. Never remove anything except generated fixture roots.
+6. Run appropriate existing workspace tests + new recovery + typecheck. Root will do later full release gate.
+
+## Previous completed work (only relevant context)
+
+Parent previously had us implement memory extraction adapter; that work is complete and now committed. Don’t modify it in this task.
+
+Signatures:
+```ts
+createMemoryExtractionSession(jobID):Promise<{id:string}>
+promptMemoryExtraction(sessionID,input,{system,model?,jobID?}):Promise<PromptResult>
+deleteMemoryExtractionSession(sessionID,jobID):Promise<boolean>
+```
+Deny-all, no format/tools, complete history validation, tool-attempt rejection, owned cleanup dual404, response1MiB, extraction60s/cleanup10s. `abort()` cap10s. New tests file `test/memory-extraction-adapter.test.ts`.
+Latest verified: **40 pass /0fail /0skip /509 assertions**, typecheck pass.
+
+Fixed engine `.6-source` SHA:
+`f02b6bbba598d4f2e9e1c1f75794104b9581129ae199d3130b4bc2e552ee748b`.
+Research reports under ignored `reports/memory-extraction-contract/`.
+
+Earlier engine migration tests complete, parent now pursuing save recovery/drafts independently.
+
+## 2026-09-17T19:26:01.926Z · 助理
+
+现有保存已经保留原件和拟写副本，但突然退出后缺少可靠的归属证据，exFAT 也不支持当前回滚使用的硬链接。我会把恢复依据写成带目录身份和文件身份的第二版记录，并把可信记录放在运行状态目录；无法证明归属的旧日志或外部改动将保留为待核对项。
+
+## 2026-09-17T19:31:26.618Z · 助理
+
+恢复策略已经确定：目标文件缺失且原件、目录链和可信记录都吻合时，用独占创建的方式复制恢复；完整拟写内容已经落盘时，只补确认记录。若复制被打断、目标被外部改写或父目录被替换，系统会明确保留冲突，不猜测哪一版应覆盖哪一版。
+
+## 2026-09-17T19:37:34.937Z · 助理
+
+真实 F 盘测试发现了一个关键差异：exFAT 在重命名文件后会改变文件 ID。已改成在归档时持有原文件句柄，用句柄证明重命名前后是同一个文件，再记录归档后的身份。现在 NTFS 和 F 盘上的全部保存退出点、恢复复制再次退出点都已通过。
+
+## 2026-09-17T19:40:50.634Z · 助理
+
+目前新增恢复测试与原文件编辑测试共 58 项通过。还补上了复制过程中的外部写入检测，以及所选根目录上级被更换时的身份验证；这些情况都会停止恢复并保留原件、拟写内容和当前冲突内容。接下来我把公开接口和服务端接入要求交给主流程。
+
+## 2026-09-17T19:42:39.174Z · 助理
+
+已完成文件保存中断恢复与草稿基线证明接口，只改了 [workspace-files.ts](F:/codex/xingyao/src/workspace-files.ts) 和新增 [workspace-recovery.test.ts](F:/codex/xingyao/test/workspace-recovery.test.ts)。**服务端必须传入持久的 `recoveryStateDirectory`，才能在重启后验证并恢复本机创建的保存操作。**
+
+公开接口已落地，可直接接入：
+
+```ts
+new WorkspaceFiles({
+  protectedDirectories?: string[],
+  recoveryStateDirectory?: string,
+})
+
+rootProof(rootId: string): WorkspaceRootProof
+fileProof(rootId: string, relativePath: string): WorkspaceFileProof
+
+verifyRootProof(rootId: string, proof: WorkspaceRootProof): void
+verifyFileProof(
+  rootId: string,
+  relativePath: string,
+  proof: WorkspaceFileProof,
+): WorkspaceFile
+
+recoveryList(rootId: string): WorkspaceRecoveryListing
+recover(rootId: string): WorkspaceRecoveryListing
+```
+
+建议服务端使用 `join(dirname(store.db.filename), "workspace-recovery")` 作为可信状态目录。此目录必须在所选项目根之外；构造器会检查链接和祖先目录身份，`open()` 会拒绝选择包含可信状态目录的过大根目录。不传该选项时，只使用有容量上限的进程内可信记录，重启后的日志会保守列为人工核对项。
+
+返回类型：
+
+```ts
+type WorkspaceRecoveryListing = {
+  rootId: string
+  entries: WorkspaceRecovery[]
+  truncated: boolean
+}
+
+type WorkspaceRecovery = {
+  id: string
+  rootId: string
+  path: string | null
+  recoveryDirectory: string
+  status:
+    | "pending"
+    | "restored"
+    | "committed"
+    | "unchanged"
+    | "conflict"
+    | "busy"
+    | "manual"
+  message: string
+  beforePath: string | null
+  backupPath: string | null
+  proposedPath: string | null
+}
+```
+
+`rootProof` / `fileProof` 是可序列化、只读的身份与内容证据；它们不授予目录权限，也不改变当前会话的保存基线。草稿模块可以持久化完整 `WorkspaceFileProof`，恢复草稿时先验证根证明，实际保存前调用 `verifyFileProof`。它会检查磁盘内容 SHA、文件身份、根目录与完整祖先目录链，验证失败会抛出 `WorkspaceFileError("conflict", …)`。仍须通过已有 `read()` 建立当前保存会话的基线。
+
+实现行为：
+
+- 保存改为 v2 日志，项目恢复目录和项目外的可信状态目录分别保留不可覆盖的阶段记录；两边最新记录不一致、旧日志、伪造日志或截断日志均进入人工核对。
+- 原件已归档而目标未创建时，使用独占创建和复制恢复原件，保留 `original`、`before`、`proposed`。
+- 已完整写入且身份、内容和时间证据一致时，补全提交记录，不重写文件。
+- 目标、父目录或根目录被替换，目标被外部创建、修改、删除，或存在链接时，保留冲突。
+- 保存和恢复共用跨进程文件锁，实际活跃写入进程会返回 `busy`。
+- 恢复复制再次中断时，已完成且有证据的复制可确认完成；没有完成证据的空文件或部分文件明确保留为 `conflict`，不会靠猜测继续覆盖。
+- 修复了实际 F 盘 exFAT 的重要差异：**重命名会改变文件 ID**。归档与保留中断版本时，现在通过持有的文件句柄证明重命名前后的连续性，再记录新身份。恢复已完全移除硬链接依赖。
+
+验证完成：
+
+- 原文件编辑测试：**24 项通过**。
+- 新增恢复测试：**35 项通过，305 个断言**。
+- 新测试实际在 Windows 临时 NTFS 和 **F 盘 exFAT 的独立临时目录**运行，用子进程 `process.exit()` 覆盖 8 个保存中断点和 5 个恢复中断点，并覆盖真实第二进程竞争、日志篡改、祖先更换、复制期间外部写入及 exFAT 捕获异常回滚。
+- `bun run typecheck`、`git diff --check` 通过。
+
+没有修改 server、store、草稿模块或 UI。恢复列表当前最多返回 200 项、最多扫描 5000 个根目录条目，并返回 `truncated`；所有历史版本保留，不自动清理。Windows 无法通过 Node 对目录执行 fsync，因此真实断电造成的记录缺失或两边记录不一致仍保守进入人工核对，测试结论覆盖真实进程突然退出。
+
+## 2026-09-18T01:31:39.771Z · /root → /root/upstream_compat
+
+Message Type: NEW_TASK
+Task name: /root/upstream_compat
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-18T01:33:27.349Z · 助理
+
+只读审查完成，**未发现阻塞 `.9` 发行的恢复集成缺陷**，未修改源码。
+
+- [server.ts](F:/codex/xingyao/src/server.ts:50) 将可信恢复记录放在 `soul.db` 同级的 `workspace-recovery`，与项目目录分离。默认项目和显式打开目录都先建立当前授权根，再调用恢复；缺失或无法验证的可信记录会保守保留为人工核对项。
+- [recoveredFile](F:/codex/xingyao/src/workspace-files.ts:154) 重新读取可信记录、验证目录链，只接受 `committed` 或 `restored` 对应的文件证据，并用 `stampMatches` 同时比较文件身份、SHA、大小及时间。后续外部修改、同内容换文件或旧保存日志，不能借历史完成状态自动导入当前内容。
+- [recoverWorkspace](F:/codex/xingyao/src/server.ts:78) 只刷新已有知识条目，并保留原 `scope` 和 `private`。它导入的是 `recoveredFile` 已验证的字节快照；不会因为恢复目录存在就把一个此前未导入的文件加入知识库。
+- 集成没有放宽恢复的写入条件：冲突、忙碌或无法证明归属的版本仍不自动写回；原件复制使用独占创建，恢复与保存共用跨进程锁。
+
+复跑 [workspace-draft-api.test.ts](F:/codex/xingyao/test/workspace-draft-api.test.ts)：**7 项通过，40 个断言**。其中真实子进程分别在归档后、完整写入后退出，服务重启恢复并刷新已有索引；恢复之后再由外部程序改写文件并重启，文件与原知识快照均保持预期，不发生错误导入。
+
+结论适用于目前声明的协作进程与文件检查边界；既有的“恶意本机进程精确竞争单个系统调用”限制没有因本次集成扩大。

@@ -1,6 +1,6 @@
 # /root/canvas_research
 
-导出时间：2026-09-17T19:13:59.440Z
+导出时间：2026-09-18T01:40:24.136Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T22-03-54-01a0afae-59d0-7cb2-b50a-8bf96bfdf4ff.jsonl`
 
@@ -1169,3 +1169,66 @@ bun run script/memory-review-browser-check.mjs
 ```
 
 也可传入产品 EXE 与引擎 EXE 路径。
+
+## 2026-09-17T19:47:02.405Z · /root → /root/canvas_research
+
+Message Type: NEW_TASK
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T19:47:11.695Z · 助理
+
+我来补 `.9` 的草稿浏览器验收，重点验证刷新恢复、两个窗口冲突、磁盘内容变更以及断网时编辑保护。测试只使用临时身份，先按现有接口编写，等编译包就绪后运行。
+
+
+## 2026-09-17T19:53:32.487Z · 助理
+
+`.9` 草稿浏览器验收脚本已写好：[workspace-draft-browser-check.mjs](F:/codex/xingyao/script/workspace-draft-browser-check.mjs)。
+
+只新增了这个脚本，没有修改 `src` 或已有浏览器脚本。语法检查通过，尚未运行产品验收；等待你提供 `.9` 编译路径。
+
+脚本使用真实编译产品的离线模式、临时身份、真实浏览器及 HTTP 接口，覆盖：
+
+1. 自动保存收到确认后刷新页面，再关闭并重启整个产品，重新选择目录后恢复同一草稿。
+2. 两个页面编辑同一文件，真实陈旧修订返回 HTTP 409；第二页编辑保留，读取服务器草稿并明确合并。
+3. 磁盘文件被外部修改后，旧草稿保留、文件保存按钮停用；仅明确确认新基础版本后才能保存。
+4. 注入真实请求失败，检查切换页面和切换文件均被阻止，当前输入保留；网络恢复后重试成功。
+5. 在文件已写盘、清理 DELETE 发出前暂停请求，让第二页提交新草稿；旧清理请求必须 409，新草稿仍存在且可恢复。
+6. 原目录移走后，通过 `GET /api/workspace/draft?id=…` 和列表中的“查看草稿（只读）”恢复正文。
+7. 桌面、手机布局，XSS 字面量，不产生知识库或记忆，浏览器/CSP/外网请求检查。
+
+已适配你刚补的按 ID 读取接口和 `data-workspace-draft-id` 选择器。完成运行后将生成版本化截图、JSON 报告及被测 EXE 的 SHA256。临时 token 仅在内存和浏览器会话存储中使用，不放入导航 URL 或日志。
+
+## 2026-09-18T01:31:55.874Z · /root → /root/canvas_research
+
+Message Type: NEW_TASK
+Task name: /root/canvas_research
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-18T01:32:07.630Z · 助理
+
+我会把这个并发场景补进编译版验收：延迟已在后端提交的草稿回复，在保存与切页同时发生时检查文件落盘，并确认界面能继续操作。只修改测试脚本，等重构建后再运行。
+
+
+## 2026-09-18T01:33:23.718Z · 助理
+
+已将保存与切页竞态加入 [workspace-draft-browser-check.mjs](F:/codex/xingyao/script/workspace-draft-browser-check.mjs)，只修改了这个测试脚本。
+
+新增场景会：
+
+1. 通过 `route.fetch()` 让草稿 PUT 在真实后端提交，只延迟浏览器收到回复。
+2. 用独立 GET 确认草稿已入库，并检查磁盘文件仍为原文。
+3. 依次点击“保存文件”和 `memory` 导航，再放行原始 PUT 回复。
+4. 检查目标文件最终保存了正确正文。
+5. 返回项目文件，检查目录选择、文件切换及编辑器恢复可用。
+6. 打开另一份独立文件，输入并完成新的草稿保存，进一步验证没有遗留永久 `busy` 状态或文件间状态污染。
+
+`node --check` 和 `git diff --check` 均通过。按你的要求，未启动编译包测试或其他门禁；等待重构建后的统一验证。

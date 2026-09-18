@@ -1,6 +1,6 @@
 # /root
 
-导出时间：2026-09-17T19:13:59.440Z
+导出时间：2026-09-18T01:40:24.136Z
 
 来源片段：`sessions/2026/09/17/rollout-2026-09-17T18-59-26-01a0aede-90f2-7a73-baf2-0408fa980f18_01a0af05-78db-74a0-81af-9379588e9314.jsonl`
 
@@ -7338,4 +7338,692 @@ GitHub 的分工已经明确：源码分支保存产品与最小补丁，聊天�
 ## 2026-09-17T19:10:46.003Z · 助理
 
 `.8` 的完整验收已通过：368 项测试通过、0 失败、0 跳过，真实引擎测试和两组浏览器验收也通过了。记忆界面验证了原话展示、编辑稿保留、并发冲突、封存、有效期和替代旧偏好。这里验证的是程序流程与边界；真实大模型能否准确理解中文长期记忆，仍需要用准备好的评估集单独测量。
+
+
+## 2026-09-17T19:16:25.867Z · 助理
+
+我看过了。**这个 GitHub 仓库应该成为星杳的开发与发布中心：保存源码、管理 OpenCode 补丁、验证更新、分发便携版本，并保留设计与聊天档案。** 这样以后每次改装都有依据，出问题能找到原因，也能退回经过验证的版本。
+
+目前核实到的状态是：
+
+- 远端仓库是公开的，默认分支仍为 `conversation-archive`。
+- 产品源码在本地 `product-v2` 分支，尚未发布到 GitHub。
+- Windows 自动构建与验收流程已经准备好，**尚未在 GitHub 云端执行**。
+- GitHub 上还没有产品 Release，现用安装仍是 `.5`。
+
+我建议按下面的分工使用：
+
+| 仓库部分 | 对星杳的作用 | 具体保存什么 |
+|---|---|---|
+| 产品主线 `main` | 星杳自身的持续开发 | 工作台、身份与记忆结构、知识图谱、文件功能、执行适配层 |
+| `patches/opencode/` | 保持改装可维护 | 固定上游版本、必要补丁、构建来源、兼容性与迁移测试 |
+| `conversation-archive` | 保存设计和协作历史 | 主任务与子智能体的可导出记录、时间截止点、文件校验 |
+| Issues / Milestones | 把“大体系”变成可验收的工作 | 例如“纠正偏好后不再使用旧结论”“断电后恢复未保存编辑” |
+| GitHub Actions | 每次修改后自动检查 | Windows 构建、真实引擎测试、数据库恢复、浏览器操作 |
+| Releases | 提供可核验的便携下载包 | 程序、引擎、许可证、哈希、变更说明、对应验收报告 |
+| `evals/` | 衡量她是否越来越可靠 | 中文记忆归属、否定、纠正、时间变化、遗忘等固定任务 |
+
+**OpenCode 更新应该先触发候选验证。** 补丁能打上、程序能启动，只是第一步；还要证明旧会话能继续、数据能迁移、失败后能恢复，才适合切换你的主力版本。现在本地已经具备这条迁移验证链。首次云端运行还缺历史 `.5` 引擎的测试基准资产，不能跳过这一步直接宣布兼容。
+
+对于 GitHub 上的开源项目，我会这样利用：
+
+- **OpenCode**：承担模型会话和工具执行；星杳自己的记忆、人格状态、知识和工作台保持独立，减少上游更新牵连。
+- **Cytoscape.js**：已经用于文件、资料链接和记忆来源图谱。关系数据仍由我们自己的领域库保存。
+- **Infinite Canvas**：继续作为图片、视频和视觉方案创作的独立模块接入，目前尚未完成集成。
+- **Graphiti / LightRAG**：先在中文评估集里比较提取与检索效果，再决定是否引入。现阶段直接增加服务依赖，还不能证明她会记得更准确。
+
+这轮也把正在进行的记忆功能推进到了一个可验证的版本：**`.8` 候选已完成，本地提交为 `4f8adbd`。**
+
+现在已经形成“原始对话 → 带原话引用的候选 → 审阅 → 有主体、归属和有效期的记忆”流程。它支持明确替代旧偏好；过期或尚未生效的内容停止参与当前回答。后台整理默认关闭，开启后有批次限额；前台新对话、封存和退出会中断整理，失败请求不会自动重复发送。
+
+完整验收结果是 **368 项通过、0 失败、0 跳过**，真实 OpenCode 引擎和两组浏览器验收也已通过。**真实大模型的中文理解质量仍未完成评估**；准备好的 24 项人工预期是后续评估依据，不能当成准确率成绩。`.8` 尚未安装到你的现用身份。
+
+我现在最担心三个月后出现的，仍是**错误记忆积累、待审候选太多，以及检查点占用持续增长**。因此 GitHub 下一阶段最值得追踪的是中文长期记忆效果、审阅负担和容量恢复测试，而不是继续堆更多组件。
+
+详细方案与实际证据在这里：
+
+- [GitHub 仓库使用方案](F:/codex/xingyao/docs/github-product-workflow.md)
+- [对话记忆结构与边界](F:/codex/xingyao/docs/conversation-memory.md)
+- [.8 候选验收记录](F:/codex/xingyao/docs/verification-memory-review.md)
+
+按你之前的要求，聊天档案也已更新并推送，远端提交已核实为 [`d5ff733`](https://github.com/LUTAO581314/xingyao-shuanji/commit/d5ff733ae6832fbfc15a9291d06405b8a0cd7f24)：覆盖 **7 个任务身份、11 个历史片段、3817 条可导出消息与工具记录**，截止北京时间 **2026 年 9 月 18 日 03:13:59**。凭据已脱敏，系统内部内容与隐藏推理不在可导出范围。
+
+## 2026-09-17T19:16:56.705Z · 助理
+
+我继续推进到“能长期当主力用”的状态。这一轮先补项目文件的持久草稿和保存中断恢复，减少关页、崩溃或断电造成的编辑丢失；同时核实已完成的 `.8` 候选和 GitHub 发布所需的具体材料。
+
+
+## 2026-09-17T19:22:41.078Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T19:23:21.682Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T19:26:32.001Z · 助理
+
+文件编辑目前已经会保存原件和拟写版本，但突然退出后还需要手工找恢复目录。我正在把它补成两条明确流程：草稿保存到身份数据库，重新打开时可恢复；磁盘保存中断则核对操作日志和文件身份，只恢复能证明属于本次操作的内容，遇到外部修改就保留双方版本。
+
+
+## 2026-09-17T19:39:37.520Z · 助理
+
+草稿的数据层已通过第一组测试：关闭后重开、检查点恢复、两个窗口同时编辑、延迟请求重试，都不会静默覆盖较新的草稿。磁盘内容变化后也必须明确核对再合并。界面正在接入自动保存和恢复入口，未确认保存的最后输入会继续提示保留页面。
+
+
+## 2026-09-17T19:45:34.090Z · 助理
+
+## Active goal and user constraints
+
+Goal **“开始吧” remains active**: build the approved **星杳 · 璇玑 V2** personal assistant. Do not mark the entire goal complete around a release or infrastructure milestone.
+
+User wants:
+- Own product based on OpenCode, compatible with upstream updates.
+- Personality **温暖、有主见、稳定**.
+- Persistent memory, emotion, forgetting, learning and sleep as architecture, not a giant prompt.
+- Windows portable launcher + localhost browser UI, files, knowledge graph, subagents, optional Docker.
+- **Infinite Canvas only for image/video/visual creation**, separate from file/memory graphs.
+- All visible root/subagent chats archived to GitHub; explicit upload authorization persists.
+- Preserve production identity and original modified OpenCode workspace.
+- Avoid unnecessary permission questions.
+
+Latest ordinary request was **“github仓库你看看怎么利用”**. Prior goal turn completed `.8`, documented GitHub usage, and pushed chat archives. Current continuation is implementing **durable editing drafts and interrupted file-save recovery**.
+
+## Environment / rules
+
+- Windows PowerShell, Bun **1.4.2**.
+- Product repo **`F:/codex/xingyao`**, branch **`product-v2`**.
+- Original OpenCode repo **`C:/Users/LT/Documents/trae`** is read-only for our work.
+- Archive repo **`F:/codex/conversation-archive`**.
+- F: exFAT; host C: NTFS.
+- `AGENTS.md`: strict TS/Bun, single-writer `bun:sqlite`, OpenCode coupling in `src/adapter.ts` via public HTTP; no private upstream DB edits; preserve provenance/scope; temporary test identities; run `bun test`, `bun run typecheck`.
+- Unrestricted filesystem/network, approval policy never.
+- Chinese progress commentary roughly every 60 seconds.
+- Don’t print credentials or token-bearing runtime URLs.
+- No skills needed/used for this engineering work.
+- Batch independent calls with `functions.exec` + Promise.allSettled. Collaboration calls directly, not through exec.
+- Never overwrite earlier release candidates.
+
+## Completed prior goal turn: `.8`
+
+Local commit **`4f8adbd`**:
+`feat: review grounded conversation memories with bounded idle extraction`
+
+Parent **`7f03a95`** (engine migration `.7`).
+
+Candidate **`F:/codex/xingyao/dist/xingyao-0.1.0-dev.8`**
+- release manifest SHA **`0c8e01a008abcb5f1b80406b71c0ff9e3e0d1bd16e6df425ea8ecd7c75458443`**
+- xingyao.exe SHA **`b212fa9cb3ab9410577450bc4b735a50aa868c111a116ee294ac27e4d6c49582`**
+- src hash **`68ad115371198321ba3f86a2d67d23e378821d0749d78cda5f7d59468ace89b8`**
+- schema3.
+- engine **`0.0.0-product-dev-20260918-engine.6-source`**
+- engine SHA **`f02b6bbba598d4f2e9e1c1f75794104b9581129ae199d3130b4bc2e552ee748b`**.
+- full gate: **368 pass, 0 fail, 0 skip, 10,172 assertions, 35 files, 128.72s**.
+- log `reports/2026-09-17T19-07-20-990Z-tests.txt`.
+- Edge153.0.4234.32 graph/file browser and memory-review browser passed; zero page/CSP/external errors.
+- `reports/graph-browser-0.1.0-dev.8.json`
+- `reports/memory-review-browser-check.json` (supplemental run also checks auto extraction settings UI, date 2026-09-17T19:11:43.862Z).
+- docs `docs/conversation-memory.md`, `docs/verification-memory-review.md`, `docs/verification.md`.
+- **Not installed**. Production remains `.5`, no identity migration.
+
+`.8` features:
+- `memory-review.ts`, contracts, runner: original product chat → exact quoted candidates → explicit human adoption. Subject, attribution, validity, replacement.
+- Schema3 ensures old binaries reject newer semantics.
+- Private/retracted/sealed-period sources excluded; exact source key/text/role checks.
+- Expired/future memories excluded from prompt, including pinned; retained in management.
+- Explicit supersession keeps old original statements but retires old current preference.
+- JSON strict checks; output never becomes foreground chats/tool success.
+- Dedicated deny-all OpenCode session. Omit `format` and `tools`; check full history, ownership and no tool attempts. Deadline60s, create/cleanup10s, response byte cap1MiB.
+- Cleanup only known owned sessions; abort/delete then session+messages404. Lost creation response may leave a session without source data; documented.
+- Automatic extraction default off; idle5min, one batch/maintenance, rolling24h default4/max12, pending64 threshold, failed/interrupted tasks need manual new-key retry. Batch quota is not exact cost/call limit.
+- Foreground preemption, seal epoch, shutdown wait, cleanup-only retries.
+- Fixed standalone Han query term recall, e.g. `"咖啡 茶"` matches `"主人现在改喝茶"`.
+
+GitHub:
+- Public `LUTAO581314/xingyao-shuanji`; only/default branch `conversation-archive`.
+- Product source **not pushed**, no hosted Actions executed, no product Releases.
+- Prepared workflow `.github/workflows/windows-candidate.yml`, issue/PR templates and `docs/github-product-workflow.md`.
+- Workflow requires `XINGYAO_UPGRADE_BASELINE_TAG` pointing to Release containing historical engine5 `opencode.exe`, fixed SHA **`528277b2ea4178093a192da0fe33ef4768e7ae5514a7b21de006d07212c6df83`**.
+- Archive last pushed and remotely verified **`d5ff733ae6832fbfc15a9291d06405b8a0cd7f24`**.
+- cutoff **2026-09-17T19:13:59.440Z** (China Sep18 03:13:59).
+- **7 identities, 11 fragments, 3817 visible records**, 22 files verified.
+- Current continuation not yet archived.
+
+## Pending user question — do not infer approval
+
+This continuation called `functions.request_user_input_async`; accepted, **no answer received yet**:
+
+> 本地 `.8` 源码（提交 `4f8adbd`）和便携候选已通过完整验收，发布方案在 F:/codex/xingyao/docs/github-product-workflow.md。是否将这份源码发布到你现有的公开 GitHub 仓库，并上传带许可证的历史引擎测试基准、配置首次云端 CI？这会公开产品代码；你此前明确授权的是聊天档案上传，因此这里单独确认源码与二进制发布范围。
+
+Options:
+1. 发布源码与测试基准，启动云端验收
+2. 先保留本地源码，仅继续上传聊天档案
+
+Continue local work independently. Do not publish source/baseline assets until this answer. Do not ask again.
+
+## Current `.9` continuation — uncommitted
+
+Root has changed:
+- `package.json`, `src/contracts.ts`: **`0.1.0-dev.9`**, **schema4**, supported1/2/3/4.
+- `src/store.ts`: table:
+  ```sql
+  workspace_drafts(
+    id TEXT PRIMARY KEY,
+    root_path TEXT NOT NULL,
+    relative_path TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    body TEXT,
+    operation_key TEXT NOT NULL,
+    operation_hash TEXT NOT NULL
+  )
+  ```
+- New `src/workspace-draft-contracts.ts`
+- New `src/workspace-drafts.ts`
+- `src/server.ts`: draft API + recovery integration.
+- `src/web/app.js`, `index.html`, `style.css`: draft UI implemented by root, **not yet browser-tested**.
+- New `test/workspace-drafts.test.ts` (5 passed).
+- New `test/workspace-draft-api.test.ts` (4 passed).
+- `test/memory-review.test.ts`: current-schema assertion uses SCHEMA_VERSION instead of literal3.
+- `script/graph-browser-check.mjs`: adapted dirty navigation tests to draft persistence; not yet run.
+
+Agent is modifying:
+- `src/workspace-files.ts`
+- new `test/workspace-recovery.test.ts`
+- possibly docs/tests associated with recovery; inspect status.
+
+**No `.9` build, full tests, commit or installation yet.**
+
+### Agent state / delegation
+
+**`/root/upstream_compat`** was given file-save recovery work. It is actively implementing `workspace-files.ts` and recovery tests, owns those files. Do not overlap edits.
+
+Other prior agents `/root/canvas_research`, `/root/memory_review_validation` had completed `.8` work. **They were NOT successfully assigned `.9` UI or testing.** Root has done `.9` draft UI/tests itself.
+
+There were multiple redundant root reads while trying to dispatch messages; do not assume further delegation happened. Use actual agent inventory/communication.
+
+Agent initially proposed HMAC `recoveryKey`, then independently switched to **private host ledger `recoveryStateDirectory`**. Root briefly added `workspace_recovery_key` meta and then **removed it**. No key remains. Current server injects:
+```ts
+recoveryStateDirectory: join(dirname(store.db.filename), "workspace-recovery")
+```
+This is outside selected project roots and inside protected host directory.
+
+Agent messages earlier asked about key storage; it may not yet know root has adopted its current private-ledger API. Send a concise update.
+
+## Draft contracts and implementation
+
+`src/workspace-draft-contracts.ts`:
+```ts
+type WorkspaceDraft = {
+ id:string; rootPath:string; path:string; revision:number;
+ baseSha256:string; text:string; bytes:number; updatedAt:number
+}
+type WorkspaceDraftSummary = Omit<WorkspaceDraft,"text">
+type WorkspaceDraftState = {draft:WorkspaceDraft|null;draftRevision:number}
+type WorkspaceDraftInput = {
+ revision:number;key:string;text:string;baseSha256:string
+}
+type WorkspaceDraftList = {
+ drafts:WorkspaceDraftSummary[];
+ totalBytes:number;byteLimit:number;countLimit:number
+}
+```
+
+`WorkspaceDraftStore`:
+- max **2MiB** per text, **16MiB** total, **32 active drafts**.
+- root/path-derived stable hashed key, case-insensitive on Windows.
+- optimistic revision, initial revision0.
+- last operation key+digest makes exact lost-response retry idempotent.
+- discard keeps tombstone revision and clears body; stale autosave cannot resurrect.
+- source files are never written by draft operations.
+- no memory/knowledge/experience import.
+- updates increment domain revision + outbox so drafts enter checkpoints.
+- `save(rootPath,path,input,mode="edit",openedSha256?)`
+  - new draft must match actually read file hash.
+  - normal edit keeps existing draft base even if disk changed.
+  - `"rebase"` explicitly requires active draft and currently read hash.
+- `discard(rootPath,path,revision,key)`
+- `get`, `list`.
+- validates relative paths, control chars/UTF8, private-key text.
+- no eviction; quota rejects and leaves existing drafts intact.
+- **Potential performance**: `list()` parses all active draft JSON (bounded16MiB) each quota check. Could optimize later, don’t claim90-day performance proof.
+- Tombstones/outbox have no pruning yet.
+
+Server:
+- `openedFiles: Map<rootId:path,sha>` capped200, hashes only.
+- `withDraft(file)` records read hash and adds draft state to response.
+- `workspaceRoot(id)` checks selected process-local root from `workspace.roots()`.
+- file read `GET /api/workspace/file` returns existing file + `{draft,draftRevision}`.
+- saved file response also adds same fields.
+- `GET /api/workspace/drafts[?rootId=...]`: summaries, optional root filter.
+- `GET /api/workspace/draft?rootId&path`: draft state.
+- `PUT /api/workspace/draft`: rootId,path plus WorkspaceDraftInput, ordinary autosave.
+- `PATCH /api/workspace/draft`: same, explicit rebase.
+- `DELETE /api/workspace/draft`: `{rootId,path,revision,key}`.
+- draft/file bodies get existing large workspace body limit; ordinary API stays200k.
+- draft APIs don’t require source currently accessible if root capability and existing draft known; creating new draft still needs read hash.
+- directory capabilities remain process-local; draft identity is stable rootPath/path, reselecting directory after restart retrieves drafts.
+- **No durable directory authorization/catalog yet**.
+- **No automatic draft cleanup in file-save API**: UI explicitly deletes acknowledged draft revision after successful file save, preserving concurrent newer drafts on409.
+
+## Draft UI — unverified current implementation
+
+Root modified existing workspace UI:
+- `workspaceCanLeave` now **async**, flushes draft before in-app navigation, blocks on failure instead of discard confirm. All known callers changed to `await`.
+- input debounced400ms into `workspaceFlushDraft()`.
+- flush serializes requests, loops until current textarea matches acknowledged text, reuses `workspaceDraftPending` exact operation on lost-response retry.
+- draft errors stop auto retry; explicit retry / read-latest-and-compare controls.
+- `workspaceUI` stores draft, revision, managed flag, saved text, pending promise/timer/error.
+- existing persisted draft is **not silently inserted**: read-only editor until user restores or discards.
+- restores into editor only; does not write disk.
+- changed base hash blocks file save; read-only disk comparison + explicit PATCH rebase.
+- conflict handling preserves local textarea, loads remote draft separately, explicit merge action.
+- file save flushes draft first, writes file, then deletes matching draft revision. Failed cleanup shown separately, disk save still acknowledged.
+- beforeunload warns only if unacknowledged input / active draft request / busy; acknowledged draft can survive close.
+- draft list with summary and “选择目录并打开” reauthorizes chosen root path.
+- missing source leaf can display saved draft text read-only.
+- **If entire old root is unavailable**, root open fails before draft text display, although content remains in domain DB. Consider authenticated read-by-draft-ID / export for this use case.
+- root list opening now checks successful root/path before reading source to avoid wrong-root fallback.
+- new panels:
+  - `#workspace-drafts`
+  - `#workspace-draft-panel`
+  - `#workspace-recovery-panel`.
+- new helper functions `workspaceFlushDraft`, `workspaceDraftPreview`, `workspaceRenderDraft`, `workspaceRefreshDrafts`, `workspaceRefreshRecovery`.
+- no persistent browser storage; durability is server DB acknowledgment.
+
+Potential things to independently review:
+- async navigation/save races; existing request counter helps but not proven in browser yet.
+- scope of editor blocking while old draft awaiting choice.
+- stale draft/old disk comparison merging must never silently update base.
+- saving file then draft cleanup failure must not be reported as file save failure.
+- list refresh should not erase active textarea/draft after network errors.
+- beforeunload acknowledgment semantics.
+- browser tests currently only partly adapted.
+
+## Recovery agent current API and root integration
+
+Current `src/workspace-files.ts` exports:
+```ts
+type WorkspaceIdentity = {dev:number;ino:number;birthtimeMs:number}
+type WorkspaceRootProof = {
+ format:1;path:string;identity:WorkspaceIdentity
+}
+type WorkspaceFileProof = {
+ format:1;root:WorkspaceRootProof;path:string;absolutePath:string;
+ identity:WorkspaceIdentity;sha256:string;
+ directories:Array<{path:string;identity:WorkspaceIdentity}>
+}
+type WorkspaceRecovery = {
+ id:string;rootId:string;path:string|null;recoveryDirectory:string;
+ status:"pending"|"restored"|"committed"|"unchanged"|"conflict"|"busy"|"manual";
+ message:string;beforePath:string|null;backupPath:string|null;proposedPath:string|null
+}
+type WorkspaceRecoveryListing = {
+ rootId:string;entries:WorkspaceRecovery[];truncated:boolean
+}
+WorkspaceFilesOptions.recoveryStateDirectory?: string
+```
+
+Methods:
+- `rootProof`, `fileProof`, `verifyRootProof`, `verifyFileProof`
+- `recoveryList(rootId)`
+- **`recover(rootId)`** (current implementation no optional operation ID)
+
+Recovery design visible in current code:
+- private trusted host ledger, v2 phase records, matching project records.
+- records contain original/proposal/root/parent/file identities, hashes and copy stamps.
+- no trust in arbitrary workspace `.xingyao-edit-*` JSON.
+- open checks recovery state directory is outside selected root.
+- bounded root scan5000 entries /200 recovery entries.
+- only pending/provable operations acted on; unknown/old records manual.
+- root/parent identity validation and cooperative writer lock.
+- recovery copy uses O_EXCL, designed for exFAT, preserves backups/conflicts.
+- real abrupt-exit fault tests being written.
+- **Ask agent for final evidence / limitations; implementation was still changing.**
+
+Root latest server integration:
+- default workspace open at startup calls `workspace.recover(defaultRootId)`.
+- `POST /workspace/roots` opens then calls recovery.
+- `GET /workspace/recovery?rootId` returns list.
+- `POST /workspace/recovery {rootId}` retries recover.
+- UI lists all except committed/unchanged, shows statuses and preserved paths, retry button for pending/busy.
+- directory browse calls `workspaceRefreshRecovery`.
+- This means automatic recovery runs only when a root is selected/opened, and only agent’s proven-safe cases mutate.
+- **Host recovery ledger is not yet included in portable checkpoint backup**. Need decide portable behavior/document actual limitations; don’t claim full cross-host recovery.
+- **Knowledge index reconciliation after crash-recovered file changes needs review**. Existing successful save updates knowledge, but crash recovery path currently does not.
+
+## Latest verification in this continuation
+
+Passed:
+1. `bun test test/workspace-drafts.test.ts`
+   - **5 pass,0 fail,31 assertions**.
+   - persistence/checkpoint, concurrent CAS/tombstones, explicit rebase, quota/UTF8/path, schema3→4 historic bytes.
+2. `bun test test/workspace-draft-api.test.ts`
+   - **4 pass,0 fail,23 assertions**.
+   - server restart/new root capability, actual-read admission, stale deletion, changed disk rebase, large/empty body.
+3. Latest **`bun run typecheck` passed** after recovery API integration.
+4. Latest **`node --check src/web/app.js` passed**.
+5. No browser/full suite/build yet for `.9`.
+
+Earlier typecheck errors were transient while agent was editing recovery helpers/tests; **latest passed**.
+
+`script/graph-browser-check.mjs` changed:
+- old dirty-navigation dismiss-confirm test replaced with navigate away after persisted draft, verify disk unchanged, reopen original, click “恢复草稿到编辑器”, then save.
+- external conflict reload no longer accepts a discard dialog; asserts disk current text and draft base-change notice.
+- **Not run yet**.
+
+## Immediate next steps
+
+1. Check current git/agent state. Tell recovery agent root uses `recoveryStateDirectory` and auto-recover on selected-root open; no HMAC meta key. Obtain its final recovery tests, especially **actual exFAT** coverage and external-edit preservation.
+2. Independently review untested draft UI; delegate browser/review work if possible to completed agents, with clear ownership. No `.9` UI/test delegation occurred yet.
+3. Add/run meaningful browser coverage:
+   - autosave acknowledged, page reload/close restore.
+   - crash/restart product then reselect directory and restore draft.
+   - disk change + explicit rebase/merge.
+   - two-window409 preserves local edit.
+   - successful file save clears only matching draft; newer concurrent draft survives.
+   - quota/network error blocks lossy navigation.
+   - missing file/root allows recovery of stored text.
+   - recovery panel behavior and literal untrusted text rendering.
+4. Complete file-recovery integration and tests, including knowledge-index freshness and host-ledger portability semantics.
+5. Run targeted existing workspace tests + recovery tests. Fix only actual failures, preserve original strong safety invariants.
+6. Update `.9` docs/README/implementation status; explain schema4, durability acknowledgment, quotas, recovery scope and limitations. Include doc in build maintenance inventory if useful.
+7. Freeze source, build fresh `.9` with proven engine6. Run full `script/verify-release.ts`, including updated graph and memory browser gates. New recovery/compiled crash tests should be required by gate where appropriate.
+8. Commit coherent changes, update actual release evidence docs.
+9. Handle pending GitHub publication question only after answer. If approved, publish concrete `.8` commit / baseline asset and run real CI; preserve chat default unless separately decided within scope.
+10. Archive this continuation using existing authorized exporter and push. Keep whole V2 goal active.
+
+## Build / archive commands
+
+Build:
+```powershell
+$env:XINGYAO_BUILD_ENGINE='F:/codex/xingyao/dist/engines/0.0.0-product-dev-20260918-engine.6-source/opencode.exe'
+$env:XINGYAO_UPSTREAM_LICENSE='F:/codex/xingyao/dist/engines/0.0.0-product-dev-20260918-engine.6-source/OPENCODE-LICENSE.txt'
+$env:XINGYAO_ENGINE_BUILD_RECORD='F:/codex/xingyao/dist/engines/0.0.0-product-dev-20260918-engine.6-source/engine-build.json'
+bun run build
+bun run script/verify-release.ts
+```
+
+Archive in `F:/codex/conversation-archive`:
+```powershell
+bun run tools/export-conversations.ts
+```
+Validate manifest file hashes, inspect only safe summary/status, commit, then:
+```powershell
+$env:GIT_TERMINAL_PROMPT='0'
+git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin conversation-archive
+```
+Verify remote ref via gh API. Exporter strips credentials/opaque runtime and excludes hidden reasoning/system/developer/internal context. No new exporter changes necessary.
+
+## Last commentary
+
+> 草稿的数据层已通过第一组测试：关闭后重开、检查点恢复、两个窗口同时编辑、延迟请求重试，都不会静默覆盖较新的草稿。磁盘内容变化后也必须明确核对再合并。界面正在接入自动保存和恢复入口，未确认保存的最后输入会继续提示保留页面。
+
+No final result for `.9` yet. User asked for this handoff summary; continue naturally from here.
+
+## 2026-09-17T19:45:41.273Z · 助理
+
+我先核对本地产品、GitHub 仓库和正在进行的修改，把仓库用途落实到源码管理、自动验收、版本发布和聊天档案上；同时继续完成草稿恢复与中断保存恢复，确保每次升级有可检查、可回退的版本。
+
+
+## 2026-09-17T19:45:41.285Z · /root/upstream_compat → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+已完成文件保存中断恢复与草稿基线证明接口，只改了 [workspace-files.ts](F:/codex/xingyao/src/workspace-files.ts) 和新增 [workspace-recovery.test.ts](F:/codex/xingyao/test/workspace-recovery.test.ts)。**服务端必须传入持久的 `recoveryStateDirectory`，才能在重启后验证并恢复本机创建的保存操作。**
+
+公开接口已落地，可直接接入：
+
+```ts
+new WorkspaceFiles({
+  protectedDirectories?: string[],
+  recoveryStateDirectory?: string,
+})
+
+rootProof(rootId: string): WorkspaceRootProof
+fileProof(rootId: string, relativePath: string): WorkspaceFileProof
+
+verifyRootProof(rootId: string, proof: WorkspaceRootProof): void
+verifyFileProof(
+  rootId: string,
+  relativePath: string,
+  proof: WorkspaceFileProof,
+): WorkspaceFile
+
+recoveryList(rootId: string): WorkspaceRecoveryListing
+recover(rootId: string): WorkspaceRecoveryListing
+```
+
+建议服务端使用 `join(dirname(store.db.filename), "workspace-recovery")` 作为可信状态目录。此目录必须在所选项目根之外；构造器会检查链接和祖先目录身份，`open()` 会拒绝选择包含可信状态目录的过大根目录。不传该选项时，只使用有容量上限的进程内可信记录，重启后的日志会保守列为人工核对项。
+
+返回类型：
+
+```ts
+type WorkspaceRecoveryListing = {
+  rootId: string
+  entries: WorkspaceRecovery[]
+  truncated: boolean
+}
+
+type WorkspaceRecovery = {
+  id: string
+  rootId: string
+  path: string | null
+  recoveryDirectory: string
+  status:
+    | "pending"
+    | "restored"
+    | "committed"
+    | "unchanged"
+    | "conflict"
+    | "busy"
+    | "manual"
+  message: string
+  beforePath: string | null
+  backupPath: string | null
+  proposedPath: string | null
+}
+```
+
+`rootProof` / `fileProof` 是可序列化、只读的身份与内容证据；它们不授予目录权限，也不改变当前会话的保存基线。草稿模块可以持久化完整 `WorkspaceFileProof`，恢复草稿时先验证根证明，实际保存前调用 `verifyFileProof`。它会检查磁盘内容 SHA、文件身份、根目录与完整祖先目录链，验证失败会抛出 `WorkspaceFileError("conflict", …)`。仍须通过已有 `read()` 建立当前保存会话的基线。
+
+实现行为：
+
+- 保存改为 v2 日志，项目恢复目录和项目外的可信状态目录分别保留不可覆盖的阶段记录；两边最新记录不一致、旧日志、伪造日志或截断日志均进入人工核对。
+- 原件已归档而目标未创建时，使用独占创建和复制恢复原件，保留 `original`、`before`、`proposed`。
+- 已完整写入且身份、内容和时间证据一致时，补全提交记录，不重写文件。
+- 目标、父目录或根目录被替换，目标被外部创建、修改、删除，或存在链接时，保留冲突。
+- 保存和恢复共用跨进程文件锁，实际活跃写入进程会返回 `busy`。
+- 恢复复制再次中断时，已完成且有证据的复制可确认完成；没有完成证据的空文件或部分文件明确保留为 `conflict`，不会靠猜测继续覆盖。
+- 修复了实际 F 盘 exFAT 的重要差异：**重命名会改变文件 ID**。归档与保留中断版本时，现在通过持有的文件句柄证明重命名前后的连续性，再记录新身份。恢复已完全移除硬链接依赖。
+
+验证完成：
+
+- 原文件编辑测试：**24 项通过**。
+- 新增恢复测试：**35 项通过，305 个断言**。
+- 新测试实际在 Windows 临时 NTFS 和 **F 盘 exFAT 的独立临时目录**运行，用子进程 `process.exit()` 覆盖 8 个保存中断点和 5 个恢复中断点，并覆盖真实第二进程竞争、日志篡改、祖先更换、复制期间外部写入及 exFAT 捕获异常回滚。
+- `bun run typecheck`、`git diff --check` 通过。
+
+没有修改 server、store、草稿模块或 UI。恢复列表当前最多返回 200 项、最多扫描 5000 个根目录条目，并返回 `truncated`；所有历史版本保留，不自动清理。Windows 无法通过 Node 对目录执行 fsync，因此真实断电造成的记录缺失或两边记录不一致仍保守进入人工核对，测试结论覆盖真实进程突然退出。
+
+## 2026-09-17T19:47:15.272Z · 助理
+
+仓库现状已确认：GitHub 目前只有聊天档案分支，产品源码和 Windows 自动验收流程都在本地。我的安排是让它承担“开发记录、验收、发行”这三项职责；文件、记忆和个人身份数据仍走产品自己的检查点。
+
+这轮恢复测试还发现了一个与你的 F 盘直接相关的问题：exFAT 上重命名会改变文件标识。保存恢复逻辑已针对这一差异修正，并通过了真实 F 盘上的进程中断测试。
+
+
+## 2026-09-17T19:47:50.885Z · /root/canvas_research → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T19:51:15.730Z · 助理
+
+现在补上了两个实际使用时容易遗漏的恢复入口：项目目录暂时找不到时，仍能查看并复制数据库里保存的草稿；文件保存中断恢复后，知识索引也会重新核对，避免文件已更新、助手却继续引用旧内容。接下来用两个浏览器窗口检查并发编辑和断网重试，再做完整发行验收。
+
+
+## 2026-09-17T19:53:36.045Z · /root/canvas_research → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+`.9` 草稿浏览器验收脚本已写好：[workspace-draft-browser-check.mjs](F:/codex/xingyao/script/workspace-draft-browser-check.mjs)。
+
+只新增了这个脚本，没有修改 `src` 或已有浏览器脚本。语法检查通过，尚未运行产品验收；等待你提供 `.9` 编译路径。
+
+脚本使用真实编译产品的离线模式、临时身份、真实浏览器及 HTTP 接口，覆盖：
+
+1. 自动保存收到确认后刷新页面，再关闭并重启整个产品，重新选择目录后恢复同一草稿。
+2. 两个页面编辑同一文件，真实陈旧修订返回 HTTP 409；第二页编辑保留，读取服务器草稿并明确合并。
+3. 磁盘文件被外部修改后，旧草稿保留、文件保存按钮停用；仅明确确认新基础版本后才能保存。
+4. 注入真实请求失败，检查切换页面和切换文件均被阻止，当前输入保留；网络恢复后重试成功。
+5. 在文件已写盘、清理 DELETE 发出前暂停请求，让第二页提交新草稿；旧清理请求必须 409，新草稿仍存在且可恢复。
+6. 原目录移走后，通过 `GET /api/workspace/draft?id=…` 和列表中的“查看草稿（只读）”恢复正文。
+7. 桌面、手机布局，XSS 字面量，不产生知识库或记忆，浏览器/CSP/外网请求检查。
+
+已适配你刚补的按 ID 读取接口和 `data-workspace-draft-id` 选择器。完成运行后将生成版本化截图、JSON 报告及被测 EXE 的 SHA256。临时 token 仅在内存和浏览器会话存储中使用，不放入导航 URL 或日志。
+
+## 2026-09-17T19:55:52.243Z · /root/memory_review_validation → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/memory_review_validation
+Payload:
+发现 **2 个可重现的 P1 并发缺陷，其中一个会直接丢失用户输入**。没有修改 `app.js/server.ts`。
+
+新增独立脚本 [draft-browser-check.mjs](F:/codex/xingyao/script/draft-browser-check.mjs)，执行 `bun run script/draft-browser-check.mjs`。实际 Edge **153.0.4234.32**，临时 SQLite 身份与当前 `.9` 源码服务器，**7 场景中 5 通过、2 失败**，无页面脚本/CSP/外网请求错误。报告包含测试前后相同的源码哈希，排除了测试期间源码变动。
+
+具体问题：
+
+1. **“丢弃草稿”迟到响应会抹掉另一个文件的新输入。**  
+   `workspaceRenderDraft()` 的 discard 回调等待 DELETE 后无条件执行 `workspaceDisplayFile({...file,...state})`。复现：A 已有草稿→点击丢弃→服务器完成 DELETE，但暂缓响应→切换 B→立即输入正文→释放 A 的响应。界面退回 A，正文恢复为“磁盘 A 原文”，B 的输入被清掉，自动保存计时器也取消。**服务器草稿列表为空，B 输入没有恢复副本。**  
+   [截图](F:/codex/xingyao/reports/draft-browser-failure-7-0.png)
+
+2. **rebase 迟到响应把 A 的草稿状态写进当前 B 编辑器。**  
+   “已核对：以当前磁盘版本继续编辑”在 PATCH 等待期间没有 busy 标记，响应后直接更新全局 `draft/draftRevision/draftSaved`。复现：A 草稿与外部磁盘变化→明确 rebase→暂缓已成功的 PATCH 响应→切换 B→释放响应。B 出现 A 的草稿修订与磁盘基础冲突，展示本不属于 B 的 rebase/discard 操作。  
+   [截图](F:/codex/xingyao/reports/draft-browser-failure-5-0.png)
+
+建议把 **merge、rebase、discard** 都纳入同一个操作锁及当前文件/请求代次检查。只保护 `workspaceFlushDraft()` 不够，这几个按钮在等待后会直接改全局编辑器状态。脚本允许两种正确实现：在操作完成前禁止切换；或者允许切换，但响应不污染新的活动文件。
+
+你强调的**“源根目录整体消失仍能提取草稿”已在真实浏览器通过**：保存草稿→把整个源目录移到同一临时目录的另一个位置→刷新页面→展开可恢复草稿→点击“查看草稿（只读）”，正文能通过草稿 ID 恢复，不需要重新打开已消失的 root。
+
+其余通过项：两窗口 CAS 与显式合并、刷新恢复；已提交但响应丢失后的同 key 重试及后续新输入；自动保存失败阻止切文件和离开；外部磁盘变化必须明确 rebase 后才能写文件。
+
+完整证据：
+
+- [结构化结果](F:/codex/xingyao/reports/draft-browser-check.json)
+- [独立复审说明](F:/codex/xingyao/reports/draft-browser-review.md)
+
+这是源码级浏览器验收，未声称 `.9` 编译候选通过，也没有动生产身份。
+
+## 2026-09-17T19:56:07.761Z · 助理
+
+浏览器复审抓到了两个真实问题：旧文件的“丢弃草稿”或“确认合并”响应晚到时，会影响后来打开的文件，其中一种会清掉新输入。我已加上当前文件校验，修复后七个针对性场景全部通过，包括响应丢失重试、双窗口冲突和目录消失后的草稿恢复。现在开始检验编译后的便携程序。
+
+
+## 2026-09-18T01:30:39.825Z · 用户
+
+继续
+
+
+## 2026-09-18T01:31:00.179Z · 助理
+
+继续。我又复现了一种边界情况：点击保存后立即切换页面，可能让编辑器一直停在“保存中”。已经修正保存与切页的等待顺序，正在复测；通过后重新编译，并完成整套验收和聊天档案同步。
+
+
+## 2026-09-18T01:32:51.411Z · /root/upstream_compat → /root
+
+Message Type: MESSAGE
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-18T01:33:50.045Z · /root/canvas_research → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/canvas_research
+Payload:
+已将保存与切页竞态加入 [workspace-draft-browser-check.mjs](F:/codex/xingyao/script/workspace-draft-browser-check.mjs)，只修改了这个测试脚本。
+
+新增场景会：
+
+1. 通过 `route.fetch()` 让草稿 PUT 在真实后端提交，只延迟浏览器收到回复。
+2. 用独立 GET 确认草稿已入库，并检查磁盘文件仍为原文。
+3. 依次点击“保存文件”和 `memory` 导航，再放行原始 PUT 回复。
+4. 检查目标文件最终保存了正确正文。
+5. 返回项目文件，检查目录选择、文件切换及编辑器恢复可用。
+6. 打开另一份独立文件，输入并完成新的草稿保存，进一步验证没有遗留永久 `busy` 状态或文件间状态污染。
+
+`node --check` 和 `git diff --check` 均通过。按你的要求，未启动编译包测试或其他门禁；等待重构建后的统一验证。
+
+## 2026-09-18T01:33:50.050Z · /root/upstream_compat → /root
+
+Message Type: FINAL_ANSWER
+Task name: /root
+Sender: /root/upstream_compat
+Payload:
+只读审查完成，**未发现阻塞 `.9` 发行的恢复集成缺陷**，未修改源码。
+
+- [server.ts](F:/codex/xingyao/src/server.ts:50) 将可信恢复记录放在 `soul.db` 同级的 `workspace-recovery`，与项目目录分离。默认项目和显式打开目录都先建立当前授权根，再调用恢复；缺失或无法验证的可信记录会保守保留为人工核对项。
+- [recoveredFile](F:/codex/xingyao/src/workspace-files.ts:154) 重新读取可信记录、验证目录链，只接受 `committed` 或 `restored` 对应的文件证据，并用 `stampMatches` 同时比较文件身份、SHA、大小及时间。后续外部修改、同内容换文件或旧保存日志，不能借历史完成状态自动导入当前内容。
+- [recoverWorkspace](F:/codex/xingyao/src/server.ts:78) 只刷新已有知识条目，并保留原 `scope` 和 `private`。它导入的是 `recoveredFile` 已验证的字节快照；不会因为恢复目录存在就把一个此前未导入的文件加入知识库。
+- 集成没有放宽恢复的写入条件：冲突、忙碌或无法证明归属的版本仍不自动写回；原件复制使用独占创建，恢复与保存共用跨进程锁。
+
+复跑 [workspace-draft-api.test.ts](F:/codex/xingyao/test/workspace-draft-api.test.ts)：**7 项通过，40 个断言**。其中真实子进程分别在归档后、完整写入后退出，服务重启恢复并刷新已有索引；恢复之后再由外部程序改写文件并重启，文件与原知识快照均保持预期，不发生错误导入。
+
+结论适用于目前声明的协作进程与文件检查边界；既有的“恶意本机进程精确竞争单个系统调用”限制没有因本次集成扩大。
+
+## 2026-09-18T01:33:59.834Z · 助理
+
+修复后的源码浏览器检查已全部通过，恢复模块的独立复审也没有发现阻塞问题。新的 `.9` 便携包正在跑完整验收，包含真实 OpenCode 引擎、旧会话迁移、文件恢复，以及编译程序的图谱、记忆审阅和草稿界面。验收报告会绑定这份程序的准确哈希。
+
+
+## 2026-09-18T01:34:28.239Z · 用户
+
+搞快点，我想看效果
+
+
+## 2026-09-18T01:34:52.025Z · 助理
+
+先给你看实际界面。我现在打开 `.9` 的独立演示工作台，放入几份示例资料，让你直接看文件编辑、草稿恢复和知识图谱；完整验收继续在后台跑。
+
+
+## 2026-09-18T01:36:53.488Z · 助理
+
+浏览器已打开星杳工作台，里面放了四份相互关联的示例资料。
+
+你可以先点左侧 **「知识图谱」** 看关系，再点 **「项目文件」→「开始体验.md」**，改几行文字，等“草稿已保存”后切走再回来。这个演示空间使用独立数据，目前是离线体验；真实模型对话还需要连接模型服务。
+
+
+## 2026-09-18T01:39:10.850Z · 助理
+
+`.9` 的完整验收已通过：**415 项测试通过、零失败、零跳过**，编译程序的图谱、记忆审阅、草稿恢复和保存切页检查也通过了。
+
+这是刚打开的演示知识图谱，你可以在浏览器里点击节点和连线查看资料：
+
+![星杳实际知识图谱](F:/codex/xingyao/reports/showcase09-graph.png)
 

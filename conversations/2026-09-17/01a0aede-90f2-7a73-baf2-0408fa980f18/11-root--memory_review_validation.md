@@ -1,6 +1,6 @@
 # /root/memory_review_validation
 
-导出时间：2026-09-17T19:13:59.440Z
+导出时间：2026-09-18T01:40:24.136Z
 
 来源片段：`sessions/2026/09/18/rollout-2026-09-18T02-41-24-01a0b0ac-6aef-7921-8cf6-2b31f1cd3501.jsonl`
 
@@ -464,3 +464,42 @@ HTTP 回归已完成，专用适配入口与 `app.reviewJobs` 已对齐；只修
 - 真实 chat 绑定的 private 源，以及封存期间产生的 chat，均不进入模型 transport。私密状态用隔离数据库夹具恢复，因为当前聊天 API 尚无 privacy toggle。
 
 一个契约事实：upstream 当前实现的 `promptMemoryExtraction` 返回 `PromptResult`，带 `status/parts`，`jobID` 为可选；runner 也检查 `status === "completed"`。测试已按当前源码对齐，类型检查通过。这些 HTTP 测试验证产品编排和 SQLite 状态，不替代 upstream agent 的真实引擎权限/无工具执行验证。
+
+## 2026-09-17T19:46:03.913Z · /root → /root/memory_review_validation
+
+Message Type: NEW_TASK
+Task name: /root/memory_review_validation
+Sender: /root
+Payload:
+
+
+{"type":"encrypted_content"}
+
+## 2026-09-17T19:55:32.865Z · 助理
+
+发现 **2 个可重现的 P1 并发缺陷，其中一个会直接丢失用户输入**。没有修改 `app.js/server.ts`。
+
+新增独立脚本 [draft-browser-check.mjs](F:/codex/xingyao/script/draft-browser-check.mjs)，执行 `bun run script/draft-browser-check.mjs`。实际 Edge **153.0.4234.32**，临时 SQLite 身份与当前 `.9` 源码服务器，**7 场景中 5 通过、2 失败**，无页面脚本/CSP/外网请求错误。报告包含测试前后相同的源码哈希，排除了测试期间源码变动。
+
+具体问题：
+
+1. **“丢弃草稿”迟到响应会抹掉另一个文件的新输入。**  
+   `workspaceRenderDraft()` 的 discard 回调等待 DELETE 后无条件执行 `workspaceDisplayFile({...file,...state})`。复现：A 已有草稿→点击丢弃→服务器完成 DELETE，但暂缓响应→切换 B→立即输入正文→释放 A 的响应。界面退回 A，正文恢复为“磁盘 A 原文”，B 的输入被清掉，自动保存计时器也取消。**服务器草稿列表为空，B 输入没有恢复副本。**  
+   [截图](F:/codex/xingyao/reports/draft-browser-failure-7-0.png)
+
+2. **rebase 迟到响应把 A 的草稿状态写进当前 B 编辑器。**  
+   “已核对：以当前磁盘版本继续编辑”在 PATCH 等待期间没有 busy 标记，响应后直接更新全局 `draft/draftRevision/draftSaved`。复现：A 草稿与外部磁盘变化→明确 rebase→暂缓已成功的 PATCH 响应→切换 B→释放响应。B 出现 A 的草稿修订与磁盘基础冲突，展示本不属于 B 的 rebase/discard 操作。  
+   [截图](F:/codex/xingyao/reports/draft-browser-failure-5-0.png)
+
+建议把 **merge、rebase、discard** 都纳入同一个操作锁及当前文件/请求代次检查。只保护 `workspaceFlushDraft()` 不够，这几个按钮在等待后会直接改全局编辑器状态。脚本允许两种正确实现：在操作完成前禁止切换；或者允许切换，但响应不污染新的活动文件。
+
+你强调的**“源根目录整体消失仍能提取草稿”已在真实浏览器通过**：保存草稿→把整个源目录移到同一临时目录的另一个位置→刷新页面→展开可恢复草稿→点击“查看草稿（只读）”，正文能通过草稿 ID 恢复，不需要重新打开已消失的 root。
+
+其余通过项：两窗口 CAS 与显式合并、刷新恢复；已提交但响应丢失后的同 key 重试及后续新输入；自动保存失败阻止切文件和离开；外部磁盘变化必须明确 rebase 后才能写文件。
+
+完整证据：
+
+- [结构化结果](F:/codex/xingyao/reports/draft-browser-check.json)
+- [独立复审说明](F:/codex/xingyao/reports/draft-browser-review.md)
+
+这是源码级浏览器验收，未声称 `.9` 编译候选通过，也没有动生产身份。
