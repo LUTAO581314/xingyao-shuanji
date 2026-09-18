@@ -2,7 +2,25 @@
 
 最新已安装版本为 `0.1.0-dev.5`，修复工具证据、记忆修订和跨版本恢复；见 [证据与恢复发行验收](verification-evidence.md)。图谱历史验收见 [图谱工作台验收](verification-graph.md)。下面保留 `.2` 首次发行的历史证据。
 
-最新本地候选为 `0.1.0-dev.9`：415 项完整测试与编译产品图谱、对话记忆、草稿浏览器验收通过，另有 8 场景源码浏览器并发复审。新增持久草稿、双窗口冲突、缺失目录提取及有证据的文件保存恢复，见 [编辑恢复候选验收](verification-workspace-recovery.md)。`.9` 已提供独立离线演示，尚未安装到现用身份。此前 `.8` 与 `.7` 的依据分别保留在 [对话记忆候选验收](verification-memory-review.md) 和 [引擎迁移候选验收](verification-upgrade.md)。
+最新本地候选为 `0.1.0-dev.14`：424 项完整测试、0 失败、0 skip，并通过编译产品图谱、对话记忆、协作闭环、草稿及并发浏览器验收。新增 schema 5 委派账本、真实 OpenCode `subagent` 白名单、创建响应与提示响应丢失对账、暂停、同会话继续和显式交回主任务；子会话正文不自动进入主聊天、记忆或技能证据。`.14` 尚未安装到现用身份。此前 `.9` 的编辑恢复依据见 [编辑恢复候选验收](verification-workspace-recovery.md)，`.8` 与 `.7` 的依据分别见 [对话记忆候选验收](verification-memory-review.md) 和 [引擎迁移候选验收](verification-upgrade.md)。
+
+## `.14` 本地候选验收
+
+记录日期：2026-09-18（Asia/Shanghai）。候选目录为 `F:/codex/xingyao/dist/xingyao-0.1.0-dev.14`，引擎为 `0.0.0-product-dev-20260918-engine.6-source`，数据库 schema 为 5。失败的 `.11`、`.12` 和 `.13` 浏览器前置候选没有通过报告，也没有覆盖或替代 `.14`。
+
+```text
+release.json  d6e30934f7885d60c548db66cea98180a5a044c5b8f6e4a0377432808d9c46f9
+xingyao.exe   8ae4e46724b2f9e7ed31d7b6d01ff432decde39a47a94d15dce0509301654b22
+opencode.exe  f02b6bbba598d4f2e9e1c1f75794104b9581129ae199d3130b4bc2e552ee748b
+```
+
+- [绑定候选 manifest 的通过报告](../dist/xingyao-0.1.0-dev.14/release-validation.json)
+- [424 项零跳过测试日志](../reports/2026-09-18T02-56-47-578Z-tests.txt)
+- [协作闭环浏览器报告](../reports/collaboration-browser-0.1.0-dev.14.json)
+- [桌面协作截图](../reports/collaboration-browser-0.1.0-dev.14-desktop.png)
+- [390px 手机协作截图](../reports/collaboration-browser-0.1.0-dev.14-mobile.png)
+
+协作浏览器验收实际从编译产品创建 1 项委派，使父子树达到 4 个子会话；第二条说明复用同一个受控子会话，随后选择已完成来源交回根任务，根任务产生新的汇总并进入普通验收。页面错误、CSP 错误、外部请求和手机横向溢出均为 0。固定 engine.6-source 还在隔离运行中验证了实际 `explore`/`general` 角色、所有权 metadata、父子会话查找和完整空历史读取。
 
 记录日期：2026-09-17（Asia/Shanghai）。结论：`0.1.0-dev.2` 已通过最终制品验收，安装到 `F:/Xuanji`，并通过 F 盘根目录的真实启动入口启动。本记录证明下列具体能力，不表示完整 V2 设计已经全部完成。
 

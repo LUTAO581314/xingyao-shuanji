@@ -54,8 +54,8 @@ async function refresh() {
     if (selectedTask && view === 'chat') await refreshTask()
     if (view === 'sleep') { renderSleep(); await refreshMemoryReview() }
     if (view === 'system') await renderSystem()
-    if (state.busy.length && view === 'chat') await refreshPermissions()
-    else if (permissionSignature) { permissionSignature = ''; $('#permissions').innerHTML = '' }
+    if ((state.busy.length || state.delegationBusy?.length) && ['chat','collaboration'].includes(view)) await refreshPermissions()
+    else if (permissionSignature) { permissionSignature = ''; $('#permissions').innerHTML = ''; $('#collaboration-permissions').innerHTML = '' }
   } finally { refreshing = false }
 }
 async function refreshView() {
@@ -100,7 +100,8 @@ $('#chat-form').onsubmit = event => { event.preventDefault(); action(async () =>
 $('#prompt').onkeydown = event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); $('#chat-form').requestSubmit() } }
 
 const collaborationStatusNames = {idle:'空闲',busy:'正在工作',retry:'等待重试'}
-const collaborationUI = {taskId:'',request:0,loading:false,hasActive:false,lastLoaded:0}
+const delegationStateNames = {creating:'正在创建',running:'正在执行',stop_requested:'正在停止',paused:'已暂停',waiting:'待核对或交回',merged:'已交回主任务',failed:'执行失败'}
+const collaborationUI = {taskId:'',request:0,loading:false,hasActive:false,lastLoaded:0,agents:[],agentsLoaded:false,data:null,followups:new Map()}
 function renderCollaborationTasks() {
   if (!state) return
   const tasks = state.tasks.filter(task => task.sessionId)
@@ -115,6 +116,13 @@ function renderCollaborationTasks() {
     option.value = task.id; select.append(option)
   }
   select.value = collaborationUI.taskId
+  const enabled = !!collaborationUI.taskId && collaborationUI.agents.length > 0 && !collaborationUI.loading
+  for (const field of $('#delegation-form').elements) field.disabled = !enabled
+  const agents = $('#delegation-agent'), selected = agents.value
+  agents.replaceChildren(graphElement('option',collaborationUI.agents.length ? '选择子智能体' : '没有可用的 OpenCode 子智能体'))
+  agents.firstElementChild.value = ''
+  for (const agent of collaborationUI.agents) { const option = graphElement('option',agent.description ? `${agent.name} · ${agent.description}` : agent.name); option.value = agent.name; agents.append(option) }
+  if (collaborationUI.agents.some(agent => agent.name === selected)) agents.value = selected
 }
 async function refreshCollaboration(force = true) {
   renderCollaborationTasks()
@@ -126,17 +134,18 @@ async function refreshCollaboration(force = true) {
     $('#collaboration-tree').innerHTML = '<p class="empty">任务建立执行会话后，委派的子智能体会显示在这里。</p>'
     return
   }
-  if (collaborationUI.loading || !force && Date.now() - collaborationUI.lastLoaded < 5000) return
+  if (collaborationUI.loading || !force && Date.now() - collaborationUI.lastLoaded < 4000) return
   const request = ++collaborationUI.request
   collaborationUI.loading = true; $('#collaboration-refresh').disabled = true
   $('#collaboration-status').textContent = '正在核对 OpenCode 子会话与来源…'
   try {
-    const result = await api(`/tasks/${taskId}/collaboration`)
+    const [result,agents] = await Promise.all([api(`/tasks/${taskId}/collaboration`),collaborationUI.agentsLoaded ? Promise.resolve(collaborationUI.agents) : api('/collaboration/agents')])
     if (request !== collaborationUI.request || taskId !== collaborationUI.taskId || view !== 'collaboration') return
+    collaborationUI.agents = agents; collaborationUI.agentsLoaded = true; collaborationUI.data = result
     collaborationUI.lastLoaded = Date.now()
-    collaborationUI.hasActive = result.sessions.some(session => session.status.type === 'busy' || session.status.type === 'retry')
-    $('#collaboration-count').textContent = `${result.sessions.length} 个子智能体${collaborationUI.hasActive ? ' · 有任务进行中' : ''}`
-    $('#collaboration-status').textContent = result.truncated ? `已加载 ${result.sessions.length} 个子会话；达到安全读取上限，仍有记录未显示。` : result.sessions.length ? '父子会话和完整来源已核对。工具摘要不等于整项任务完成。' : '这个任务尚未建立子会话。'
+    collaborationUI.hasActive = result.sessions.some(session => session.status.type === 'busy' || session.status.type === 'retry') || result.delegations.some(item => ['creating','running','stop_requested'].includes(item.state))
+    $('#collaboration-count').textContent = `${result.sessions.length} 个子会话 · ${result.delegations.length} 项星杳委派${collaborationUI.hasActive ? ' · 进行中' : ''}`
+    $('#collaboration-status').textContent = result.truncated ? `已加载 ${result.sessions.length} 个子会话；达到安全读取上限，仍有记录未显示。` : result.sessions.length ? '来源与所有权已核对。子智能体结果需显式交回，并由主任务重新判断。' : result.delegations.length ? '委派账本已加载，子会话仍需核对。' : '这个任务尚未建立子会话。'
     renderCollaboration(result)
   } catch (error) {
     if (request !== collaborationUI.request || taskId !== collaborationUI.taskId) return
@@ -144,18 +153,55 @@ async function refreshCollaboration(force = true) {
     $('#collaboration-status').textContent = `协作记录暂时不可用：${error.message}`
     $('#collaboration-tree').innerHTML = '<p class="empty">主任务记录没有改变；稍后可以重新核对。</p>'
   } finally {
-    if (request === collaborationUI.request) { collaborationUI.loading = false; $('#collaboration-refresh').disabled = false }
+    if (request === collaborationUI.request) { collaborationUI.loading = false; $('#collaboration-refresh').disabled = false; renderCollaborationTasks() }
   }
+}
+function addDelegationControls(card,delegation,session) {
+  if (delegation.error) card.append(graphElement('p',delegation.error,'delegation-error'))
+  const controls = graphElement('div',undefined,'delegation-controls')
+  const idle = session?.status.type === 'idle'
+  if (session && idle && !['creating','running','stop_requested'].includes(delegation.state)) {
+    const label = graphElement('label','继续说明')
+    const textarea = graphElement('textarea'); textarea.dataset.delegationFollowup = delegation.id; textarea.maxLength = 24000; textarea.placeholder = '补充要求，继续使用同一个子会话'
+    textarea.value = collaborationUI.followups.get(delegation.id) ?? ''
+    label.append(textarea); controls.append(label)
+  }
+  if (session && ['running','stop_requested'].includes(delegation.state)) {
+    const stop = graphElement('button',delegation.state === 'stop_requested' ? '再次核对停止状态' : '暂停','secondary'); stop.type = 'button'; stop.dataset.delegationAction = delegation.state === 'stop_requested' ? 'reconcile' : 'stop'; stop.dataset.delegationId = delegation.id; controls.append(stop)
+  }
+  if (!['creating','running','stop_requested'].includes(delegation.state) && session && idle) {
+    const resume = graphElement('button','继续','secondary'); resume.type = 'button'; resume.dataset.delegationAction = 'continue'; resume.dataset.delegationId = delegation.id; controls.append(resume)
+  }
+  const reconcile = graphElement('button','核对','secondary'); reconcile.type = 'button'; reconcile.dataset.delegationAction = 'reconcile'; reconcile.dataset.delegationId = delegation.id; controls.append(reconcile)
+  const source = session?.messages.filter(message => message.role === 'assistant' && message.status === 'completed' && !message.tools.some(tool => tool.status === 'unknown')).at(-1)
+  if (source && idle && !['creating','running','stop_requested'].includes(delegation.state)) {
+    const merge = graphElement('button','交回主任务'); merge.type = 'button'; merge.dataset.delegationAction = 'merge'; merge.dataset.delegationId = delegation.id; merge.dataset.messageId = source.messageID; controls.append(merge)
+  }
+  card.append(controls)
 }
 function renderCollaboration(result) {
   const host = $('#collaboration-tree'); host.replaceChildren()
+  const bySession = new Map(result.delegations.filter(item => item.sessionId).map(item => [item.sessionId,item]))
+  for (const delegation of result.delegations.filter(item => !item.sessionId)) {
+    const card = graphElement('article',undefined,'collaboration-card delegation-owned delegation-pending')
+    card.dataset.delegationId = delegation.id
+    const heading = graphElement('div',undefined,'collaboration-heading'), title = graphElement('div')
+    title.append(graphElement('span',`星杳委派 · @${delegation.agent}`,'eyebrow'),graphElement('h3',delegation.title))
+    heading.append(title,graphElement('span',delegationStateNames[delegation.state] ?? delegation.state,'badge'))
+    card.append(heading,graphElement('p',`委派 ${delegation.id} · 子会话身份尚未绑定`,'collaboration-source'))
+    addDelegationControls(card,delegation,null); host.append(card)
+  }
   for (const session of result.sessions) {
-    const card = graphElement('article',undefined,`collaboration-card depth-${Math.min(session.depth,4)}`)
+    const delegation = bySession.get(session.sessionID)
+    const card = graphElement('article',undefined,`collaboration-card depth-${Math.min(session.depth,4)} ${delegation ? 'delegation-owned' : 'delegation-unowned'}`)
     card.dataset.collaborationSession = session.sessionID
     const heading = graphElement('div',undefined,'collaboration-heading')
     const title = graphElement('div')
-    title.append(graphElement('span',`第 ${session.depth} 层 · ${session.agent ? '@'+session.agent : '未标明角色'}`,'eyebrow'),graphElement('h3',session.title))
-    heading.append(title,graphElement('span',collaborationStatusNames[session.status.type] ?? session.status.type,`badge collaboration-${session.status.type}`))
+    title.append(graphElement('span',`${delegation ? '星杳委派' : 'OpenCode 只读会话'} · 第 ${session.depth} 层 · ${session.agent ? '@'+session.agent : '未标明角色'}`,'eyebrow'),graphElement('h3',session.title))
+    const state = graphElement('div',undefined,'delegation-state')
+    if (delegation) state.append(graphElement('span',delegationStateNames[delegation.state] ?? delegation.state,'badge'))
+    state.append(graphElement('span',collaborationStatusNames[session.status.type] ?? session.status.type,`badge collaboration-${session.status.type}`))
+    heading.append(title,state)
     card.append(heading)
     const meta = graphElement('p',`会话 ${session.sessionID} · 父会话 ${session.parentSessionID} · 更新于 ${date(session.updatedAt)}`,'collaboration-source')
     card.append(meta)
@@ -173,21 +219,45 @@ function renderCollaboration(result) {
     }
     if (!session.messages.length) transcript.append(graphElement('p','这个子会话还没有可显示的对话。','empty'))
     if (session.transcriptTruncated) transcript.prepend(graphElement('p',`较早记录未在本页展开；引擎会话仍保留完整历史。当前显示 ${session.messages.length} / ${session.messageCount} 条。`,'collaboration-warning'))
-    card.append(transcript); host.append(card)
+    card.append(transcript)
+    if (delegation) addDelegationControls(card,delegation,session)
+    host.append(card)
   }
-  if (!result.sessions.length) host.append(graphElement('p','没有发现属于这个任务的子会话。','empty'))
+  if (!result.sessions.length && !result.delegations.length) host.append(graphElement('p','没有发现属于这个任务的子会话。','empty'))
 }
 $('#collaboration-task').onchange = () => { collaborationUI.taskId = $('#collaboration-task').value; collaborationUI.lastLoaded = 0; action(refreshCollaboration) }
 $('#collaboration-refresh').onclick = () => action(refreshCollaboration)
+$('#delegation-form').onsubmit = event => { event.preventDefault(); action(async () => {
+  const taskId = collaborationUI.taskId
+  if (!taskId) throw new Error('请先选择一个已有执行会话的任务。')
+  $('#delegation-create').disabled = true
+  try {
+    await api(`/tasks/${taskId}/delegations`,{key:uuid(),title:$('#delegation-title').value.trim(),instruction:$('#delegation-instruction').value.trim(),agent:$('#delegation-agent').value})
+    $('#delegation-title').value = ''; $('#delegation-instruction').value = ''; collaborationUI.lastLoaded = 0
+    notice('委派已记录，正在建立 OpenCode 子会话。'); await refreshCollaboration()
+  } finally { $('#delegation-create').disabled = false }
+}) }
+$('#collaboration-tree').onclick = event => { const button = event.target.closest('[data-delegation-action]'); if (!button) return; action(async () => {
+  button.disabled = true
+  const card = button.closest('.collaboration-card'), operation = button.dataset.delegationAction
+  const input = {key:uuid()}
+  if (operation === 'continue') { const value = card.querySelector('[data-delegation-followup]')?.value.trim(); if (!value) throw new Error('请填写继续说明。'); input.instruction = value }
+  if (operation === 'merge') input.messageId = button.dataset.messageId
+  await api(`/tasks/${collaborationUI.taskId}/delegations/${button.dataset.delegationId}/${operation}`,input)
+  if (operation === 'continue') collaborationUI.followups.delete(button.dataset.delegationId)
+  collaborationUI.lastLoaded = 0; notice(operation === 'merge' ? '来源已交回主任务，星杳正在核对汇总。' : operation === 'stop' ? '已发送暂停请求，仍需核对已经发生的操作。' : '委派状态已更新。'); await refreshCollaboration(); await refresh()
+}) }
+$('#collaboration-tree').oninput = event => { const field = event.target.closest('[data-delegation-followup]'); if (field) collaborationUI.followups.set(field.dataset.delegationFollowup,field.value) }
 
 async function refreshPermissions() {
   const permissions = await api('/permissions')
   const signature = JSON.stringify(permissions)
   if (signature === permissionSignature) return
   permissionSignature = signature
-  $('#permissions').innerHTML = permissions.map(item => `<div class="permission"><strong>需要你的授权：${escape(item.permission)}</strong><pre>${escape(item.patterns.join('\n'))}</pre><button data-permission="${escape(item.id)}" data-reply="once">允许这一次</button><button class="secondary" data-permission="${escape(item.id)}" data-reply="reject">拒绝</button></div>`).join('')
+  const markup = permissions.map(item => `<div class="permission"><strong>需要你的授权：${escape(item.permission)}</strong><pre>${escape(item.patterns.join('\n'))}</pre><button data-permission="${escape(item.id)}" data-reply="once">允许这一次</button><button class="secondary" data-permission="${escape(item.id)}" data-reply="reject">拒绝</button></div>`).join('')
+  $('#permissions').innerHTML = markup; $('#collaboration-permissions').innerHTML = markup
 }
-$('#permissions').onclick = event => action(async () => { const item = event.target.closest('[data-permission]'); if (!item) return; await api('/permissions/reply', {id:item.dataset.permission,reply:item.dataset.reply}); await refreshPermissions() })
+for (const host of [$('#permissions'),$('#collaboration-permissions')]) host.onclick = event => action(async () => { const item = event.target.closest('[data-permission]'); if (!item) return; await api('/permissions/reply', {id:item.dataset.permission,reply:item.dataset.reply}); permissionSignature = ''; await refreshPermissions() })
 
 async function refreshMemories() {
   memories = await api(`/memories?q=${encodeURIComponent($('#memory-search').value)}&private=${$('#private-memories').checked}`)

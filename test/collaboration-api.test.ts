@@ -66,7 +66,7 @@ test("a task without an engine session returns an empty view without querying Op
   const task = store.createTask("not started", "global"), before = durableState(store)
   const response = await request(task.id)
   expect(response.status).toBe(200)
-  expect(await response.json()).toEqual({ rootSessionID: null, sessions: [], truncated: false, limits: null })
+  expect(await response.json()).toEqual({ rootSessionID: null, sessions: [], delegations: [], truncated: false, limits: null })
   expect(adapter.roots).toEqual([])
   expect(durableState(store)).toBe(before)
   expect((await request("missing-task")).status).toBe(404)

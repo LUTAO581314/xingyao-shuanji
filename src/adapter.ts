@@ -80,6 +80,14 @@ export type CollaborationView = {
   rootSessionID: string; sessions: CollaborationSession[]; truncated: boolean
   limits: { sessions: number; depth: number; transcriptBytes: number }
 }
+export type Subagent = { name: string; description: string | null }
+export type DelegationSessionInput = {
+  rootSessionID: string
+  delegationID: string
+  taskID: string
+  title: string
+  agent: string
+}
 
 export class OpenCodeAdapterError extends Error {
   constructor(readonly kind: "http" | "timeout" | "network" | "protocol" | "unsupported", message: string, readonly status?: number) {
@@ -150,6 +158,76 @@ export class OpenCodeAdapter {
   async createSession(title?: string): Promise<{ id: string; title?: string }> {
     const result = record(await this.#request("POST", "/session", title === undefined ? {} : { title }), "session")
     return { id: string(result.id, "session.id"), ...(typeof result.title === "string" ? { title: result.title } : {}) }
+  }
+
+  async subagents(): Promise<Subagent[]> {
+    const value = await this.#request("GET", "/agent", undefined, { maxBytes: COLLABORATION_RESPONSE_BYTES })
+    if (!Array.isArray(value)) throw protocol("Expected an array of OpenCode agents")
+    const result: Subagent[] = []
+    for (const raw of value) {
+      const agent = record(raw, "agent")
+      const name = delegationText(agent.name, 100, "agent name")
+      if (typeof agent.mode !== "string" || agent.hidden !== undefined && typeof agent.hidden !== "boolean") throw protocol("Invalid OpenCode agent projection")
+      if (agent.mode === "subagent" && agent.hidden !== true) result.push({ name, description: typeof agent.description === "string" ? agent.description.slice(0, 500) : null })
+    }
+    if (new Set(result.map(agent => agent.name)).size !== result.length) throw protocol("Duplicate OpenCode subagent name")
+    return result.sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  async createDelegationSession(input: DelegationSessionInput): Promise<{ id: string }> {
+    delegationInput(input)
+    const value = await this.#request("POST", "/session", {
+      parentID: input.rootSessionID, title: input.title, agent: input.agent,
+      metadata: { xingyao: { kind: "delegation", delegationID: input.delegationID, taskID: input.taskID } },
+    }, { timeoutMs: Math.min(this.#timeout, 15_000), maxBytes: COLLABORATION_RESPONSE_BYTES })
+    return delegationSession(value, input)
+  }
+
+  /** Resolve a lost create response by its durable product identity. Never
+   * create another session while the first POST may have committed. */
+  async findDelegationSession(input: DelegationSessionInput): Promise<{ id: string } | null> {
+    delegationInput(input)
+    const value = await this.#request("GET", `/session/${segment(input.rootSessionID)}/children`, undefined, { maxBytes: COLLABORATION_RESPONSE_BYTES })
+    if (!Array.isArray(value)) throw protocol("Expected an array of child sessions")
+    const ids = new Set<string>(), matches: Array<{ id: string }> = []
+    for (const raw of value) {
+      const session = record(raw, "child session")
+      const id = string(session.id, "child session id")
+      if (ids.has(id)) throw protocol("Duplicate child session identity")
+      ids.add(id)
+      if (session.parentID !== input.rootSessionID) throw protocol("Child session has the wrong parent")
+      const owner = delegationOwner(session)
+      if (owner?.kind === "delegation" && owner.delegationID === input.delegationID) matches.push(delegationSession(session, input))
+    }
+    if (matches.length > 1) throw protocol("Multiple child sessions claim the same delegation")
+    return matches[0] ?? null
+  }
+
+  async assertDelegationSession(sessionID: string, input: DelegationSessionInput): Promise<void> {
+    delegationInput(input)
+    const session = delegationSession(await this.#request("GET", `/session/${segment(sessionID)}`, undefined, { maxBytes: COLLABORATION_RESPONSE_BYTES }), input)
+    if (session.id !== sessionID) throw protocol("Delegation session identity mismatch")
+  }
+
+  async delegationMessages(sessionID: string, input: DelegationSessionInput): Promise<NormalizedMessage[]> {
+    await this.assertDelegationSession(sessionID, input)
+    return await this.messages(sessionID)
+  }
+
+  async delegationStatus(sessionID: string, input: DelegationSessionInput): Promise<CollaborationStatus> {
+    await this.assertDelegationSession(sessionID, input)
+    const statuses = record(await this.#request("GET", "/session/status", undefined, { maxBytes: COLLABORATION_RESPONSE_BYTES }), "session statuses")
+    return statuses[sessionID] === undefined ? { type: "idle" } : collaborationStatus(statuses[sessionID])
+  }
+
+  async promptDelegation(sessionID: string, text: string, input: DelegationSessionInput): Promise<PromptResult> {
+    await this.assertDelegationSession(sessionID, input)
+    return await this.prompt(sessionID, text, { agent: input.agent })
+  }
+
+  async abortDelegation(sessionID: string, input: DelegationSessionInput): Promise<boolean> {
+    await this.assertDelegationSession(sessionID, input)
+    return await this.abort(sessionID)
   }
 
   /** The caller persists this ID on its background job before prompting. These
@@ -243,12 +321,13 @@ export class OpenCodeAdapter {
     return true
   }
 
-  async prompt(sessionID: string, text: string, options: { system?: string; model?: { providerID: string; modelID: string } } = {}): Promise<PromptResult> {
+  async prompt(sessionID: string, text: string, options: { system?: string; model?: { providerID: string; modelID: string }; agent?: string } = {}): Promise<PromptResult> {
     const endpoint = `/session/${segment(sessionID)}/message`
     if (!text.trim()) throw new Error("Prompt text cannot be empty")
     try {
       const response = await this.#request("POST", endpoint, {
         parts: [{ type: "text", text }],
+        ...(options.agent !== undefined ? { agent: options.agent } : {}),
         ...(options.system !== undefined ? { system: options.system } : {}),
         ...(options.model !== undefined ? { model: options.model } : {}),
       })
@@ -435,6 +514,30 @@ const COLLABORATION_MAX_DEPTH = 4
 const COLLABORATION_TIMEOUT_MS = 15_000
 const extractionPermission = [{ permission: "*", pattern: "*", action: "deny" }]
 function extractionTitle(jobID: string) { return `Xingyao memory extraction ${jobID}` }
+function delegationText(value: unknown, maximum: number, field: string): string {
+  if (typeof value !== "string" || !value.trim() || value.length > maximum || value.includes("\0")) throw protocol(`Invalid delegation ${field}`)
+  return value
+}
+function delegationInput(input: DelegationSessionInput) {
+  delegationText(input.rootSessionID, 300, "root session ID")
+  delegationText(input.delegationID, 200, "ID")
+  delegationText(input.taskID, 200, "task ID")
+  delegationText(input.title, 200, "title")
+  delegationText(input.agent, 100, "agent")
+}
+function delegationOwner(session: Record<string, unknown>): Record<string, unknown> | null {
+  if (!isRecord(session.metadata) || !isRecord(session.metadata.xingyao)) return null
+  return session.metadata.xingyao
+}
+function delegationSession(value: unknown, input: DelegationSessionInput): { id: string } {
+  const session = record(value, "delegation session")
+  const owner = delegationOwner(session)
+  if (!owner || owner.kind !== "delegation" || owner.delegationID !== input.delegationID || owner.taskID !== input.taskID
+    || session.parentID !== input.rootSessionID || session.title !== input.title || session.agent !== input.agent) {
+    throw protocol("Delegation session ownership mismatch")
+  }
+  return { id: string(session.id, "delegation session id") }
+}
 function extractionJobID(value: string) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) throw new Error("Invalid memory extraction job ID")
 }

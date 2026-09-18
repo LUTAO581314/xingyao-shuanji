@@ -109,6 +109,46 @@ describe("OpenCode public legacy HTTP boundary", () => {
     await expect(new OpenCodeAdapter({ baseURL }).collaboration("ses_root")).rejects.toThrow("does not belong")
   })
 
+  test("creates and controls only metadata-owned sessions using advertised subagents", async () => {
+    const requests: Array<{ path: string; body: unknown }> = []
+    const input = { rootSessionID: "ses_root", delegationID: "del_1", taskID: "task_1", title: "Inspect upgrade", agent: "explore" }
+    const owned = { id: "ses_child", parentID: "ses_root", title: input.title, agent: input.agent, metadata: { xingyao: { kind: "delegation", delegationID: "del_1", taskID: "task_1" } }, time: { created: 1, updated: 2 } }
+    const baseURL = serve(async request => {
+      const path = new URL(request.url).pathname
+      if (path === "/agent") return Response.json([
+        { name: "build", mode: "primary", description: "primary" },
+        { name: "explore", mode: "subagent", description: "read-only research", secret: "discard" },
+        { name: "hidden", mode: "subagent", hidden: true },
+      ])
+      if (path === "/session/status") return Response.json({ ses_child: { type: "busy", private: "discard" } })
+      if (path === "/session" && request.method === "POST") { requests.push({ path, body: await request.json() }); return Response.json(owned) }
+      if (path === "/session/ses_root/children") return Response.json([owned, { id: "ses_other", parentID: "ses_root", title: "other", time: { created: 1, updated: 2 } }])
+      if (path === "/session/ses_child") return Response.json(owned)
+      if (path === "/session/ses_child/message" && request.method === "GET") return Response.json([])
+      if (path === "/session/ses_child/message" && request.method === "POST") {
+        requests.push({ path, body: await request.json() })
+        return Response.json({ info: { id: "msg_answer", sessionID: "ses_child", role: "assistant", time: { created: 1, completed: 2 }, finish: "stop" }, parts: [{ id: "part_answer", sessionID: "ses_child", messageID: "msg_answer", type: "text", text: "checked" }] })
+      }
+      if (path === "/session/ses_child/abort") { requests.push({ path, body: undefined }); return Response.json(true) }
+      return new Response(null, { status: 404 })
+    })
+    const adapter = new OpenCodeAdapter({ baseURL })
+    expect(await adapter.subagents()).toEqual([{ name: "explore", description: "read-only research" }])
+    expect(await adapter.createDelegationSession(input)).toEqual({ id: "ses_child" })
+    expect(await adapter.findDelegationSession(input)).toEqual({ id: "ses_child" })
+    expect(await adapter.delegationMessages("ses_child", input)).toEqual([])
+    expect(await adapter.delegationStatus("ses_child", input)).toEqual({ type: "busy" })
+    expect((await adapter.promptDelegation("ses_child", "inspect", input)).text).toBe("checked")
+    expect(await adapter.abortDelegation("ses_child", input)).toBe(true)
+    expect(requests).toEqual([
+      { path: "/session", body: { parentID: "ses_root", title: "Inspect upgrade", agent: "explore", metadata: { xingyao: { kind: "delegation", delegationID: "del_1", taskID: "task_1" } } } },
+      { path: "/session/ses_child/message", body: { parts: [{ type: "text", text: "inspect" }], agent: "explore" } },
+      { path: "/session/ses_child/abort", body: undefined },
+    ])
+    const forged = serve(request => Response.json(new URL(request.url).pathname.endsWith("/children") ? [{ ...owned, metadata: { xingyao: { kind: "delegation", delegationID: "del_1", taskID: "foreign" } } }] : owned))
+    await expect(new OpenCodeAdapter({ baseURL: forged }).findDelegationSession(input)).rejects.toThrow("ownership mismatch")
+  })
+
   test("sends optional basic auth, encoded directory and system projection", async () => {
     const received: Array<{ path: string; body: unknown }> = []
     const baseURL = serve(async (request) => {
@@ -465,10 +505,19 @@ integration("real bundled OpenCode: isolated health, providers and persisted ses
     expect(health.version).toBeTruthy()
     expect(health.capabilities.v2Supported).toBe(false)
     expect(health.capabilities.collaboration).toBe(true)
+    const subagents = await adapter.subagents()
+    expect(subagents.map(agent => agent.name)).toContain("explore")
+    expect(subagents.map(agent => agent.name)).toContain("general")
     const session = await adapter.createSession("xingyao isolated adapter verification")
     expect(session.id.startsWith("ses_")).toBe(true)
     expect(await adapter.messages(session.id)).toEqual([])
     expect((await adapter.migrationDigest(session.id)).messageCount).toBe(0)
+    const delegationInput = { rootSessionID: session.id, delegationID: "real-delegation", taskID: "real-task", title: "isolated owned delegation", agent: "explore" }
+    const owned = await adapter.createDelegationSession(delegationInput)
+    expect(owned.id.startsWith("ses_")).toBe(true)
+    expect(await adapter.findDelegationSession(delegationInput)).toEqual(owned)
+    expect(await adapter.delegationMessages(owned.id, delegationInput)).toEqual([])
+    expect(await adapter.delegationStatus(owned.id, delegationInput)).toEqual({ type: "idle" })
     const publicRequest = (path: string, body?: unknown) => {
       const url = new URL(path, `http://127.0.0.1:${port}`)
       url.searchParams.set("directory", work)
@@ -483,15 +532,15 @@ integration("real bundled OpenCode: isolated health, providers and persisted ses
     const listedResponse = await publicRequest("/session")
     expect(listedResponse.status).toBe(200)
     const listed = await listedResponse.json() as Array<{ id: string }>
-    expect(listed.map((item) => item.id).sort()).toEqual([session.id, child.id].sort())
+    expect(listed.map((item) => item.id).sort()).toEqual([session.id, child.id, owned.id].sort())
     const roots = await (await publicRequest("/session?roots=true")).json() as Array<{ id: string }>
     expect(roots.map((item) => item.id)).toEqual([session.id])
     const children = await (await publicRequest(`/session/${session.id}/children`)).json() as Array<{ id: string }>
-    expect(children.map((item) => item.id)).toEqual([child.id])
+    expect(children.map((item) => item.id).sort()).toEqual([child.id, owned.id].sort())
     const collaboration = await adapter.collaboration(session.id)
-    expect(collaboration).toMatchObject({ rootSessionID: session.id, truncated: false, sessions: [{
-      sessionID: child.id, parentSessionID: session.id, depth: 1, status: { type: "idle" }, messageCount: 0, messages: [], transcriptTruncated: false,
-    }] })
+    expect(collaboration).toMatchObject({ rootSessionID: session.id, truncated: false })
+    expect(collaboration.sessions.map(item => item.sessionID).sort()).toEqual([child.id, owned.id].sort())
+    for (const item of collaboration.sessions) expect(item).toMatchObject({ parentSessionID: session.id, depth: 1, status: { type: "idle" }, messageCount: 0, messages: [], transcriptTruncated: false })
     const limited = await publicRequest("/session?limit=1")
     expect((await limited.json() as unknown[]).length).toBe(1)
     expect(limited.headers.get("x-next-cursor")).toBeNull()

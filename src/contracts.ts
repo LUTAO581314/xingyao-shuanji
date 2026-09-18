@@ -1,8 +1,8 @@
 export const PROTOCOL_VERSION = 1
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
 /** Versions with an explicit, tested forward migration into this runtime. */
-export function isSupportedSchema(version: unknown): version is number { return version === 1 || version === 2 || version === 3 || version === SCHEMA_VERSION }
-export const PRODUCT_VERSION = "0.1.0-dev.10"
+export function isSupportedSchema(version: unknown): version is number { return version === 1 || version === 2 || version === 3 || version === 4 || version === SCHEMA_VERSION }
+export const PRODUCT_VERSION = "0.1.0-dev.14"
 
 export type Ownership = "experienced" | "told" | "observed"
 export type ExperienceKind = "user_message" | "assistant_message" | "tool_success" | "tool_failure" | "tool_unknown" | "preference" | "correction" | "observation"
@@ -46,6 +46,33 @@ export type Memory = {
 export type Affect = { emotion: number[]; mood: number[]; updatedAt: number; lastSourceId: number | null; reason: string }
 export type TaskStatus = "ready" | "running" | "waiting" | "verifying" | "completed" | "failed" | "cancelled"
 export type Task = { id: string; title: string; scope: string; status: TaskStatus; sessionId: string | null; createdAt: number; updatedAt: number; error: string | null }
+export type DelegationState = "creating" | "running" | "stop_requested" | "paused" | "waiting" | "merged" | "failed"
+export type DelegationAttempt = {
+  key: string
+  instruction: string
+  baselineMessageIds: string[] | null
+  delivered: boolean
+  createdAt: number
+}
+export type DelegationMerge = { sessionId: string; messageId: string; sourceId: string; requestedAt: number }
+export type Delegation = {
+  id: string
+  taskId: string
+  requestKey: string
+  rootSessionId: string
+  parentSessionId: string
+  sessionId: string | null
+  title: string
+  instruction: string
+  agent: string
+  state: DelegationState
+  revision: number
+  attempt: DelegationAttempt
+  merge: DelegationMerge | null
+  createdAt: number
+  updatedAt: number
+  error: string | null
+}
 /** Tool/process outcome evidence. It never asserts that a user's task was achieved. */
 export type ActionExecution = {
   version: 1

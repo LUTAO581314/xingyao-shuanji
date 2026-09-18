@@ -36,6 +36,8 @@
     <section id="view-collaboration" class="view hidden">
       <div class="intro"><h2>看见每一次分工，也看见结论从哪里来。</h2><p>这里展示当前任务由 OpenCode 建立的子会话。星杳仍负责汇总结论、核对成果与向你交付。</p></div>
       <div class="collaboration-toolbar panel"><label>任务<select id="collaboration-task"><option value="">选择已有执行会话的任务</option></select></label><button id="collaboration-refresh" type="button">刷新协作现场</button><span id="collaboration-count" class="badge">尚未选择任务</span></div>
+      <form id="delegation-form" class="panel delegation-form"><div><span class="eyebrow">XINGYAO / DELEGATION</span><h3>委派一项工作</h3></div><label>标题<input id="delegation-title" maxlength="200" placeholder="例如：检查升级兼容性" required></label><label>子智能体<select id="delegation-agent" required><option value="">正在读取 OpenCode 角色…</option></select></label><label class="delegation-instruction">任务说明<textarea id="delegation-instruction" maxlength="24000" rows="3" placeholder="说明目标、范围和需要交回的结果" required></textarea></label><button id="delegation-create">开始委派</button></form>
+      <div id="collaboration-permissions" class="permissions"></div>
       <div id="collaboration-status" class="collaboration-status" role="status" aria-live="polite">选择一个任务查看协作记录。</div>
       <div id="collaboration-tree" class="collaboration-tree"><p class="empty">还没有加载协作记录。</p></div>
     </section>

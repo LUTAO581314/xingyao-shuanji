@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs"
 import { dirname } from "node:path"
 import { affectDescription, applyExperience, initialAffect, memoryActivation, propagateAffect } from "./affect"
 import { SCHEMA_VERSION } from "./contracts"
-import type { Action, ActionExecution, Affect, ChatMessage, Experience, ExperienceInput, Memory, MemoryClaim, MemoryKind, SleepReport, Task, TaskStatus } from "./contracts"
+import type { Action, ActionExecution, Affect, ChatMessage, Delegation, DelegationState, Experience, ExperienceInput, Memory, MemoryClaim, MemoryKind, SleepReport, Task, TaskStatus } from "./contracts"
 
 type JsonRow = { body: string }
 type MetaRow = { value: string }
@@ -64,6 +64,7 @@ export class SoulStore {
         CREATE TABLE IF NOT EXISTS memories(id TEXT PRIMARY KEY, body TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS memory_sources(memory_id TEXT NOT NULL REFERENCES memories(id), source_id INTEGER NOT NULL REFERENCES experiences(id), PRIMARY KEY(memory_id,source_id));
         CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY, body TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS delegations(id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), request_key TEXT NOT NULL UNIQUE, session_id TEXT UNIQUE, body TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS actions(id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), body TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS action_revisions(action_id TEXT NOT NULL, revision TEXT NOT NULL, observed_at INTEGER NOT NULL, PRIMARY KEY(action_id,revision));
         CREATE TABLE IF NOT EXISTS chats(id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), body TEXT NOT NULL);
@@ -503,6 +504,57 @@ export class SoulStore {
     })()
   }
 
+  delegations(taskId: string): Delegation[] {
+    return this.db.query<JsonRow, [string]>("SELECT body FROM delegations WHERE task_id=? ORDER BY rowid").all(taskId).map(row => JSON.parse(row.body))
+  }
+
+  delegation(id: string): Delegation | null {
+    const row = this.db.query<JsonRow, [string]>("SELECT body FROM delegations WHERE id=?").get(id)
+    return row ? JSON.parse(row.body) : null
+  }
+
+  createDelegation(input: { taskId: string; requestKey: string; rootSessionId: string; title: string; instruction: string; agent: string }): Delegation {
+    return this.db.transaction(() => {
+      const task = this.task(input.taskId)
+      if (!task || !task.sessionId || task.sessionId !== input.rootSessionId) throw new ConflictError("主任务执行会话已变化，请刷新后重试")
+      const now = this.clock(), id = crypto.randomUUID()
+      const delegation: Delegation = {
+        id, taskId: input.taskId, requestKey: input.requestKey, rootSessionId: input.rootSessionId,
+        parentSessionId: input.rootSessionId, sessionId: null, title: input.title, instruction: input.instruction,
+        agent: input.agent, state: "creating", revision: 1,
+        attempt: { key: input.requestKey, instruction: input.instruction, baselineMessageIds: null, delivered: false, createdAt: now },
+        merge: null, createdAt: now, updatedAt: now, error: null,
+      }
+      this.db.query("INSERT INTO delegations(id,task_id,request_key,session_id,body) VALUES(?,?,?,?,?)").run(id, input.taskId, input.requestKey, null, JSON.stringify(delegation))
+      this.changed("delegation", id)
+      return delegation
+    })()
+  }
+
+  updateDelegation(id: string, taskId: string, changes: Partial<Pick<Delegation, "sessionId" | "state" | "attempt" | "merge" | "instruction" | "error">>): Delegation {
+    return this.db.transaction(() => {
+      const delegation = this.delegation(id)
+      if (!delegation || delegation.taskId !== taskId) throw new Error("委派不存在")
+      if (changes.sessionId !== undefined && delegation.sessionId && changes.sessionId !== delegation.sessionId) throw new ConflictError("委派会话身份不能更换")
+      const next: Delegation = { ...delegation, ...changes, revision: delegation.revision + 1, updatedAt: this.clock() }
+      this.db.query("UPDATE delegations SET session_id=?,body=? WHERE id=? AND task_id=?").run(next.sessionId, JSON.stringify(next), id, taskId)
+      this.changed("delegation", id)
+      return next
+    })()
+  }
+
+  prepareDelegationAttempt(id: string, taskId: string, key: string, instruction: string): Delegation {
+    const delegation = this.delegation(id)
+    if (!delegation || delegation.taskId !== taskId) throw new Error("委派不存在")
+    if (!delegation.sessionId) throw new ConflictError("子会话尚未核实，不能继续执行")
+    if (["creating", "running", "stop_requested"].includes(delegation.state)) throw new ConflictError("委派仍在执行或停止中")
+    const now = this.clock()
+    return this.updateDelegation(id, taskId, {
+      instruction, state: "running", error: null,
+      attempt: { key, instruction, baselineMessageIds: null, delivered: false, createdAt: now },
+    })
+  }
+
   addChat(taskId: string, role: ChatMessage["role"], text: string, id: string = crypto.randomUUID()): ChatMessage {
     return this.db.transaction(() => {
       const task = this.task(taskId)
@@ -571,6 +623,11 @@ export class SoulStore {
       for (const task of this.tasks().filter(task => task.status === "running")) {
         this.updateTask(task.id, { status: "waiting", error: "上次运行中断，需要先核实后端结果；不会自动重发操作" })
         for (const action of this.actions(task.id).filter(action => action.status === "running")) this.recordAction({ ...action, status: "unknown", revision: `${action.revision}:interrupted` })
+      }
+      for (const task of this.tasks()) for (const delegation of this.delegations(task.id)) {
+        if (["creating", "running", "stop_requested"].includes(delegation.state)) {
+          this.updateDelegation(delegation.id, task.id, { state: "waiting", error: "上次委派运行中断，需要核对子会话；不会自动重发操作" })
+        }
       }
     })()
   }
