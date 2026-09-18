@@ -24,7 +24,7 @@ bun run script/engine-source.ts verify C:/xingyao-build/engine-source
 
 `verify` 只接受此脚本准备的独立 Git 目录，核对准备收据、基线、完整暂存树、未暂存修改、全部变更文件、额外源码和补丁完整性。依赖安装结果及二进制验收另行进行，不由源码校验代替。
 
-依赖通过 `bun install --frozen-lockfile` 安装。候选构建固定 Bun `1.4.2`、Windows x64、`product-dev`，必须提供固定的 `MODELS_DEV_API_JSON`，并使用新版本 `0.0.0-product-dev-20260918-engine.6-source`。完整命令和来源限制见 `docs/engine-source.md`。
+依赖通过 `bun install --frozen-lockfile` 安装。候选构建固定 Bun `1.4.2`、Windows x64、`product-dev`，必须提供固定的 `MODELS_DEV_API_JSON`，并使用固定上游源码的真实版本 `1.18.31`。产品通道和二进制哈希负责区分专属构建，避免虚构低版本导致模型服务拒绝。完整命令和来源限制见 `docs/engine-source.md`。
 
 历史 `engine.5` 的源码集合已重放并逐文件与原工作区核对，但当时下载的 models.dev 快照及已安装依赖实际内容没有归档。不得声称已重建原二进制，或声称能逐字节重建它。新候选必须重新通过产品真实引擎、迁移恢复和完整发行门禁后才可替换合格版本。
 

@@ -10,8 +10,8 @@ const candidate = resolve(process.argv[2] ?? join(root, "dist", `xingyao-${PRODU
 const inspected = await inspectRelease(candidate)
 const buildMetadata = await Bun.file(join(candidate, "release.json")).json() as { sourceHash?: string; engineVersion?: string }
 if (buildMetadata.sourceHash !== await sourceHash(root)) throw new Error("当前源码与候选编译来源不一致，请先重新构建")
-if (buildMetadata.engineVersion !== "0.0.0-product-dev-20260918-engine.6-source") throw new Error("当前升级夹具尚未支持这个目标引擎版本")
-const baseline = await verifyUpgradeBaseline(process.env.XINGYAO_UPGRADE_FROM_ENGINE ?? join(root, "dist/xingyao-0.1.0-dev.5/opencode.exe"))
+if (buildMetadata.engineVersion !== "1.18.31") throw new Error("当前升级夹具尚未支持这个目标引擎版本")
+const baseline = await verifyUpgradeBaseline(process.env.XINGYAO_UPGRADE_FROM_ENGINE ?? join(root, "dist/xingyao-0.1.0-dev.14/opencode.exe"))
 const reports = join(root, "reports")
 await mkdir(reports, { recursive: true })
 const stamp = new Date().toISOString().replace(/[:.]/g, "-")

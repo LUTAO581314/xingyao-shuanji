@@ -8,7 +8,7 @@ if (process.platform !== "win32" || process.arch !== "x64") throw new Error("The
 const checkout = resolve(requested)
 const source = await Bun.file(join(product, "patches/opencode/manifest.json")).json()
 const recipe = source.candidateBuild
-if (recipe.bun !== Bun.version || recipe.channel !== "product-dev" || !/^0\.0\.0-product-dev-[a-zA-Z0-9.-]+$/.test(recipe.version)) throw new Error("Unexpected engine build recipe or Bun version")
+if (recipe.bun !== Bun.version || recipe.channel !== "product-dev" || !/^\d+\.\d+\.\d+$/.test(recipe.version)) throw new Error("Unexpected engine build recipe or Bun version")
 const snapshotPath = join(product, "build-inputs/models.dev.json")
 const snapshot = await Bun.file(join(product, "build-inputs/models.dev.manifest.json")).json()
 const sha = (bytes: Uint8Array) => new Bun.CryptoHasher("sha256").update(bytes).digest("hex")
@@ -61,6 +61,8 @@ await run([process.execPath, "run", join(product, "script/engine-source.ts"), "v
 try { await lstat(join(checkout, "node_modules")); throw new Error("Dependencies already exist; prepare a new isolated source directory") }
 catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error }
 const engineRoot = join(checkout, "packages/opencode")
+const upstreamPackage = JSON.parse(await readFile(join(engineRoot, "package.json"), "utf8")) as { version?: unknown }
+if (upstreamPackage.version !== recipe.version) throw new Error("Engine version must match the pinned upstream source version")
 const dist = join(engineRoot, "dist")
 // The upstream builder recreates dist. Require a fresh prepared checkout so it
 // cannot erase an earlier candidate or anything in the original working tree.

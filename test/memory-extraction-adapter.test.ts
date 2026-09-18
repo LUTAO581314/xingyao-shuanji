@@ -185,7 +185,7 @@ test("memory extraction bounds response bytes even without Content-Length and ne
   expect(huge.calls).toHaveLength(1)
 })
 
-const executable = process.env.XINGYAO_TEST_OPENCODE ?? resolve(import.meta.dir, "../dist/engines/0.0.0-product-dev-20260918-engine.6-source/opencode.exe")
+const executable = process.env.XINGYAO_TEST_OPENCODE ?? resolve(import.meta.dir, "../dist/engines/1.18.31/opencode.exe")
 const real = process.platform === "win32" && (existsSync(executable) || !!process.env.XINGYAO_TEST_OPENCODE) ? test : test.skip
 real("real memory extraction engine: no tools, no foreground history, strict rejection, abort and verified cleanup", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "xingyao-memory-extraction-")))
@@ -206,14 +206,14 @@ real("real memory extraction engine: no tools, no foreground history, strict rej
   } })
   try {
     const actualHash = new Bun.CryptoHasher("sha256").update(await readFile(executable)).digest("hex")
-    expect(actualHash).toBe(process.env.XINGYAO_UPGRADE_TO_SHA256 ?? "f02b6bbba598d4f2e9e1c1f75794104b9581129ae199d3130b4bc2e552ee748b")
+    expect(actualHash).toBe(process.env.XINGYAO_UPGRADE_TO_SHA256 ?? "f638ddeeaeb30881d075654de3a51fb0893a93cbc5926f1d8e0cbda30cd872a7")
     const configPath = join(host, "provider.json")
     await writeFile(configPath, JSON.stringify({ model: "extract-local/test", small_model: "extract-local/test", enabled_providers: ["extract-local"], provider: {
       "extract-local": { name: "Isolated memory fixture", npm: "@ai-sdk/openai-compatible", env: [], options: { baseURL: `${model.url.origin}/v1`, apiKey: "synthetic-memory-fixture", timeout: 10000, maxRetries: 0 },
         models: { test: { name: "Fixture", tool_call: true, limit: { context: 128000, output: 4096 } } } },
     } }))
     engine = await startEngine({ executable, hostDir: host, projectDir: project, configPath, requestTimeoutMs: 10000 })
-    expect(engine.version).toBe("0.0.0-product-dev-20260918-engine.6-source")
+    expect(engine.version).toBe("1.18.31")
     const adapter = engine.adapter
     const foreground = await adapter.createSession("Foreground control")
     const before = await adapter.messages(foreground.id)

@@ -67,7 +67,7 @@
     "note": "engine.5 was built with a live models.dev/api.json download and pre-existing node_modules; their exact build-time contents were not captured."
   },
   "candidateBuild": {
-    "version": "0.0.0-product-dev-20260918-engine.6-source",
+    "version": "1.18.31",
     "channel": "product-dev",
     "bun": "1.4.2",
     "platform": "win32",

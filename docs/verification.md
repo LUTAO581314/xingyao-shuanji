@@ -1,8 +1,28 @@
 # 星杳 · 璇玑首个可用开发预览验收
 
-最新已安装版本为 `0.1.0-dev.5`，修复工具证据、记忆修订和跨版本恢复；见 [证据与恢复发行验收](verification-evidence.md)。图谱历史验收见 [图谱工作台验收](verification-graph.md)。下面保留 `.2` 首次发行的历史证据。
+最新已安装最低可用版本为 `0.1.0-dev.15`，使用 OpenCode `1.18.31`，保留 `.14` 的委派闭环并修复真实免费模型连接。`.5` 的证据与恢复历史见 [证据与恢复发行验收](verification-evidence.md)，图谱历史验收见 [图谱工作台验收](verification-graph.md)。下面继续保留早期发行证据。
 
-最新本地候选为 `0.1.0-dev.14`：424 项完整测试、0 失败、0 skip，并通过编译产品图谱、对话记忆、协作闭环、草稿及并发浏览器验收。新增 schema 5 委派账本、真实 OpenCode `subagent` 白名单、创建响应与提示响应丢失对账、暂停、同会话继续和显式交回主任务；子会话正文不自动进入主聊天、记忆或技能证据。`.14` 尚未安装到现用身份。此前 `.9` 的编辑恢复依据见 [编辑恢复候选验收](verification-workspace-recovery.md)，`.8` 与 `.7` 的依据分别见 [对话记忆候选验收](verification-memory-review.md) 和 [引擎迁移候选验收](verification-upgrade.md)。
+`.15` 保持 schema 5 和 `.14` 的产品能力，只修复引擎版本兼容及对应升级基准。完整门禁为 424 项通过、0 失败、0 skip，并通过编译产品图谱、对话记忆、协作闭环、草稿及并发浏览器验收。此前 `.9` 的编辑恢复依据见 [编辑恢复候选验收](verification-workspace-recovery.md)，`.8` 与 `.7` 的依据分别见 [对话记忆候选验收](verification-memory-review.md) 和 [引擎迁移候选验收](verification-upgrade.md)。
+
+## `.15` 最低可用正式版
+
+记录与安装日期：2026-09-18（Asia/Shanghai）。候选 `F:/codex/xingyao/dist/xingyao-0.1.0-dev.15` 通过发行门禁后安装到 `F:/Xuanji`，并从 `F:/启动星杳.cmd` 实际启动。正式身份保持 `487fe2aa-0a93-4186-ac4e-3d331fc286bd`，安装选择为 `000000000007-8c8f3278-b240-4bc5-b517-1ae57f53e669`，发行目录为 `F:/Xuanji/system/releases/r-mu6itutq-82739ab6-19c7-4527-a56a-c147a9830c1b`。
+
+```text
+release.json  aa8b0e881da479d4f7b7c29057201c45474d8da25ab57d46d7400cc6a4ae430a
+xingyao.exe   52c8fd4f680ed74b8aa888ce229d5379a1a82f5e62759bae61be54e219dcd613
+opencode.exe  f638ddeeaeb30881d075654de3a51fb0893a93cbc5926f1d8e0cbda30cd872a7
+```
+
+- [绑定 `.15` manifest 的通过报告](../dist/xingyao-0.1.0-dev.15/release-validation.json)
+- [424 项零跳过测试日志](../reports/2026-09-18T05-26-39-710Z-tests.txt)
+- [正式安装验证记录](../reports/installed-0.1.0-dev.15.json)
+
+真实连接验收先暴露了 `.14` 的缺陷：定制引擎报告 `0.0.0-product-dev-20260918-engine.6-source`，OpenCode 免费服务要求至少 `1.18.0`，两次请求均以 `APIError` 失败。固定源码的 `packages/opencode/package.json` 实际版本为 `1.18.31`；`.15` 恢复该版本，同时保留 `product-dev` 通道、禁用自动更新和二进制哈希绑定。隔离身份随后收到准确回复 `XINGYAO_FREE_TIER_OK`。
+
+正式升级前保存 `.14` 代次 `mu6it124-e701547e-2a8e-4f6d-82ac-1a567de08941`。离线迁移逐项核对一个产品绑定会话的 4 条公开消息，生成配套代次 `mu6ithx0-41c64c3d-dbd2-4585-90fa-7c74425ad8dd`；原发行和原代次未覆盖。安装 `.15` 后，同一任务和同一 OpenCode 会话从 `failed` 继续，真实免费模型回复“星杳最低版本正式连接正常。”并进入验收。任务确认完成后保存代次 `mu6ivs5v-ff7290bd-1b0a-43b6-a7ea-648d64d1e0b3`，再次从根目录入口启动，身份、任务、回复和完成状态均恢复，engine health 为成功，未同步状态为 false。
+
+`.15` 是可日用的最低版本，不表示长期人格学习、语义人物关系、自动遗忘质量、产品 OpenCode 会话 GitHub 归档或 Infinite Canvas 已完成。
 
 ## `.14` 本地候选验收
 

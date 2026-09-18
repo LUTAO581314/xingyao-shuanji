@@ -14,14 +14,14 @@ import type { Task } from "../src/contracts"
 import type { MigrationDigest, NormalizedMessage, OpenCodeAdapter } from "../src/adapter"
 
 const from = {
-  executable: process.env.XINGYAO_UPGRADE_FROM_ENGINE ?? resolve(import.meta.dir, "../dist/xingyao-0.1.0-dev.5/opencode.exe"),
-  version: "0.0.0-product-dev-20260917-engine.5",
-  sha256: "528277b2ea4178093a192da0fe33ef4768e7ae5514a7b21de006d07212c6df83",
+  executable: process.env.XINGYAO_UPGRADE_FROM_ENGINE ?? resolve(import.meta.dir, "../dist/xingyao-0.1.0-dev.14/opencode.exe"),
+  version: "0.0.0-product-dev-20260918-engine.6-source",
+  sha256: "f02b6bbba598d4f2e9e1c1f75794104b9581129ae199d3130b4bc2e552ee748b",
 }
 const to = {
-  executable: process.env.XINGYAO_UPGRADE_TO_ENGINE ?? resolve(import.meta.dir, "../dist/engines/0.0.0-product-dev-20260918-engine.6-source/opencode.exe"),
-  version: "0.0.0-product-dev-20260918-engine.6-source",
-  sha256: process.env.XINGYAO_UPGRADE_TO_SHA256 ?? "f02b6bbba598d4f2e9e1c1f75794104b9581129ae199d3130b4bc2e552ee748b",
+  executable: process.env.XINGYAO_UPGRADE_TO_ENGINE ?? resolve(import.meta.dir, "../dist/engines/1.18.31/opencode.exe"),
+  version: "1.18.31",
+  sha256: process.env.XINGYAO_UPGRADE_TO_SHA256 ?? "f638ddeeaeb30881d075654de3a51fb0893a93cbc5926f1d8e0cbda30cd872a7",
 }
 if (!/^[a-f0-9]{64}$/.test(to.sha256)) throw new Error("XINGYAO_UPGRADE_TO_SHA256 must be exactly 64 lowercase hexadecimal characters")
 const real = process.platform === "win32" && existsSync(from.executable) && existsSync(to.executable) ? test : test.skip

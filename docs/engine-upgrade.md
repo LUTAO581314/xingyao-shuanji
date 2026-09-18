@@ -29,7 +29,7 @@ bun run script/migrate-engine.ts --help
 
 ## 验证范围与未覆盖项
 
-`test/engine-upgrade.test.ts` 用真实 engine.5 与 engine.6-source、临时身份、纯本机模型夹具，检查完整历史、非零 shell 结果、拒绝读取、迁移前故障、原件保全、产品任务续接、新版配套恢复和旧版独立恢复。`test/engine-binding.test.ts` 检查同宿主版本/hash、不明来源库、离线设置绕过和服务版本不符；`test/migration-qualification.test.ts` 检查发行证据是否绑定准确制品。实际验收结果单独写入发行记录，不由本文声明通过。
+`test/engine-upgrade.test.ts` 用真实 engine.6-source 与 `1.18.31`、临时身份、纯本机模型夹具，检查完整历史、非零 shell 结果、拒绝读取、迁移前故障、原件保全、产品任务续接、新版配套恢复和旧版独立恢复。`test/engine-binding.test.ts` 检查同宿主版本/hash、不明来源库、离线设置绕过和服务版本不符；`test/migration-qualification.test.ts` 检查发行证据是否绑定准确制品。实际验收结果单独写入发行记录，不由本文声明通过。
 
 当前摘要范围是**所有产品任务已绑定的会话**。不能把 legacy `/session` 一次返回的默认 100 条记录当作全量；未绑定会话、未登记的子会话和外部附件文件不在逐项语义验收内。完整引擎数据库仍配套备份，但不能由此推断这些范围都已逐项验证。当前没有手工更改 OpenCode 私有表。
 

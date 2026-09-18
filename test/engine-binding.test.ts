@@ -7,7 +7,7 @@ import { main } from "../src/main"
 import { SCHEMA_VERSION } from "../src/contracts"
 import { SoulStore } from "../src/store"
 
-const executable = process.env.XINGYAO_TEST_OPENCODE ?? resolve(import.meta.dir, "../dist/engines/0.0.0-product-dev-20260918-engine.6-source/opencode.exe")
+const executable = process.env.XINGYAO_TEST_OPENCODE ?? resolve(import.meta.dir, "../dist/engines/1.18.31/opencode.exe")
 const real = process.platform === "win32" && (existsSync(executable) || !!process.env.XINGYAO_TEST_OPENCODE) ? test : test.skip
 const roots: string[] = []
 const runtimes: NonNullable<Awaited<ReturnType<typeof main>>>[] = []

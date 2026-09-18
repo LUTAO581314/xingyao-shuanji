@@ -61,7 +61,7 @@ bun install --frozen-lockfile
 bun run script/engine-source.ts verify C:/xingyao-build/engine-source
 
 # 然后在 C:/xingyao-build/engine-source/packages/opencode 执行。
-$env:OPENCODE_VERSION='0.0.0-product-dev-20260918-engine.6-source'
+$env:OPENCODE_VERSION='1.18.31'
 $env:OPENCODE_CHANNEL='product-dev'
 $env:OPENCODE_RELEASE=''
 $env:MODELS_DEV_API_JSON='C:/xingyao-build/inputs/models.dev.json'
@@ -80,6 +80,6 @@ bun run script/build.ts --single --skip-install --skip-embed-web-ui
 
 随后在 NTFS 全新目录成功执行完整构建：冻结依赖安装、core/opencode 类型检查、12 项核心回归、编译、全部源码再次核验及实际版本检查。第一次安装在缺少可执行 Python 时中断，随后继续安装没有补齐 OpenAI SDK 文件；官方压缩包的 SHA-512 与锁文件一致。在全新源码目录从头安装后通过。构建入口因此拒绝已有 node_modules，保留失败目录排查，避免复用不完整依赖。
 
-采用独立模型快照和受限环境的最终候选为 `0.0.0-product-dev-20260918-engine.6-source`，SHA-256 `f02b6bbba598d4f2e9e1c1f75794104b9581129ae199d3130b4bc2e552ee748b`。本机工具为 Bun 1.4.2、Node v26.8.1、Python 3.12.14、VS 17.14.37628.2 / MSVC 14.44.35207；构建目录包含 exe、许可证、模型快照与 `engine-build.json`。同源码的先前候选通过 36 项接口/真实引擎回归；最终制品仍按自己的哈希进入完整产品门禁，不继承另一二进制的通过结论。
+采用独立模型快照和受限环境的新候选为上游真实版本 `1.18.31`，SHA-256 `f638ddeeaeb30881d075654de3a51fb0893a93cbc5926f1d8e0cbda30cd872a7`。本机工具为 Bun 1.4.2、Node v26.8.1、Python 3.12.14、VS 17.14.37628.2 / MSVC 14.44.35207；构建目录包含 exe、许可证、模型快照与 `engine-build.json`。源码提交与补丁 tree 没有变化；版本恢复解决免费服务拒绝低于 `1.18.0` 客户端的问题。隔离身份的真实免费模型短对话已通过，最终制品仍按自己的哈希进入完整产品门禁。
 
-源码校验有 7 项独立回归，包括索引隐藏标记、实际字节篡改、相同时间戳、暂存树变化和重定向；对实际完整检出目录也复现了拒绝并恢复原始状态。GitHub workflow 已编写但未在 hosted runner 执行。本机已安装身份仍使用历史 engine.5；跨 engine.5→engine.6 检查点迁移尚需专门实现和验证。
+源码校验有 7 项独立回归，包括索引隐藏标记、实际字节篡改、相同时间戳、暂存树变化和重定向；对实际完整检出目录也复现了拒绝并恢复原始状态。GitHub workflow 已编写但未在 hosted runner 执行。`engine.6-source → 1.18.31` 的配套迁移必须由目标发行的准确二进制和完整门禁重新验证。
