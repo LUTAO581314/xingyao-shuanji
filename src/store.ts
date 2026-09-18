@@ -70,6 +70,7 @@ export class SoulStore {
         CREATE TABLE IF NOT EXISTS sleep_reports(id TEXT PRIMARY KEY, body TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS memory_review_batches(id TEXT PRIMARY KEY, request_key TEXT NOT NULL UNIQUE, body TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS memory_review_candidates(id TEXT PRIMARY KEY, batch_id TEXT NOT NULL REFERENCES memory_review_batches(id), body TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS workspace_drafts(id TEXT PRIMARY KEY, root_path TEXT NOT NULL, relative_path TEXT NOT NULL, revision INTEGER NOT NULL, body TEXT, operation_key TEXT NOT NULL, operation_hash TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS requests(key TEXT PRIMARY KEY, digest TEXT NOT NULL, body TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS outbox(id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, entity_id TEXT NOT NULL, created_at INTEGER NOT NULL);
         PRAGMA user_version=${SCHEMA_VERSION};

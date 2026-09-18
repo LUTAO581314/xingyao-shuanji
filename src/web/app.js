@@ -22,7 +22,7 @@ async function action(fn) { try { await fn() } catch (error) { notice(error.mess
 async function navigate(next) {
   if (view === 'workspace' && next === view) { if (!workspaceUI.file && !workspaceUI.loading && !workspaceUI.busy) await refreshWorkspace(); return }
   if (view === 'workspace' && next !== 'workspace') {
-    if (!workspaceCanLeave('离开项目文件')) return
+    if (!await workspaceCanLeave('离开项目文件')) return
     workspaceLeave()
   }
   if (view === 'graph' && next !== 'graph') resetGraph('重新打开时会读取最新资料。')
@@ -391,18 +391,150 @@ $('#skill-form').onsubmit = event => { event.preventDefault(); action(async () =
 $('#skill-list').onclick = event => action(async () => { const promote = event.target.closest('[data-promote-skill]'), retract = event.target.closest('[data-retract-skill]'); if (promote) { const manualCheck = prompt('你验证了什么？请写下方法的适用条件与实际结果。'); if (manualCheck === null) return; await api(`/skills/${promote.dataset.promoteSkill}/promote`, {revision:Number(promote.dataset.revision),manualCheck}) } if (retract) await api(`/skills/${retract.dataset.retractSkill}`, undefined, 'DELETE'); await refreshSkills(); await refresh() })
 
 // File editing is explicit, revision checked, and independent from knowledge import.
-const workspaceUI = {roots:[],rootId:null,path:'',entries:[],file:null,baseline:'',request:0,loading:false,busy:null}
+const workspaceUI = {roots:[],rootId:null,path:'',entries:[],file:null,baseline:'',request:0,loading:false,busy:null,draft:null,draftRevision:0,draftManaged:true,draftSaved:null,draftPromise:null,draftTimer:null,draftError:null}
 const workspaceText = value => String(value ?? '').replace(/\r\n?/g,'\n')
+let workspaceDraftPending = null, workspaceDraftConflict = null
+async function workspaceFlushDraft() {
+  clearTimeout(workspaceUI.draftTimer); workspaceUI.draftTimer = null
+  if (workspaceUI.draftPromise) return workspaceUI.draftPromise
+  if (!workspaceUI.file || !workspaceUI.draftManaged) return
+  const file = workspaceUI.file
+  const work = (async () => {
+    while (workspaceUI.file === file) {
+      const value = $('#workspace-text').value
+      if (!workspaceDraftPending && (workspaceUI.draftSaved === value || !workspaceUI.draft && value === workspaceUI.baseline)) return
+      const input = workspaceDraftPending ?? {rootId:file.rootId,path:file.path,revision:workspaceUI.draftRevision,key:uuid(),baseSha256:workspaceUI.draft?.baseSha256 ?? file.sha256,text:value}
+      workspaceDraftPending = input
+      const state = await api('/workspace/draft',input,'PUT')
+      workspaceUI.draft = state.draft; workspaceUI.draftRevision = state.draftRevision; workspaceUI.draftSaved = input.text; workspaceUI.draftError = null
+      workspaceDraftPending = null; workspaceDraftConflict = null
+      workspaceRenderDraft()
+    }
+  })()
+  workspaceUI.draftPromise = work; workspaceControls()
+  try { await work }
+  catch (error) { workspaceUI.draftError = error.message; workspaceRenderDraft(); throw error }
+  finally { workspaceUI.draftPromise = null; workspaceControls() }
+}
+function workspaceDraftPreview(parent,text,label) {
+  const details = graphElement('details'), summary = graphElement('summary',label), preview = graphElement('textarea')
+  preview.readOnly = true; preview.value = text; preview.rows = 8; preview.className = 'workspace-draft-preview'
+  details.append(summary,preview); parent.append(details)
+}
+function workspaceRenderDraft() {
+  const host = $('#workspace-draft-panel'), draft = workspaceUI.draft, file = workspaceUI.file
+  host.replaceChildren(); host.classList.toggle('hidden',!draft && !workspaceUI.draftError)
+  if (!file) return
+  if (workspaceUI.draftError) {
+    host.append(graphElement('p',`草稿尚未确认保存：${workspaceUI.draftError}。当前编辑保留。`,'workspace-error'))
+    host.append(graphButton('重试保存草稿',workspaceFlushDraft),graphButton('读取最新草稿并对照',async () => {
+      const latest = await api(`/workspace/draft?${new URLSearchParams({rootId:file.rootId,path:file.path})}`)
+      if (workspaceUI.file !== file) return
+      workspaceDraftConflict = latest
+      workspaceRenderDraft()
+    }))
+    if (workspaceDraftConflict) {
+      workspaceDraftPreview(host,workspaceDraftConflict.draft?.text ?? '该草稿已被丢弃。','服务器当前草稿（只读）')
+      workspaceDraftPreview(host,file.text,'当前已读取的磁盘正文（只读）')
+      host.append(graphButton('已核对：保存当前编辑作为合并稿',async () => {
+        const input = {rootId:file.rootId,path:file.path,revision:workspaceDraftConflict.draftRevision,key:uuid(),baseSha256:file.sha256,text:$('#workspace-text').value}
+        const state = await api('/workspace/draft',input,workspaceDraftConflict.draft ? 'PATCH' : 'PUT')
+        if (workspaceUI.file !== file) return
+        workspaceUI.draft = state.draft; workspaceUI.draftRevision = state.draftRevision; workspaceUI.draftSaved = input.text; workspaceUI.draftError = null
+        workspaceDraftPending = null; workspaceDraftConflict = null; workspaceRenderDraft(); workspaceControls()
+      }))
+    }
+    return
+  }
+  if (!draft) return
+  host.append(graphElement('p',`${workspaceUI.draftManaged ? '编辑草稿' : '发现可恢复的草稿'} · ${date(draft.updatedAt)} · 修订 ${draft.revision}。草稿没有自动写入文件。`))
+  if (!workspaceUI.draftManaged) {
+    workspaceDraftPreview(host,draft.text,'预览草稿（只读）')
+    host.append(graphButton('恢复草稿到编辑器',() => {
+      $('#workspace-text').value = draft.text; workspaceUI.draftManaged = true; workspaceUI.draftSaved = draft.text
+      workspaceRenderDraft(); workspaceControls(); workspaceMessage('草稿已恢复到编辑器；点击保存文件后才写入磁盘。')
+    }))
+  }
+  if (draft.baseSha256 !== file.sha256) {
+    host.append(graphElement('p','磁盘版本与草稿的原始版本不同。请对照、合并后明确确认基础版本；保存文件暂不可用。','workspace-error'))
+    workspaceDraftPreview(host,file.text,'已读取的磁盘正文（只读）')
+    if (workspaceUI.draftManaged) host.append(graphButton('已核对：以当前磁盘版本继续编辑',async () => {
+      await workspaceFlushDraft()
+      if (workspaceUI.file !== file) return
+      const input = {rootId:file.rootId,path:file.path,revision:workspaceUI.draftRevision,key:uuid(),baseSha256:file.sha256,text:$('#workspace-text').value}
+      const state = await api('/workspace/draft',input,'PATCH')
+      if (workspaceUI.file !== file) return
+      workspaceUI.draft = state.draft; workspaceUI.draftRevision = state.draftRevision; workspaceUI.draftSaved = input.text
+      workspaceRenderDraft(); workspaceControls()
+    }))
+  }
+  host.append(graphButton('丢弃这份草稿',async () => {
+    if (!confirm('丢弃这份编辑草稿？磁盘文件保持当前内容。')) return
+    clearTimeout(workspaceUI.draftTimer); await workspaceUI.draftPromise
+    if (workspaceUI.file !== file) return
+    const beforeDiscard = $('#workspace-text').value
+    const state = await api('/workspace/draft',{rootId:file.rootId,path:file.path,revision:workspaceUI.draftRevision,key:uuid()},'DELETE')
+    if (workspaceUI.file !== file) return
+    if ($('#workspace-text').value !== beforeDiscard) {
+      // A late delete acknowledgement must not erase typing after the decision.
+      workspaceUI.draft = null; workspaceUI.draftRevision = state.draftRevision; workspaceUI.draftSaved = null
+      workspaceUI.draftError = '丢弃请求期间出现了新输入，当前内容已保留，请重试保存草稿'
+      workspaceDraftPending = null; workspaceDraftConflict = null; workspaceRenderDraft(); workspaceControls()
+    } else { workspaceDraftPending = null; workspaceDraftConflict = null; workspaceDisplayFile({...file,...state}) }
+    await workspaceRefreshDrafts()
+  }))
+}
+async function workspaceRefreshDrafts() {
+  const result = await api('/workspace/drafts'), host = $('#workspace-drafts')
+  host.replaceChildren()
+  host.append(graphElement('p',`${result.drafts.length} / ${result.countLimit} 份草稿 · ${workspaceBytes(result.totalBytes)} / ${workspaceBytes(result.byteLimit)}`,'workspace-hint'))
+  for (const draft of result.drafts) {
+    const row = graphElement('div',undefined,'workspace-draft-row')
+    row.dataset.workspaceDraftId = draft.id
+    const preview = graphElement('div')
+    row.append(graphButton('查看草稿（只读）',async () => {
+      const saved = await api(`/workspace/draft?${new URLSearchParams({id:draft.id})}`)
+      preview.replaceChildren()
+      if (!saved.draft) { preview.append(graphElement('p','这份草稿已被丢弃，请刷新列表。')); return }
+      workspaceDraftPreview(preview,saved.draft.text,'草稿正文（可复制）')
+      preview.querySelector('details').open = true
+    }))
+    row.append(graphElement('span',`${draft.rootPath} / ${draft.path}`),graphButton('选择目录并打开',async () => {
+      if (!await workspaceCanLeave('打开这份草稿')) return
+      const root = await api('/workspace/roots',{directory:draft.rootPath})
+      workspaceUI.roots = [...workspaceUI.roots.filter(item => item.id !== root.id),root]
+      const directory = draft.path.split('/').slice(0,-1).join('/')
+      await workspaceBrowse(root.id,directory,{confirmed:true})
+      if (workspaceUI.rootId === root.id && workspaceUI.path === directory) await workspaceOpenFile(draft.path)
+      // Missing source files still retain their draft in the identity database.
+      if (!workspaceUI.file || workspaceUI.file.path !== draft.path) {
+        const saved = await api(`/workspace/draft?${new URLSearchParams({rootId:root.id,path:draft.path})}`)
+        const panel = $('#workspace-draft-panel'); panel.replaceChildren(); panel.classList.remove('hidden')
+        panel.append(graphElement('p','磁盘文件当前不可用；已保留的草稿可在下面复制。重新建立文件后再选择它。'))
+        workspaceDraftPreview(panel,saved.draft?.text ?? '草稿已变化，请刷新。','查看可恢复正文（只读）')
+      }
+    }))
+    row.append(preview); host.append(row)
+  }
+}
 function workspaceDirty() { return Boolean(workspaceUI.file && $('#workspace-text').value !== workspaceUI.baseline) }
 function workspaceMessage(text,error = false) {
   $('#workspace-status').textContent = text
   $('#workspace-status').classList.toggle('workspace-error',error)
 }
-function workspaceCanLeave(actionName) {
+async function workspaceCanLeave(actionName) {
   if (workspaceUI.busy) { workspaceMessage('正在保存或导入，请等待当前操作完成后再切换。'); return false }
-  return !workspaceDirty() || confirm(`当前文件有未保存的修改。确定放弃这些修改并${actionName}？\n选择“取消”可保留当前编辑，先保存后再离开。`)
+  try {
+    await workspaceFlushDraft()
+    if (workspaceUI.busy) { workspaceMessage('正在保存或导入，请等待当前操作完成后再切换。'); return false }
+    return true
+  } catch (error) { workspaceMessage(`草稿尚未保存：${error.message}。请保留当前页面，处理后再${actionName}。`,true); return false }
 }
 function workspaceClearFile() {
+  workspaceDraftPending = null; workspaceDraftConflict = null
+  clearTimeout(workspaceUI.draftTimer); workspaceUI.draftTimer = null
+  workspaceUI.draft = null; workspaceUI.draftRevision = 0; workspaceUI.draftManaged = true; workspaceUI.draftSaved = null; workspaceUI.draftError = null
+  $('#workspace-draft-panel').replaceChildren(); $('#workspace-draft-panel').classList.add('hidden')
   workspaceUI.file = null; workspaceUI.baseline = ''
   $('#workspace-text').value = ''
   $('#workspace-file-name').textContent = '选择一个文本文件'
@@ -419,12 +551,14 @@ function workspaceLeave() {
 }
 function workspaceControls() {
   const file = workspaceUI.file, busy = Boolean(workspaceUI.busy), dirty = workspaceDirty(), unavailable = busy || workspaceUI.loading
-  $('#workspace-save').disabled = !file || !dirty || unavailable
+  const awaitingDraft = !!workspaceUI.draft && !workspaceUI.draftManaged
+  const baseChanged = workspaceUI.draftManaged && workspaceUI.draft && workspaceUI.draft.baseSha256 !== file?.sha256
+  $('#workspace-save').disabled = !file || !dirty || unavailable || awaitingDraft || baseChanged
   $('#workspace-save').textContent = workspaceUI.busy === 'save' ? '正在保存…' : '保存文件'
   $('#workspace-reload').disabled = !file || unavailable
   $('#workspace-import').disabled = !file || dirty || unavailable
   $('#workspace-import').textContent = workspaceUI.busy === 'import' ? '正在导入…' : '导入知识库'
-  $('#workspace-text').readOnly = !file || unavailable
+  $('#workspace-text').readOnly = !file || unavailable || awaitingDraft
   $('#workspace-root').disabled = busy || !workspaceUI.roots.length
   $('#workspace-add-root').disabled = unavailable
   $('#workspace-add-root').textContent = workspaceUI.busy === 'root' ? '正在添加…' : '添加并打开'
@@ -433,7 +567,7 @@ function workspaceControls() {
   $('#workspace-refresh-tree').disabled = !workspaceUI.rootId || unavailable
   $('#workspace-import-scope').disabled = busy
   $('#workspace-import-private').disabled = busy
-  $('#workspace-dirty').textContent = !file ? '未打开文件' : workspaceUI.busy === 'save' ? '保存中' : dirty ? '未保存' : '已读取 / 已保存'
+  $('#workspace-dirty').textContent = !file ? '未打开文件' : workspaceUI.busy === 'save' ? '保存中' : workspaceUI.draftPromise ? '正在保存草稿' : dirty ? workspaceUI.draftSaved === $('#workspace-text').value ? '草稿已保存 · 文件未保存' : '草稿待保存' : '已读取 / 已保存'
   $('#workspace-dirty').classList.toggle('warn',dirty)
   document.querySelectorAll('[data-workspace-entry],[data-workspace-crumb]').forEach(button => { button.disabled = busy || button.dataset.workspaceEditable === 'false' })
   document.querySelectorAll('[data-workspace-entry]').forEach(button => button.classList.toggle('selected',file?.path === button.dataset.workspaceEntry && file?.rootId === workspaceUI.rootId))
@@ -453,6 +587,7 @@ async function refreshWorkspace() {
   workspaceUI.loading = true; workspaceControls(); workspaceMessage('正在读取项目目录…')
   try {
     const result = await api('/workspace/roots')
+    await workspaceRefreshDrafts()
     if (request !== workspaceUI.request || view !== 'workspace') return
     workspaceUI.roots = result.roots
     const nextRoot = result.roots.some(root => root.id === workspaceUI.rootId) ? workspaceUI.rootId : result.defaultRootId ?? result.roots[0]?.id ?? null
@@ -470,7 +605,7 @@ async function refreshWorkspace() {
   } finally { if (request === workspaceUI.request) { workspaceUI.loading = false; workspaceControls() } }
 }
 async function workspaceBrowse(rootId,path,options = {}) {
-  if (!options.confirmed && !options.keepFile && !workspaceCanLeave('切换目录')) { $('#workspace-root').value = workspaceUI.rootId ?? ''; return }
+  if (!options.confirmed && !options.keepFile && !await workspaceCanLeave('切换目录')) { $('#workspace-root').value = workspaceUI.rootId ?? ''; return }
   const request = ++workspaceUI.request
   workspaceUI.loading = true; workspaceControls(); workspaceMessage('正在读取目录…')
   try {
@@ -480,6 +615,7 @@ async function workspaceBrowse(rootId,path,options = {}) {
     workspaceUI.rootId = result.rootId; workspaceUI.path = result.path; workspaceUI.entries = result.entries
     if (!options.keepFile) workspaceClearFile()
     workspaceRenderRoots(); workspaceRenderTree(result.truncated)
+    await workspaceRefreshRecovery(result.rootId)
     workspaceMessage(result.truncated ? '目录项目较多，本轮列表已截断。可进入子目录逐层浏览。' : '点击目录逐层浏览，点击受支持的文本文件阅读或编辑。')
   } catch (error) {
     if (request !== workspaceUI.request || view !== 'workspace') return
@@ -514,9 +650,31 @@ function workspaceRenderTree(truncated = false) {
   if (!entries.length) container.append(graphElement('p','这个目录中没有可列出的文件。','workspace-hint'))
   workspaceControls()
 }
+async function workspaceRefreshRecovery(rootId) {
+  const result = await api(`/workspace/recovery?${new URLSearchParams({rootId})}`)
+  if (workspaceUI.rootId !== rootId || view !== 'workspace') return
+  const panel = $('#workspace-recovery-panel'), entries = result.entries.filter(entry => entry.status !== 'committed' && entry.status !== 'unchanged')
+  panel.replaceChildren(); panel.classList.toggle('hidden',!entries.length && !result.truncated && !result.warnings?.length)
+  if (!entries.length && !result.truncated && !result.warnings?.length) return
+  panel.append(graphElement('h3','文件保存恢复记录'))
+  for (const warning of result.warnings ?? []) panel.append(graphElement('p',warning,'workspace-error'))
+  const labels = {pending:'可以恢复',restored:'原件已恢复',conflict:'需要核对',busy:'仍在操作',manual:'需要手工核对'}
+  for (const entry of entries) {
+    const row = graphElement('div',undefined,'workspace-recovery-entry')
+    row.append(graphElement('strong',`${labels[entry.status] ?? entry.status} · ${entry.path ?? '未核实的路径'}`),graphElement('p',entry.message),graphElement('p',`保留位置：${entry.recoveryDirectory}`,'workspace-hint'))
+    panel.append(row)
+  }
+  if (result.truncated) panel.append(graphElement('p','恢复目录较多，本轮列表已截断；未加载的记录尚未核查。','workspace-error'))
+  if (entries.some(entry => entry.status === 'pending' || entry.status === 'busy')) panel.append(graphButton('重试恢复可核实的保存',async () => {
+    await api('/workspace/recovery',{rootId}); await workspaceRefreshRecovery(rootId); await workspaceBrowse(rootId,workspaceUI.path,{keepFile:true})
+  }))
+}
 function workspaceBytes(bytes) { return bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB` }
 function workspaceDisplayFile(file) {
+  clearTimeout(workspaceUI.draftTimer); workspaceDraftPending = null; workspaceDraftConflict = null
   workspaceUI.file = file; workspaceUI.baseline = workspaceText(file.text)
+  workspaceUI.draft = file.draft ?? null; workspaceUI.draftRevision = file.draftRevision ?? 0
+  workspaceUI.draftManaged = !workspaceUI.draft; workspaceUI.draftSaved = null; workspaceUI.draftError = null
   $('#workspace-text').value = workspaceUI.baseline
   $('#workspace-file-name').textContent = file.path.replaceAll('\\','/').split('/').at(-1) || file.path
   $('#workspace-file-path').textContent = file.absolutePath
@@ -524,10 +682,11 @@ function workspaceDisplayFile(file) {
   $('#workspace-file-info').textContent = `${workspaceBytes(file.bytes)} · UTF-8${file.bom ? ' BOM' : ''} · ${ending || '无换行'}${ending === 'MIXED' ? ' · 混合换行，保存后按编辑器内容更新换行。' : ''}`
   $('#workspace-conflict').replaceChildren(); $('#workspace-conflict').classList.add('hidden')
   $('#workspace-import-result').textContent = ''
+  workspaceRenderDraft()
   workspaceControls()
 }
 async function workspaceOpenFile(path,reload = false) {
-  if (!workspaceUI.rootId || !workspaceCanLeave(reload ? '重新读取磁盘文件' : '打开另一个文件')) return
+  if (!workspaceUI.rootId || !await workspaceCanLeave(reload ? '重新读取磁盘文件' : '打开另一个文件')) return
   const request = ++workspaceUI.request, rootId = workspaceUI.rootId
   workspaceUI.loading = true; workspaceControls(); workspaceMessage('正在读取文件…')
   try {
@@ -542,23 +701,33 @@ async function workspaceOpenFile(path,reload = false) {
 }
 async function workspaceSave() {
   if (!workspaceUI.file || !workspaceDirty() || workspaceUI.busy || workspaceUI.loading) return
-  const request = ++workspaceUI.request, file = workspaceUI.file, text = $('#workspace-text').value
+  if (!workspaceUI.draftManaged || workspaceUI.draft && workspaceUI.draft.baseSha256 !== workspaceUI.file.sha256) return
+  const request = ++workspaceUI.request, file = workspaceUI.file
   workspaceUI.busy = 'save'; workspaceControls(); workspaceMessage('正在校验磁盘版本并保存…')
   try {
+    await workspaceFlushDraft()
+    if (request !== workspaceUI.request || workspaceUI.file !== file) return
+    const text = $('#workspace-text').value, draftRevision = workspaceUI.draftRevision
     const result = await api('/workspace/file',{rootId:file.rootId,path:file.path,expectedSha256:file.sha256,text},'PUT')
     if (request !== workspaceUI.request || view !== 'workspace') return
-    workspaceDisplayFile(result)
+    let remaining = {draft:result.draft,draftRevision:result.draftRevision}, draftWarning = ''
+    try { remaining = await api('/workspace/draft',{rootId:file.rootId,path:file.path,revision:draftRevision,key:uuid()},'DELETE') }
+    catch (error) { draftWarning = `磁盘文件已保存；草稿清理未完成：${error.message}` }
+    workspaceDisplayFile({...result,...remaining})
     const backup = $('#workspace-backup'); backup.replaceChildren()
     backup.append(graphElement('p',result.changed ? '文件已保存。' : '内容与磁盘一致，无需写入。'))
     if (result.backupPath) backup.append(graphElement('p',`修改前备份：${result.backupPath}`))
     if (result.knowledge?.refreshed) backup.append(graphElement('p',`已刷新 ${result.knowledge.refreshed} 份资料索引，保留原导入范围与私密设置。`))
     for (const warning of result.knowledge?.warnings ?? []) backup.append(graphElement('p',warning,'workspace-error'))
+    if (draftWarning) backup.append(graphElement('p',draftWarning,'workspace-error'))
+    try { await workspaceRefreshDrafts() }
+    catch (error) { backup.append(graphElement('p',`文件已保存；草稿列表刷新失败：${error.message}`,'workspace-error')) }
     workspaceMessage(result.knowledge?.warnings?.length ? '文件已保存，部分知识库索引需要处理；请查看保存记录。' : result.changed ? '文件已保存，修改前版本的备份位置见右侧记录。' : '内容与磁盘一致，无需写入。')
   } catch (error) {
     if (request !== workspaceUI.request || view !== 'workspace') return
     workspaceMessage(`保存未完成：${error.message}。你的编辑内容仍保留在此处。`,true)
     const conflict = $('#workspace-conflict'); conflict.replaceChildren()
-    conflict.append(graphElement('p','此处编辑内容已保留。请核对磁盘内容；重新读取前会确认是否放弃当前编辑。'))
+    conflict.append(graphElement('p','此处编辑内容已保留。重新读取前会先保存草稿，随后可以对照磁盘内容并恢复编辑。'))
     if (error.recoveryDirectory) conflict.append(graphElement('p',`恢复记录：${error.recoveryDirectory}`))
     if (error.backupPath) conflict.append(graphElement('p',`原件位置：${error.backupPath}`))
     conflict.append(graphButton('重新读取磁盘',() => workspaceOpenFile(file.path,true)))
@@ -584,7 +753,7 @@ $('#workspace-root-form').onsubmit = event => { event.preventDefault(); action(a
   if (workspaceUI.busy || workspaceUI.loading) return
   const directory = $('#workspace-directory').value.trim()
   if (!/^(?:[a-z]:[\\/]|\\\\)/i.test(directory)) { workspaceMessage('请输入 Windows 绝对目录路径，例如 F:\\项目\\我的工作。',true); return }
-  if (!workspaceCanLeave('打开新的项目目录')) return
+  if (!await workspaceCanLeave('打开新的项目目录')) return
   const request = ++workspaceUI.request
   workspaceUI.busy = 'root'; workspaceControls(); workspaceMessage('正在登记所选目录…')
   try {
@@ -604,9 +773,16 @@ $('#workspace-refresh-tree').onclick = () => action(() => workspaceBrowse(worksp
 $('#workspace-save').onclick = () => action(workspaceSave)
 $('#workspace-reload').onclick = () => action(() => workspaceOpenFile(workspaceUI.file.path,true))
 $('#workspace-import-form').onsubmit = event => { event.preventDefault(); action(workspaceImport) }
-$('#workspace-text').oninput = () => { workspaceControls(); workspaceMessage(workspaceDirty() ? '有未保存修改。先保存文件，再导入知识库。' : '编辑内容与上次读取或保存一致。') }
+$('#workspace-text').oninput = () => {
+  workspaceControls(); workspaceMessage(workspaceDirty() ? '编辑会自动保存为草稿；点击保存文件后才写入磁盘。' : '编辑内容与上次读取或保存一致。')
+  clearTimeout(workspaceUI.draftTimer)
+  if (!workspaceUI.draftError) workspaceUI.draftTimer = setTimeout(() => { void workspaceFlushDraft().catch(error => workspaceMessage(`草稿尚未保存：${error.message}。请保留当前页面。`,true)) },400)
+}
 document.addEventListener('keydown',event => { if (view === 'workspace' && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); action(workspaceSave) } })
-window.addEventListener('beforeunload',event => { if (workspaceDirty() || workspaceUI.busy) { event.preventDefault(); event.returnValue = '' } })
+window.addEventListener('beforeunload',event => {
+  const unsent = workspaceUI.file && workspaceUI.draftManaged && $('#workspace-text').value !== workspaceUI.draftSaved && (workspaceDirty() || workspaceUI.draft)
+  if (unsent || workspaceUI.draftPromise || workspaceUI.busy) { event.preventDefault(); event.returnValue = '' }
+})
 
 // The graph is a read-only projection. Source content is rendered as text, never HTML.
 const graphKinds = {document:'资料',memory:'记忆',experience:'来源经历'}

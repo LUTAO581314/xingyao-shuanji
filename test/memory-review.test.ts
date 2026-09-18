@@ -7,6 +7,7 @@ import { SoulStore } from "../src/store"
 import { MemoryReviewStore, parseMemoryProposals } from "../src/memory-review"
 import { createCheckpoint, restoreCheckpoint } from "../src/checkpoint"
 import type { Experience, Memory, MemoryClaim } from "../src/contracts"
+import { SCHEMA_VERSION } from "../src/contracts"
 import type { AcceptMemoryCandidate, MemoryCandidate, MemoryProposal } from "../src/memory-review-contracts"
 
 const resources: Array<{ dir: string; store: SoulStore }> = []
@@ -279,7 +280,7 @@ describe("conversation memory review on durable temporary SQLite", () => {
     let saved: Memory, candidateId: string
     try {
       expect(migrated.identityId).toBe(identity)
-      expect(migrated.db.query("PRAGMA user_version").get()).toEqual({ user_version: 3 })
+      expect(migrated.db.query("PRAGMA user_version").get()).toEqual({ user_version: SCHEMA_VERSION })
       expect(migrated.memory(old.id)).toEqual(old)
       expect(migrated.chats(task.id)[0].text).toBe(source.text)
       const review = new MemoryReviewStore(migrated), { batch } = review.begin(task.id, "after-migration")

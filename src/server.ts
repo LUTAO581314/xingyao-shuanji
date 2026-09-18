@@ -6,7 +6,9 @@ import { KnowledgeStore } from "./knowledge"
 import { GraphStore } from "./knowledge-graph"
 import { FileOrganizer } from "./files"
 import { WorkspaceFiles, WorkspaceFileError, MAX_WORKSPACE_FILE_BYTES, type WorkspaceFile } from "./workspace-files"
-import { dirname, resolve } from "node:path"
+import { WorkspaceDraftStore, draftPath } from "./workspace-drafts"
+import type { WorkspaceDraftInput } from "./workspace-draft-contracts"
+import { dirname, join, resolve } from "node:path"
 import { LearningStore } from "./learning"
 import { MemoryReviewRunner, type MemoryReviewSettings } from "./memory-review-runner"
 import type { AcceptMemoryCandidate } from "./memory-review-contracts"
@@ -45,10 +47,49 @@ export function startServer(options: ServerOptions) {
   const knowledge = new KnowledgeStore(store.db)
   const graph = new GraphStore(store.db)
   const files = new FileOrganizer(store.db)
-  const workspace = new WorkspaceFiles({ protectedDirectories: [dirname(store.db.filename), options.vaultDir, ...(options.configPath ? [dirname(options.configPath)] : []), ...options.workspaceProtectedDirectories ?? []] })
+  const workspace = new WorkspaceFiles({ recoveryStateDirectory: join(dirname(store.db.filename), "workspace-recovery"), protectedDirectories: [dirname(store.db.filename), options.vaultDir, ...(options.configPath ? [dirname(options.configPath)] : []), ...options.workspaceProtectedDirectories ?? []] })
+  const drafts = new WorkspaceDraftStore(store)
+  // Only hashes of explicitly read files are kept in this cache; draft bodies
+  // are durable private state, never copied into the knowledge or memory paths.
+  const openedFiles = new Map<string, string>()
+  const workspaceRoot = (id: string) => {
+    const root = workspace.roots().find(root => root.id === id)
+    if (!root) throw new WorkspaceFileError("denied", "请先选择草稿所在目录")
+    return root
+  }
+  const openedKey = (rootId: string, path: string) => `${rootId}:${process.platform === "win32" ? path.toLowerCase() : path}`
+  const withDraft = (file: WorkspaceFile) => {
+    const id = openedKey(file.rootId, file.path)
+    openedFiles.delete(id); openedFiles.set(id, file.sha256)
+    if (openedFiles.size > 200) openedFiles.delete(openedFiles.keys().next().value!)
+    return { ...file, ...drafts.get(workspaceRoot(file.rootId).path, file.path) }
+  }
+  const fileBytes = (file: WorkspaceFile) => Buffer.concat([file.bom ? Buffer.from([0xef, 0xbb, 0xbf]) : Buffer.alloc(0), Buffer.from(file.text, "utf8")])
+  const samePath = (value: string) => process.platform === "win32" ? resolve(value).toLowerCase() : resolve(value)
+  const refreshWorkspaceKnowledge = (file: WorkspaceFile) => {
+    const warnings: string[] = []; let refreshed = 0
+    for (const document of knowledge.documents().filter(doc => samePath(doc.path) === samePath(file.absolutePath))) {
+      try { knowledge.importSnapshot(file.absolutePath, fileBytes(file), document.scope, { private: document.private }); refreshed++ }
+      catch (error) { warnings.push(error instanceof Error ? error.message : "资料索引未刷新，请在知识库重试") }
+    }
+    return { refreshed, warnings }
+  }
+  const recoveryWarnings = new Map<string, string[]>()
+  const recoverWorkspace = (rootId: string) => {
+    const result = workspace.recover(rootId), warnings: string[] = []
+    for (const entry of result.entries) {
+      if (!["committed", "restored"].includes(entry.status)) continue
+      try {
+        const file = workspace.recoveredFile(rootId, entry.id)
+        if (file) warnings.push(...refreshWorkspaceKnowledge(file).warnings)
+      } catch { warnings.push(`${entry.path ?? "文件"}：恢复后的资料索引未核实，请在知识库核对并刷新`) }
+    }
+    recoveryWarnings.set(rootId, warnings)
+    return { ...result, warnings }
+  }
   let defaultRootId: string | null = null, workspaceError: string | null = null
   if (options.workspaceDirectory) {
-    try { defaultRootId = workspace.open(options.workspaceDirectory).id }
+    try { defaultRootId = workspace.open(options.workspaceDirectory).id; recoverWorkspace(defaultRootId) }
     catch (error) { workspaceError = error instanceof Error ? error.message : "默认项目目录不可用，请选择其他目录" }
   }
   const learning = new LearningStore(store.db)
@@ -71,7 +112,6 @@ export function startServer(options: ServerOptions) {
     try { await options.onShutdown?.() } finally { await server.stop(true) }
   }
   const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } })
-  const fileBytes = (file: WorkspaceFile) => Buffer.concat([file.bom ? Buffer.from([0xef, 0xbb, 0xbf]) : Buffer.alloc(0), Buffer.from(file.text, "utf8")])
 
   const createSnapshot = async (ownRequest: boolean) => {
     if (checkpointing) throw new ConflictError("正在同步，请等待完成")
@@ -197,7 +237,7 @@ export function startServer(options: ServerOptions) {
         const path = url.pathname
         const body = async () => {
           if (!(request.headers.get("content-type") ?? "").startsWith("application/json")) throw new Error("请求需要 JSON")
-          const limit = path === "/api/workspace/file" ? MAX_WORKSPACE_FILE_BYTES * 6 + 32768 : 200000
+          const limit = ["/api/workspace/file", "/api/workspace/draft"].includes(path) ? MAX_WORKSPACE_FILE_BYTES * 6 + 32768 : 200000
           if (Number(request.headers.get("content-length")) > limit) throw new Error("请求过大")
           const raw = await request.text()
           if (raw.length > limit || Buffer.byteLength(raw) > limit) throw new Error("请求过大")
@@ -272,21 +312,29 @@ export function startServer(options: ServerOptions) {
         if (method === "POST" && path === "/api/checkpoint") return json(await checkpoint(true))
         if (method === "GET" && path === "/api/checkpoints") return json(await listCheckpoints(options.vaultDir))
         if (method === "GET" && path === "/api/workspace/roots") return json({ roots: workspace.roots(), defaultRootId, error: workspaceError })
-        if (method === "POST" && path === "/api/workspace/roots") { const input = await body(); return json(workspace.open(text(input.directory, 4096)), 201) }
+        if (method === "POST" && path === "/api/workspace/roots") { const input = await body(); const root = workspace.open(text(input.directory, 4096)); recoverWorkspace(root.id); return json(root, 201) }
+        if (method === "GET" && path === "/api/workspace/recovery") { const rootId = text(url.searchParams.get("rootId"), 100); return json({ ...workspace.recoveryList(rootId), warnings: recoveryWarnings.get(rootId) ?? [] }) }
+        if (method === "POST" && path === "/api/workspace/recovery") { const input = await body(); return json(recoverWorkspace(text(input.rootId, 100))) }
         if (method === "GET" && path === "/api/workspace/list") return json(workspace.list(text(url.searchParams.get("rootId"), 100), url.searchParams.get("path") ?? ""))
-        if (method === "GET" && path === "/api/workspace/file") return json(workspace.read(text(url.searchParams.get("rootId"), 100), text(url.searchParams.get("path"), 2048)))
+        if (method === "GET" && path === "/api/workspace/drafts") {
+          const rootId = url.searchParams.get("rootId")
+          return json(drafts.list(rootId ? workspaceRoot(rootId).path : undefined))
+        }
+        if (method === "GET" && path === "/api/workspace/draft") {
+          const id = url.searchParams.get("id")
+          return json(id ? drafts.getById(id) : drafts.get(workspaceRoot(text(url.searchParams.get("rootId"), 100)).path, draftPath(url.searchParams.get("path"))))
+        }
+        if (["PUT", "PATCH", "DELETE"].includes(method) && path === "/api/workspace/draft") {
+          const input = await body(), rootId = text(input.rootId, 100), root = workspaceRoot(rootId), filePath = draftPath(input.path)
+          if (method === "DELETE") return json(drafts.discard(root.path, filePath, input.revision as number, input.key as string))
+          return json(drafts.save(root.path, filePath, input as WorkspaceDraftInput, method === "PATCH" ? "rebase" : "edit", openedFiles.get(openedKey(rootId, filePath))))
+        }
+        if (method === "GET" && path === "/api/workspace/file") return json(withDraft(workspace.read(text(url.searchParams.get("rootId"), 100), text(url.searchParams.get("path"), 2048))))
         if (method === "PUT" && path === "/api/workspace/file") {
           const input = await body()
           if (typeof input.text !== "string") throw new Error("文件正文必须是文本，可以为空")
           const saved = workspace.save(text(input.rootId, 100), text(input.path, 2048), { expectedSha256: text(input.expectedSha256, 64), text: input.text })
-          const warnings: string[] = []
-          let refreshed = 0
-          const samePath = (value: string) => process.platform === "win32" ? resolve(value).toLowerCase() : resolve(value)
-          for (const document of knowledge.documents().filter(doc => samePath(doc.path) === samePath(saved.absolutePath))) {
-            try { knowledge.importSnapshot(saved.absolutePath, fileBytes(saved), document.scope, { private: document.private }); refreshed++ }
-            catch (error) { warnings.push(error instanceof Error ? error.message : "资料索引未刷新，请在知识库重试") }
-          }
-          return json({ ...saved, knowledge: { refreshed, warnings } })
+          return json({ ...saved, ...withDraft(saved), knowledge: refreshWorkspaceKnowledge(saved) })
         }
         if (method === "POST" && path === "/api/workspace/import") {
           const input = await body()
