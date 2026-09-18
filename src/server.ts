@@ -391,12 +391,16 @@ export function startServer(options: ServerOptions) {
           return json(learning.promote(skillRoute[1], positiveInteger(input.revision), typeof input.manualCheck === "string" ? input.manualCheck : undefined))
         }
         if (method === "POST" && path === "/api/tasks") { const input = await body(); return json(store.once(`task:${text(input.key, 200)}`, input, () => store.createTask(text(input.title, 200), text(input.scope ?? "global", 300))), 201) }
-        const taskRoute = /^\/api\/tasks\/([^/]+)(?:\/(chat|reconcile|abort|complete))?$/.exec(path)
+        const taskRoute = /^\/api\/tasks\/([^/]+)(?:\/(chat|reconcile|abort|complete|collaboration))?$/.exec(path)
         if (taskRoute) {
           const id = taskRoute[1]
           const task = store.task(id)
           if (!task) return json({ error: "任务不存在" }, 404)
           if (method === "GET" && !taskRoute[2]) return json({ ...task, messages: store.chats(id), actions: store.actions(id) })
+          if (method === "GET" && taskRoute[2] === "collaboration") {
+            if (!task.sessionId) return json({ rootSessionID: null, sessions: [], truncated: false, limits: null })
+            return json(await options.adapter.collaboration(task.sessionId))
+          }
           if (method === "POST" && taskRoute[2] === "chat") {
             const input = await body()
             const message = text(input.text, 24000)

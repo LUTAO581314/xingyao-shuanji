@@ -20,6 +20,8 @@ const doc = {
     "/session/{sessionID}/message": {
       get: {}, post: { requestBody: { content: { "application/json": { schema: { $ref: "#/components/schemas/Prompt" } } } } },
     },
+    "/session/{sessionID}/children": { get: {} },
+    "/session/status": { get: {} },
     "/permission/{requestID}/reply": { post: {} },
     "/api/session/{sessionID}/prompt": { post: {} },
   },
@@ -46,7 +48,7 @@ describe("OpenCode public legacy HTTP boundary", () => {
     expect(await new OpenCodeAdapter({ baseURL }).health()).toEqual({
       ok: true, version: "candidate-1", capabilities: {
         legacyHTTP: true, promptSystem: true, durableMessages: true, toolResults: true,
-        permissions: true, v2Detected: true, v2Supported: false,
+        permissions: true, collaboration: true, v2Detected: true, v2Supported: false,
       },
     })
     const noLegacy = serve((request) => Response.json(new URL(request.url).pathname === "/doc" ? { paths: { "/api/session/{sessionID}/prompt": { post: {} } } } : { healthy: true, version: "v2-only" }))
@@ -54,6 +56,57 @@ describe("OpenCode public legacy HTTP boundary", () => {
     expect(result.ok).toBe(false)
     expect(result.capabilities.v2Detected).toBe(true)
     expect(result.capabilities.legacyHTTP).toBe(false)
+  })
+
+  test("reads only verified descendant sessions and exposes a bounded safe transcript", async () => {
+    const child = (id: string, parentID: string, title: string, agent: string, created: number) => ({
+      id, parentID, title, agent, time: { created, updated: created + 10 },
+    })
+    const persisted = (sessionID: string, id: string, role: "user" | "assistant", text: string, tools: unknown[] = []) => ({
+      info: { id, sessionID, role, time: { created: 100, completed: 110 }, ...(role === "assistant" ? { finish: "stop" } : {}) },
+      parts: [{ id: `${id}_text`, sessionID, messageID: id, type: "text", text }, ...tools],
+    })
+    const secretTool = {
+      id: "tool_secret", sessionID: "ses_child_a", messageID: "msg_a", type: "tool", callID: "call_secret", tool: "bash",
+      state: { status: "completed", input: { command: "private-command-marker" }, output: "private-output-marker", metadata: { exit: 0, authorization: "private-auth-marker" } },
+    }
+    const baseURL = serve((request) => {
+      const path = new URL(request.url).pathname
+      if (path === "/session/status") return Response.json({
+        ses_child_a: { type: "busy", private: "private-status-marker" },
+        ses_grandchild: { type: "retry", attempt: 2, next: 500, error: "private-retry-marker" },
+      })
+      if (path === "/session/ses_root/children") return Response.json([
+        child("ses_child_a", "ses_root", "Research", "explore", 1),
+        child("ses_child_b", "ses_root", "Review", "review", 2),
+      ])
+      if (path === "/session/ses_child_a/children") return Response.json([child("ses_grandchild", "ses_child_a", "Verify", "build", 3)])
+      if (path === "/session/ses_child_b/children" || path === "/session/ses_grandchild/children") return Response.json([])
+      if (path === "/session/ses_child_a/message") return Response.json([persisted("ses_child_a", "msg_a", "assistant", "child result", [secretTool])])
+      if (path === "/session/ses_child_b/message") return Response.json([])
+      if (path === "/session/ses_grandchild/message") return Response.json([persisted("ses_grandchild", "msg_g", "user", "delegated verification")])
+      return new Response(null, { status: 404 })
+    })
+    const result = await new OpenCodeAdapter({ baseURL }).collaboration("ses_root")
+    expect(result.sessions.map(session => [session.sessionID, session.parentSessionID, session.depth, session.status.type])).toEqual([
+      ["ses_child_a", "ses_root", 1, "busy"], ["ses_child_b", "ses_root", 1, "idle"], ["ses_grandchild", "ses_child_a", 2, "retry"],
+    ])
+    expect(result.sessions[0]!.messages[0]).toMatchObject({
+      sourceID: "opencode:legacy:ses_child_a:msg_a", messageID: "msg_a", role: "assistant", text: "child result",
+      tools: [{ sourceID: "opencode:legacy:ses_child_a:msg_a:tool_secret", callID: "call_secret", tool: "bash", status: "completed", execution: { outcome: "succeeded", exitCode: 0 } }],
+    })
+    expect(result.sessions[2]!.status).toEqual({ type: "retry", attempt: 2, next: 500 })
+    for (const forbidden of ["private-command-marker", "private-output-marker", "private-auth-marker", "private-status-marker", "private-retry-marker"]) expect(JSON.stringify(result)).not.toContain(forbidden)
+  })
+
+  test("rejects collaboration sessions that escape their verified parent tree", async () => {
+    const baseURL = serve((request) => {
+      const path = new URL(request.url).pathname
+      if (path === "/session/status") return Response.json({})
+      if (path === "/session/ses_root/children") return Response.json([{ id: "ses_other", parentID: "different", title: "Foreign", time: { created: 1, updated: 2 } }])
+      return Response.json([])
+    })
+    await expect(new OpenCodeAdapter({ baseURL }).collaboration("ses_root")).rejects.toThrow("does not belong")
   })
 
   test("sends optional basic auth, encoded directory and system projection", async () => {
@@ -411,6 +464,7 @@ integration("real bundled OpenCode: isolated health, providers and persisted ses
     expect(health.ok).toBe(true)
     expect(health.version).toBeTruthy()
     expect(health.capabilities.v2Supported).toBe(false)
+    expect(health.capabilities.collaboration).toBe(true)
     const session = await adapter.createSession("xingyao isolated adapter verification")
     expect(session.id.startsWith("ses_")).toBe(true)
     expect(await adapter.messages(session.id)).toEqual([])
@@ -434,6 +488,10 @@ integration("real bundled OpenCode: isolated health, providers and persisted ses
     expect(roots.map((item) => item.id)).toEqual([session.id])
     const children = await (await publicRequest(`/session/${session.id}/children`)).json() as Array<{ id: string }>
     expect(children.map((item) => item.id)).toEqual([child.id])
+    const collaboration = await adapter.collaboration(session.id)
+    expect(collaboration).toMatchObject({ rootSessionID: session.id, truncated: false, sessions: [{
+      sessionID: child.id, parentSessionID: session.id, depth: 1, status: { type: "idle" }, messageCount: 0, messages: [], transcriptTruncated: false,
+    }] })
     const limited = await publicRequest("/session?limit=1")
     expect((await limited.json() as unknown[]).length).toBe(1)
     expect(limited.headers.get("x-next-cursor")).toBeNull()

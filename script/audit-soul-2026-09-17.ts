@@ -45,7 +45,7 @@ const fixtureEngine = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch(request)
   return Response.json(delivered ? [rawMessage] : [])
 } })
 class FixtureAdapter extends OpenCodeAdapter {
-  override async health() { return { ok: true, version: "synthetic-fixture", capabilities: { legacyHTTP: true, promptSystem: true, durableMessages: true, toolResults: true, permissions: true, v2Detected: false, v2Supported: false as const } } }
+  override async health() { return { ok: true, version: "synthetic-fixture", capabilities: { legacyHTTP: true, promptSystem: true, durableMessages: true, toolResults: true, permissions: true, collaboration: true, v2Detected: false, v2Supported: false as const } } }
   override async createSession() { return { id: sessionID } }
 }
 const adapter = new FixtureAdapter({ baseURL: `http://127.0.0.1:${fixtureEngine.port}` })

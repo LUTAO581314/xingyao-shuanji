@@ -68,7 +68,7 @@ test("unavailable engine keeps an admitted task durable and does not fabricate r
 test("a provider reusing a tool call ID in different messages cannot overwrite earlier evidence", async () => {
   class ReusedCallAdapter extends OpenCodeAdapter {
     delivered = false
-    override async health() { return { ok: true, version: "local-fixture", capabilities: { legacyHTTP: true, promptSystem: true, durableMessages: true, toolResults: true, permissions: true, v2Detected: false, v2Supported: false as const } } }
+    override async health() { return { ok: true, version: "local-fixture", capabilities: { legacyHTTP: true, promptSystem: true, durableMessages: true, toolResults: true, permissions: true, collaboration: true, v2Detected: false, v2Supported: false as const } } }
     override async createSession() { return { id: "session-fixture" } }
     override async prompt() { this.delivered = true; return { messageID: "message-2", text: "", parts: [], status: "completed" as const } }
     override async messages() {
@@ -97,7 +97,7 @@ test("commitment API keeps its default pin and distinguishes an explicit opt-out
 test("oversized pinned constraints prevent prompt delivery and reconciliation cannot claim completion", async () => {
   class CountingAdapter extends OpenCodeAdapter {
     prompts = 0
-    override async health() { return { ok: true, version: "local-fixture", capabilities: { legacyHTTP: true, promptSystem: true, durableMessages: true, toolResults: true, permissions: true, v2Detected: false, v2Supported: false as const } } }
+    override async health() { return { ok: true, version: "local-fixture", capabilities: { legacyHTTP: true, promptSystem: true, durableMessages: true, toolResults: true, permissions: true, collaboration: true, v2Detected: false, v2Supported: false as const } } }
     override async createSession() { return { id: "constraint-session" } }
     override async messages() { return [] }
     override async prompt() { this.prompts++; return { messageID: "reply", text: "done", parts: [], status: "completed" as const } }

@@ -4,7 +4,7 @@ const date = (value) => new Date(value).toLocaleString('zh-CN', {month:'2-digit'
 const uuid = () => crypto.randomUUID()
 const statusNames = {ready:'准备开始',running:'正在处理',waiting:'待核实',verifying:'等待验收',completed:'已完成',failed:'执行失败',cancelled:'已取消'}
 const kindNames = {preference:'偏好',fact:'事实',inference:'待验证认识',episode:'经历',commitment:'承诺'}
-const titles = {chat:'对话与任务',workspace:'项目文件',memory:'记忆',knowledge:'知识库',graph:'知识图谱',skills:'经验技能',sleep:'睡眠整理',files:'文件管家',system:'系统中心'}
+const titles = {chat:'对话与任务',collaboration:'协作',workspace:'项目文件',memory:'记忆',knowledge:'知识库',graph:'知识图谱',skills:'经验技能',sleep:'睡眠整理',files:'文件管家',system:'系统中心'}
 const token = location.hash.startsWith('#token=') ? decodeURIComponent(location.hash.slice(7)) : sessionStorage.getItem('xingyao-token')
 if (token) sessionStorage.setItem('xingyao-token', token)
 history.replaceState(null, '', location.pathname)
@@ -50,6 +50,7 @@ async function refresh() {
     $('#checkpoint').disabled = state.checkpointing
     $('#toggle-seal').textContent = state.sealed ? '解除封存' : '封存记忆'
     $('#task-list').innerHTML = state.tasks.length ? state.tasks.map(task => `<button class="task-item${task.id === selectedTask ? ' selected' : ''}" data-task="${escape(task.id)}"><strong>${escape(task.title)}</strong><small>${statusNames[task.status]} · ${date(task.updatedAt)}</small></button>`).join('') : '<p class="empty">暂时没有任务。<br>发送第一条消息，就能开始。</p>'
+    if (view === 'collaboration') renderCollaborationTasks()
     if (selectedTask && view === 'chat') await refreshTask()
     if (view === 'sleep') { renderSleep(); await refreshMemoryReview() }
     if (view === 'system') await renderSystem()
@@ -59,6 +60,7 @@ async function refresh() {
 }
 async function refreshView() {
   if (view === 'workspace') await refreshWorkspace()
+  if (view === 'collaboration') await refreshCollaboration()
   if (view === 'memory') await refreshMemories()
   if (view === 'knowledge') await refreshKnowledge()
   if (view === 'graph') await refreshGraph()
@@ -81,7 +83,7 @@ async function refreshTask() {
   if (nearBottom || task.messages.length < 3) $('#messages').scrollTop = $('#messages').scrollHeight
   $('#send').disabled = task.status === 'running' || task.status === 'waiting'
 }
-$('#task-list').addEventListener('click', event => action(async () => { const item = event.target.closest('[data-task]'); if (!item) return; selectedTask = item.dataset.task; taskSignature = ''; await refresh() }))
+$('#task-list').addEventListener('click', event => action(async () => { const item = event.target.closest('[data-task]'); if (!item) return; selectedTask = item.dataset.task; collaborationUI.taskId = selectedTask; collaborationUI.lastLoaded = 0; taskSignature = ''; await refresh() }))
 $('#task-controls').addEventListener('click', event => action(async () => { const item = event.target.closest('[data-task-action]'); if (!item) return; await api(`/tasks/${selectedTask}/${item.dataset.taskAction}`, {}); await refresh() }))
 $('#new-task').onclick = () => { selectedTask = null; taskSignature = ''; $('#task-title').textContent = '开始一件新的事'; $('#task-subtitle').textContent = '给我一个明确的目标'; $('#messages').innerHTML = '<p class="empty">发送消息后会建立独立任务。</p>'; $('#task-controls').innerHTML = ''; $('#send').disabled = false; $('#prompt').focus(); action(refresh) }
 $('#chat-form').onsubmit = event => { event.preventDefault(); action(async () => {
@@ -96,6 +98,87 @@ $('#chat-form').onsubmit = event => { event.preventDefault(); action(async () =>
   } finally { if (!state?.busy.includes(selectedTask)) $('#send').disabled = false }
 }) }
 $('#prompt').onkeydown = event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); $('#chat-form').requestSubmit() } }
+
+const collaborationStatusNames = {idle:'空闲',busy:'正在工作',retry:'等待重试'}
+const collaborationUI = {taskId:'',request:0,loading:false,hasActive:false,lastLoaded:0}
+function renderCollaborationTasks() {
+  if (!state) return
+  const tasks = state.tasks.filter(task => task.sessionId)
+  if (!tasks.some(task => task.id === collaborationUI.taskId)) {
+    collaborationUI.taskId = tasks.some(task => task.id === selectedTask) ? selectedTask : tasks[0]?.id ?? ''
+  }
+  const select = $('#collaboration-task')
+  select.replaceChildren(graphElement('option','选择已有执行会话的任务'))
+  select.firstElementChild.value = ''
+  for (const task of tasks) {
+    const option = graphElement('option',`${task.title} · ${statusNames[task.status] ?? task.status}`)
+    option.value = task.id; select.append(option)
+  }
+  select.value = collaborationUI.taskId
+}
+async function refreshCollaboration(force = true) {
+  renderCollaborationTasks()
+  const taskId = collaborationUI.taskId
+  if (!taskId) {
+    collaborationUI.hasActive = false
+    $('#collaboration-count').textContent = '尚未选择任务'
+    $('#collaboration-status').textContent = '先在“对话与任务”中开始一项工作。'
+    $('#collaboration-tree').innerHTML = '<p class="empty">任务建立执行会话后，委派的子智能体会显示在这里。</p>'
+    return
+  }
+  if (collaborationUI.loading || !force && Date.now() - collaborationUI.lastLoaded < 5000) return
+  const request = ++collaborationUI.request
+  collaborationUI.loading = true; $('#collaboration-refresh').disabled = true
+  $('#collaboration-status').textContent = '正在核对 OpenCode 子会话与来源…'
+  try {
+    const result = await api(`/tasks/${taskId}/collaboration`)
+    if (request !== collaborationUI.request || taskId !== collaborationUI.taskId || view !== 'collaboration') return
+    collaborationUI.lastLoaded = Date.now()
+    collaborationUI.hasActive = result.sessions.some(session => session.status.type === 'busy' || session.status.type === 'retry')
+    $('#collaboration-count').textContent = `${result.sessions.length} 个子智能体${collaborationUI.hasActive ? ' · 有任务进行中' : ''}`
+    $('#collaboration-status').textContent = result.truncated ? `已加载 ${result.sessions.length} 个子会话；达到安全读取上限，仍有记录未显示。` : result.sessions.length ? '父子会话和完整来源已核对。工具摘要不等于整项任务完成。' : '这个任务尚未建立子会话。'
+    renderCollaboration(result)
+  } catch (error) {
+    if (request !== collaborationUI.request || taskId !== collaborationUI.taskId) return
+    collaborationUI.hasActive = false
+    $('#collaboration-status').textContent = `协作记录暂时不可用：${error.message}`
+    $('#collaboration-tree').innerHTML = '<p class="empty">主任务记录没有改变；稍后可以重新核对。</p>'
+  } finally {
+    if (request === collaborationUI.request) { collaborationUI.loading = false; $('#collaboration-refresh').disabled = false }
+  }
+}
+function renderCollaboration(result) {
+  const host = $('#collaboration-tree'); host.replaceChildren()
+  for (const session of result.sessions) {
+    const card = graphElement('article',undefined,`collaboration-card depth-${Math.min(session.depth,4)}`)
+    card.dataset.collaborationSession = session.sessionID
+    const heading = graphElement('div',undefined,'collaboration-heading')
+    const title = graphElement('div')
+    title.append(graphElement('span',`第 ${session.depth} 层 · ${session.agent ? '@'+session.agent : '未标明角色'}`,'eyebrow'),graphElement('h3',session.title))
+    heading.append(title,graphElement('span',collaborationStatusNames[session.status.type] ?? session.status.type,`badge collaboration-${session.status.type}`))
+    card.append(heading)
+    const meta = graphElement('p',`会话 ${session.sessionID} · 父会话 ${session.parentSessionID} · 更新于 ${date(session.updatedAt)}`,'collaboration-source')
+    card.append(meta)
+    if (session.status.type === 'retry') card.append(graphElement('p',`第 ${session.status.attempt} 次重试；预计 ${new Date(session.status.next).toLocaleTimeString('zh-CN')} 后继续。`,'collaboration-retry'))
+    const transcript = graphElement('div',undefined,'collaboration-transcript')
+    for (const message of session.messages) {
+      const item = graphElement('div',undefined,`collaboration-message ${message.role}`)
+      item.append(graphElement('div',`${message.role === 'assistant' ? '子智能体' : '委派内容'} · ${date(message.createdAt)} · ${message.status}`,'who'))
+      if (message.text) item.append(graphElement('p',message.text,'body'))
+      for (const tool of message.tools) {
+        const exit = tool.execution.exitCode === undefined ? '' : ` · 退出码 ${tool.execution.exitCode ?? '未知'}`
+        item.append(graphElement('p',`${tool.tool} · ${tool.status} · ${tool.execution.basis}${exit}`,'collaboration-tool'))
+      }
+      transcript.append(item)
+    }
+    if (!session.messages.length) transcript.append(graphElement('p','这个子会话还没有可显示的对话。','empty'))
+    if (session.transcriptTruncated) transcript.prepend(graphElement('p',`较早记录未在本页展开；引擎会话仍保留完整历史。当前显示 ${session.messages.length} / ${session.messageCount} 条。`,'collaboration-warning'))
+    card.append(transcript); host.append(card)
+  }
+  if (!result.sessions.length) host.append(graphElement('p','没有发现属于这个任务的子会话。','empty'))
+}
+$('#collaboration-task').onchange = () => { collaborationUI.taskId = $('#collaboration-task').value; collaborationUI.lastLoaded = 0; action(refreshCollaboration) }
+$('#collaboration-refresh').onclick = () => action(refreshCollaboration)
 
 async function refreshPermissions() {
   const permissions = await api('/permissions')
@@ -1106,6 +1189,7 @@ async function loadEngine() {
 $('#refresh-engine').onclick = () => action(loadEngine)
 $('#model-form').onsubmit = event => { event.preventDefault(); action(async () => { const form = new FormData(event.target); await api('/settings/model', {baseURL:form.get('baseURL'),model:form.get('model'),apiKey:form.get('apiKey')}); event.target.elements.apiKey.value = ''; notice('模型配置已保存。请发送一个简短任务验证服务是否可用。'); await loadEngine() }) }
 $('#checkpoint').onclick = () => action(async () => { $('#checkpoint').disabled = true; try { await api('/checkpoint', {}); notice('检查点已验证并保存到 U 盘。'); await refresh() } finally { $('#checkpoint').disabled = false } })
-$('#shutdown').onclick = () => action(async () => { const result = await api('/shutdown', {}); clearInterval(timer); notice(result.message); document.querySelectorAll('button').forEach(button => button.disabled = true) })
+$('#shutdown').onclick = () => action(async () => { const result = await api('/shutdown', {}); clearInterval(timer); clearInterval(collaborationTimer); notice(result.message); document.querySelectorAll('button').forEach(button => button.disabled = true) })
 await action(async () => { await refresh(); await loadEngine() })
 const timer = setInterval(() => action(refresh), 2500)
+const collaborationTimer = setInterval(() => { if (view === 'collaboration' && collaborationUI.hasActive) action(() => refreshCollaboration(false)) }, 5000)

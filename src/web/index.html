@@ -7,6 +7,7 @@
     <div class="nav-caption">与你一起，把事情做好</div>
     <nav aria-label="主导航">
       <button class="nav active" data-view="chat"><span>◌</span> 对话与任务</button>
+      <button class="nav" data-view="collaboration"><span>⌁</span> 协作</button>
       <button class="nav" data-view="workspace"><span>▥</span> 项目文件</button>
       <button class="nav" data-view="memory"><span>◇</span> 记忆</button>
       <button class="nav" data-view="knowledge"><span>▤</span> 知识库</button>
@@ -31,6 +32,12 @@
           <div class="footnote">工具结果会保留依据；任务结束后，你可以检查成果并确认完成。</div>
         </div>
       </div>
+    </section>
+    <section id="view-collaboration" class="view hidden">
+      <div class="intro"><h2>看见每一次分工，也看见结论从哪里来。</h2><p>这里展示当前任务由 OpenCode 建立的子会话。星杳仍负责汇总结论、核对成果与向你交付。</p></div>
+      <div class="collaboration-toolbar panel"><label>任务<select id="collaboration-task"><option value="">选择已有执行会话的任务</option></select></label><button id="collaboration-refresh" type="button">刷新协作现场</button><span id="collaboration-count" class="badge">尚未选择任务</span></div>
+      <div id="collaboration-status" class="collaboration-status" role="status" aria-live="polite">选择一个任务查看协作记录。</div>
+      <div id="collaboration-tree" class="collaboration-tree"><p class="empty">还没有加载协作记录。</p></div>
     </section>
     <section id="view-workspace" class="view hidden">
       <div class="intro"><h2>把资料放在手边，把修改留在文件里。</h2><p>浏览明确选择的项目目录，阅读和编辑文本文件。需要星杳使用的资料，再显式导入知识库。</p></div>

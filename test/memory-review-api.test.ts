@@ -26,7 +26,7 @@ class ReviewAdapter extends OpenCodeAdapter {
   beforeCleanup?: () => Promise<void>
   onAbort?: () => void
   constructor() { super({ baseURL: "http://127.0.0.1:1", timeoutMs: 50 }) }
-  override async health() { return { ok: true, version: "local-review-fixture", capabilities: { legacyHTTP: true, promptSystem: true, durableMessages: true, toolResults: true, permissions: true, v2Detected: false, v2Supported: false as const } } }
+  override async health() { return { ok: true, version: "local-review-fixture", capabilities: { legacyHTTP: true, promptSystem: true, durableMessages: true, toolResults: true, permissions: true, collaboration: true, v2Detected: false, v2Supported: false as const } } }
   override async createSession() { return { id: "foreground-session" } }
   override async prompt(_sessionID: string, text: string) { this.foreground.push(text); return { messageID: "foreground-reply", text: "前台请求已收到。", parts: [], status: "completed" as const } }
   override async createMemoryExtractionSession(_jobID: string) { await this.beforeSession?.(); const id = `review-fixture-${this.sessions.length + 1}`; this.sessions.push(id); return { id } }

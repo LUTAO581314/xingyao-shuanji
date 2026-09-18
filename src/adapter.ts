@@ -19,6 +19,7 @@ export type AdapterCapabilities = {
   durableMessages: boolean
   toolResults: boolean
   permissions: boolean
+  collaboration: boolean
   v2Detected: boolean
   v2Supported: false
 }
@@ -60,6 +61,25 @@ export type ProviderSummary = { id: string; name: string; models: Array<{ id: st
 export type ProviderStatus = { all: ProviderSummary[]; connected: string[]; default: Record<string, string> }
 export type PermissionRequest = { id: string; sessionID: string; permission: string; patterns: string[] }
 export type MigrationDigest = { sessionID: string; messageCount: number; sha256: string }
+export type CollaborationStatus = { type: "idle" | "busy" } | { type: "retry"; attempt: number; next: number }
+export type CollaborationTool = {
+  sourceID: string; callID: string; tool: string; status: "completed" | "failed" | "unknown"
+  execution: ToolExecutionEvidence
+}
+export type CollaborationMessage = {
+  sourceID: string; messageID: string; role: "user" | "assistant"; text: string
+  status: "completed" | "failed" | "unknown"; createdAt: number; completedAt?: number
+  tools: CollaborationTool[]
+}
+export type CollaborationSession = {
+  sessionID: string; parentSessionID: string; title: string; agent: string | null; depth: number
+  status: CollaborationStatus; createdAt: number; updatedAt: number
+  messageCount: number; messages: CollaborationMessage[]; transcriptTruncated: boolean
+}
+export type CollaborationView = {
+  rootSessionID: string; sessions: CollaborationSession[]; truncated: boolean
+  limits: { sessions: number; depth: number; transcriptBytes: number }
+}
 
 export class OpenCodeAdapterError extends Error {
   constructor(readonly kind: "http" | "timeout" | "network" | "protocol" | "unsupported", message: string, readonly status?: number) {
@@ -103,7 +123,7 @@ export class OpenCodeAdapter {
   async health(): Promise<{ ok: boolean; version: string | null; capabilities: AdapterCapabilities; reason?: string }> {
     const capabilities: AdapterCapabilities = {
       legacyHTTP: false, promptSystem: false, durableMessages: false, toolResults: false,
-      permissions: false, v2Detected: false, v2Supported: false,
+      permissions: false, collaboration: false, v2Detected: false, v2Supported: false,
     }
     let version: string | null = null
     try {
@@ -117,6 +137,7 @@ export class OpenCodeAdapter {
       capabilities.durableMessages = has("/session/{sessionID}/message", "get")
       capabilities.toolResults = capabilities.durableMessages
       capabilities.permissions = has("/permission/{requestID}/reply", "post")
+      capabilities.collaboration = has("/session/{sessionID}/children", "get") && has("/session/status", "get")
       capabilities.v2Detected = has("/api/session/{sessionID}/prompt", "post")
       capabilities.promptSystem = hasSystemField(doc, paths)
       const ok = capabilities.legacyHTTP && capabilities.durableMessages && capabilities.promptSystem
@@ -256,6 +277,51 @@ export class OpenCodeAdapter {
     return results
   }
 
+  /** Read a bounded, source-preserving projection of descendants belonging to
+   * one product task session. It never creates, resumes or mutates a child. */
+  async collaboration(rootSessionID: string): Promise<CollaborationView> {
+    segment(rootSessionID)
+    const deadline = Date.now() + COLLABORATION_TIMEOUT_MS
+    const call = (path: string, maxBytes = COLLABORATION_RESPONSE_BYTES, completeHistory = false) => this.#request("GET", path, undefined, {
+      timeoutMs: collaborationRemaining(deadline), maxBytes, completeHistory,
+    })
+    const rawStatuses = record(await call("/session/status"), "session statuses")
+    const queue: Array<{ parent: string; depth: number }> = [{ parent: rootSessionID, depth: 1 }]
+    const seen = new Set([rootSessionID]), sessions: CollaborationSession[] = []
+    let transcriptBytes = 0, truncated = false
+    while (queue.length && sessions.length < COLLABORATION_MAX_SESSIONS) {
+      const current = queue.shift()!
+      const rawChildren = await call(`/session/${segment(current.parent)}/children`)
+      if (!Array.isArray(rawChildren)) throw protocol("Expected an array of child sessions")
+      if (current.depth > COLLABORATION_MAX_DEPTH) {
+        if (rawChildren.length) truncated = true
+        continue
+      }
+      for (const rawChild of rawChildren) {
+        if (sessions.length >= COLLABORATION_MAX_SESSIONS) { truncated = true; break }
+        const child = collaborationSession(rawChild, current.parent, current.depth, rawStatuses)
+        if (seen.has(child.sessionID)) throw protocol("Duplicate or cyclic collaboration session")
+        seen.add(child.sessionID)
+        const rawHistory = await call(`/session/${segment(child.sessionID)}/message`, COLLABORATION_HISTORY_BYTES, true)
+        if (!Array.isArray(rawHistory)) throw protocol("Expected complete child session message history")
+        const normalized = rawHistory.map(item => normalizeMessage(item, child.sessionID))
+        if (new Set(normalized.map(message => message.messageID)).size !== normalized.length) throw protocol("Duplicate message identity in collaboration history")
+        const projected = normalized.map(collaborationMessage)
+        const admitted: CollaborationMessage[] = []
+        let transcriptTruncated = false
+        for (let index = projected.length - 1; index >= 0; index--) {
+          const message = projected[index]!, bytes = Buffer.byteLength(JSON.stringify(message))
+          if (transcriptBytes + bytes > COLLABORATION_TRANSCRIPT_BYTES) { transcriptTruncated = true; continue }
+          transcriptBytes += bytes; admitted.unshift(message)
+        }
+        sessions.push({ ...child, messageCount: normalized.length, messages: admitted, transcriptTruncated })
+        queue.push({ parent: child.sessionID, depth: current.depth + 1 })
+      }
+    }
+    if (queue.length) truncated = true
+    return { rootSessionID, sessions, truncated, limits: { sessions: COLLABORATION_MAX_SESSIONS, depth: COLLABORATION_MAX_DEPTH, transcriptBytes: COLLABORATION_TRANSCRIPT_BYTES } }
+  }
+
   /** Compare quiescent legacy sessions across isolated engine copies. Includes
    * every public JSON field, even attachments omitted by the UI normalizer.
    * Metadata bracketing detects concurrent updates; it is not a transaction or
@@ -361,6 +427,12 @@ export class OpenCodeAdapter {
 }
 
 const EXTRACTION_RESPONSE_BYTES = 1_048_576
+const COLLABORATION_RESPONSE_BYTES = 262_144
+const COLLABORATION_HISTORY_BYTES = 1_048_576
+const COLLABORATION_TRANSCRIPT_BYTES = 2 * 1_048_576
+const COLLABORATION_MAX_SESSIONS = 32
+const COLLABORATION_MAX_DEPTH = 4
+const COLLABORATION_TIMEOUT_MS = 15_000
 const extractionPermission = [{ permission: "*", pattern: "*", action: "deny" }]
 function extractionTitle(jobID: string) { return `Xingyao memory extraction ${jobID}` }
 function extractionJobID(value: string) {
@@ -393,6 +465,11 @@ function boundedTimeout(value: number, maximum: number): number {
 function remaining(deadline: number): number {
   const value = deadline - Date.now()
   if (value <= 0) throw new OpenCodeAdapterError("timeout", "OpenCode memory operation timed out; reconcile before retrying")
+  return value
+}
+function collaborationRemaining(deadline: number): number {
+  const value = deadline - Date.now()
+  if (value <= 0) throw new OpenCodeAdapterError("timeout", "OpenCode collaboration view timed out")
   return value
 }
 async function boundedResponse(response: Response, maximum: number): Promise<string> {
@@ -476,6 +553,41 @@ function normalizePart(value: unknown, sessionID: string, messageID: string): No
     execution: executionEvidence(tool, upstreamStatus, state, part),
     ...(upstreamStatus === "completed" ? { output: state.output as string } : {}),
     ...(upstreamStatus === "error" ? { error: state.error as string } : {}),
+  }
+}
+
+function collaborationSession(value: unknown, parentSessionID: string, depth: number, statuses: Record<string, unknown>): Omit<CollaborationSession, "messageCount" | "messages" | "transcriptTruncated"> {
+  const session = record(value, "collaboration session")
+  const sessionID = string(session.id, "collaboration session id")
+  if (session.parentID !== parentSessionID) throw protocol("Collaboration child does not belong to the requested parent")
+  const title = string(session.title, "collaboration title")
+  const agent = session.agent === undefined || session.agent === null ? null : string(session.agent, "collaboration agent")
+  const time = record(session.time, "collaboration time")
+  if (!timestamp(time.created) || !timestamp(time.updated) || time.updated < time.created) throw protocol("Invalid collaboration session timestamps")
+  const status = statuses[sessionID] === undefined ? { type: "idle" as const } : collaborationStatus(statuses[sessionID])
+  return { sessionID, parentSessionID, title, agent, depth, status, createdAt: time.created, updatedAt: time.updated }
+}
+
+function collaborationStatus(value: unknown): CollaborationStatus {
+  const status = record(value, "collaboration status")
+  if (status.type === "idle" || status.type === "busy") return { type: status.type }
+  if (status.type === "retry" && Number.isSafeInteger(status.attempt) && (status.attempt as number) >= 0 && timestamp(status.next)) {
+    return { type: "retry", attempt: status.attempt as number, next: status.next as number }
+  }
+  throw protocol("Invalid collaboration session status")
+}
+
+function collaborationMessage(message: NormalizedMessage): CollaborationMessage {
+  if (!timestamp(message.time.created) || message.time.completed !== undefined && (!timestamp(message.time.completed) || message.time.completed < message.time.created)) {
+    throw protocol("Invalid collaboration message timestamps")
+  }
+  return {
+    sourceID: message.sourceID, messageID: message.messageID, role: message.role, text: message.text,
+    status: message.status, createdAt: message.time.created,
+    ...(message.time.completed !== undefined ? { completedAt: message.time.completed } : {}),
+    tools: message.parts.flatMap(part => part.type === "tool" ? [{
+      sourceID: part.sourceID, callID: part.callID, tool: part.tool, status: part.status, execution: part.execution,
+    }] : []),
   }
 }
 
