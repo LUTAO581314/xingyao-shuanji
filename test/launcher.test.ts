@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { Database } from "bun:sqlite"
 import { createHash, randomUUID } from "node:crypto"
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { dirname, join, resolve } from "node:path"
+import { basename, dirname, join, resolve } from "node:path"
 import { launch, launcherMain, type LauncherSpawnOptions } from "../src/launcher"
 import { activateRelease, inspectRelease, resolveCurrent, rollbackRelease, stageRelease, type ReleaseInfo, type ReleaseValidationReport } from "../src/releases"
 import { createCheckpoint, restoreCheckpoint } from "../src/checkpoint"
@@ -348,7 +348,7 @@ describe("parallel product installer", () => {
     expect(await resolveCurrent(systemDir)).toBeNull()
   })
   test("an update creates a different loader and preserves the original loader bytes", async () => {
-    const { root, systemDir } = fixture()
+    const { root, portableRoot, systemDir } = fixture()
     async function installFixture(version: string) {
       const source = candidate(root, version), inspected = await inspectRelease(source)
       writeFileSync(join(source, "release-validation.json"), JSON.stringify(report(inspected)))
@@ -358,6 +358,10 @@ describe("parallel product installer", () => {
     expect(first.loaderPath).not.toBe(second.loaderPath)
     expect(readFileSync(first.loaderPath, "utf8")).toBe("loader fixture 0.1.0")
     expect(existsSync(second.loaderPath)).toBe(true)
+    const history = readdirSync(join(systemDir, "launcher", "history")), secondBuild = basename(dirname(second.loaderPath))
+    expect(history).toContain(`启动星杳.cmd.previous-${secondBuild}`)
+    expect(history).toContain(`start.ps1.previous-${secondBuild}`)
+    expect(readdirSync(dirname(portableRoot)).some(name => name.includes(".previous-"))).toBe(false)
   })
   test.skipIf(process.platform !== "win32")("generated PowerShell parses with apostrophes, Chinese and spaces", async () => {
     const { root } = fixture()

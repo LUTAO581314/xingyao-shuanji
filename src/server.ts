@@ -19,6 +19,7 @@ import html from "./web/index.html" with { type: "text" }
 import css from "./web/style.css" with { type: "text" }
 import javascript from "./web/app.js" with { type: "text" }
 import cytoscape from "./web/vendor/cytoscape.min.js" with { type: "text" }
+import favicon from "./web/favicon.svg" with { type: "text" }
 
 // Cytoscape 3.34.3 inserts this one fixed stylesheet. Authorize its exact bytes
 // while keeping arbitrary inline styles and scripts blocked.
@@ -311,7 +312,7 @@ export function startServer(options: ServerOptions) {
       if (!url.pathname.startsWith("/api/")) {
         if (request.method !== "GET") return json({ error: "方法不允许" }, 405)
         // Bun's import attribute loads text; its HTML declaration otherwise assumes a bundle.
-        const asset = url.pathname === "/" ? [html as unknown as string, "text/html"] : url.pathname === "/style.css" ? [css, "text/css"] : url.pathname === "/app.js" ? [javascript, "text/javascript"] : url.pathname === "/vendor/cytoscape.min.js" ? [cytoscape, "text/javascript"] : null
+        const asset = url.pathname === "/" ? [html as unknown as string, "text/html"] : url.pathname === "/style.css" ? [css, "text/css"] : url.pathname === "/app.js" ? [javascript, "text/javascript"] : url.pathname === "/vendor/cytoscape.min.js" ? [cytoscape, "text/javascript"] : url.pathname === "/favicon.svg" ? [favicon, "image/svg+xml"] : null
         if (!asset) return json({ error: "不存在" }, 404)
         return new Response(asset[0], { headers: { "Content-Type": `${asset[1]}; charset=utf-8`, "Cache-Control": "no-store", "Content-Security-Policy": `default-src 'self'; script-src 'self'; style-src 'self' 'sha256-${cytoscapeStyleHash}'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" } })
       }

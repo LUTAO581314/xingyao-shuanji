@@ -28,8 +28,17 @@ export async function main(args = process.argv.slice(2)) {
   if (!drive || typeof drive !== "object" || !("driveId" in drive) || typeof drive.driveId !== "string" || !/^[0-9a-f-]{36}$/.test(drive.driveId)) throw new Error("便携身份标识无效，停止启动以保护数据")
   const host = resolve(values["host-root"] ?? join(process.env.LOCALAPPDATA ?? join(process.env.USERPROFILE ?? process.cwd(), "AppData", "Local"), "Xuanji", drive.driveId))
   mkdirSync(host, { recursive: true })
-  if (await reopenExisting(host, drive.driveId, values["no-open"] === true)) return
-  const unlock = acquireHostLock(host)
+  // Claim the host before checking running.json. The old order allowed two
+  // launchers to observe the same empty marker and both start an engine.
+  let unlock: (() => void) | undefined
+  try { unlock = acquireHostLock(host) }
+  catch (error) {
+    // A running peer may already own the lock. Reopen it when its marker is
+    // ready; otherwise preserve the fail-closed lock error.
+    if (await reopenExisting(host, drive.driveId, values["no-open"] === true)) return
+    throw error
+  }
+  if (await reopenExisting(host, drive.driveId, values["no-open"] === true)) { unlock?.(); return }
   const vault = join(portable, "vault")
   const dbPath = join(host, "soul.db")
   let store: SoulStore | undefined
@@ -114,7 +123,7 @@ export async function main(args = process.argv.slice(2)) {
       await Promise.allSettled([...app?.jobs.values() ?? []])
       store?.close()
       mount?.release()
-      unlock()
+      unlock?.()
       if (existsSync(join(host, "running.json"))) writeFileSync(join(host, "running.json"), JSON.stringify({ stopped: true, at: Date.now() }))
     }
     app = startServer({ store, adapter, vaultDir: vault, token, port: values.port ? Number(values.port) : 0, configPath, workspaceDirectory: project, workspaceProtectedDirectories: [host, vault, join(portable, "system")], onShutdown: close, stopExecution: async () => { await engine?.stop() },
@@ -166,7 +175,7 @@ export async function main(args = process.argv.slice(2)) {
     process.on("SIGTERM", () => void shutdown())
     return { ...app, host, portable, stop: shutdown }
   } catch (error) {
-    await engine?.stop(); store?.close(); mount?.release(); unlock(); throw error
+    await engine?.stop(); store?.close(); mount?.release(); unlock?.(); throw error
   }
 }
 

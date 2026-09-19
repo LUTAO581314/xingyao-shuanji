@@ -73,8 +73,9 @@ export async function install(options: InstallOptions) {
   if (!reportStat.isFile() || reportStat.isSymbolicLink() || reportStat.size > 128_000) throw new Error("安装验收报告不是有效的普通文件")
   const report = JSON.parse(readFileSync(reportPath, "utf8")) as ReleaseValidationReport
   validateReport(report, candidate.manifestHash)
-  const launcherDirectory = join(systemDir, "launcher"), starterPath = join(launcherDirectory, "start.ps1"), commandPath = join(dirname(portableRoot), "启动星杳.cmd")
+  const launcherDirectory = join(systemDir, "launcher"), historyDirectory = join(launcherDirectory, "history"), starterPath = join(launcherDirectory, "start.ps1"), commandPath = join(dirname(portableRoot), "启动星杳.cmd")
   safeDirectories(launcherDirectory)
+  safeDirectories(historyDirectory)
   managedDestination(starterPath); managedDestination(commandPath)
   const staged = await stageRelease(candidate.path, systemDir)
   const projectRoot = resolve(import.meta.dir, "..")
@@ -99,7 +100,7 @@ export async function install(options: InstallOptions) {
   const selected = await activateRelease(systemDir, staged.id, report)
   for (const path of [starterPath, commandPath]) {
     managedDestination(path)
-    if (existsSync(path)) copyFileSync(path, `${path}.previous-${loaderBuild}`)
+    if (existsSync(path)) copyFileSync(path, join(historyDirectory, `${basename(path)}.previous-${loaderBuild}`))
   }
   writeDurable(starterPath, scripts.powershell); writeDurable(commandPath, scripts.command)
   return { selected, portableRoot, loaderPath, starterPath, commandPath }
